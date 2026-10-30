@@ -10,7 +10,7 @@ export async function parseSource(source:Source,signal?:AbortSignal):Promise<Par
  const walk=(value:any)=>{if(!value||typeof value!=='object')return;if(typeof value.location==='string'&&typeof value.type==='string'){value.span=index.fromLocation(value.location);spans.push({kind:value.type,span:value.span});}for(const [k,v]of Object.entries(value))if(k!=='span'){if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object')walk(v);}};
  walk(result.ast);return {sourceId:source.id,scriptId:source.scriptId,ast:result.ast,spans,diagnostics:result.diagnostics,sha256:source.sha256,parserVersion:result.parserVersion,featureHash:'comments-on-declaration-off-upstream-defaults-v1'};
 }
-export const projectRoot=resolve(process.env.ROGRAPH_ROOT??fileURLToPath(new URL('../../../',import.meta.url)));
+export const projectRoot=resolve(process.env.ROGRAPH_ROOT??fileURLToPath(new URL(import.meta.url.endsWith('.ts')?'../../../':'../',import.meta.url)));
 export function toolPath(tool:string){return resolve(projectRoot,'build','bin',`${tool}${process.platform==='win32'?'.exe':''}`);}
 export async function runNative<T>(tool:string,request:unknown,signal?:AbortSignal):Promise<T>{
  signal?.throwIfAborted();
