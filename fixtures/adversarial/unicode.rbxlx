@@ -1,0 +1,3 @@
+<roblox version="4"><Item class="ModuleScript" referent="unicode"><Properties><string name="Name">Unicode</string><ProtectedString name="Source"><![CDATA[-- café 🛒
+local price = Config.Prices.Sword
+]]></ProtectedString></Properties></Item></roblox>

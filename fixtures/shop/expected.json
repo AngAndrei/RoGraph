@@ -1,0 +1,26 @@
+{
+  "requires": [
+    [
+      "ShopServer",
+      "PurchaseService"
+    ],
+    [
+      "PurchaseService",
+      "ShopConfig"
+    ]
+  ],
+  "call": [
+    "onPurchase",
+    "TryPurchase"
+  ],
+  "read": "ShopConfig.Prices.Sword",
+  "initializer": 100,
+  "remote": "remote_shop",
+  "trace": [
+    "BuySword",
+    "Purchase",
+    "onPurchase",
+    "TryPurchase",
+    "Prices.Sword"
+  ]
+}
