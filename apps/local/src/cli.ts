@@ -14,7 +14,7 @@ async function main(){
  try{
   if(command==='analyze'){
    if(Boolean(flags.input)===Boolean(flags.rojo))throw new RoGraphError('INVALID_ARGUMENT','Choose one saved place or Rojo project');let stage='';let previous=-1;
-   const graph=await analyze(flags.input?{kind:'place',path:resolve(flags.input)}:{kind:'rojo',projectPath:resolve(flags.rojo)},store,controller.signal,{cacheDir:join(workspace,'cache'),onProgress:p=>{if(p.stage!==stage||p.completed-previous>=50||p.completed===p.total){process.stderr.write(JSON.stringify(p)+'\n');stage=p.stage;previous=p.completed;}}});
+   const graph=await analyze(flags.input?{kind:'place',path:resolve(flags.input)}:{kind:'rojo',projectPath:resolve(flags.rojo)},store,controller.signal,{cacheDir:join(workspace,'cache'),excludedRoots:[workspace],onProgress:p=>{if(p.stage!==stage||p.completed-previous>=50||p.completed===p.total){process.stderr.write(JSON.stringify(p)+'\n');stage=p.stage;previous=p.completed;}}});
    process.stdout.write(JSON.stringify({analysisId:graph.analysisId,snapshotId:graph.snapshotId,coverage:graph.coverage})+'\n');return;
   }
   if(!flags.analysis)throw new RoGraphError('INVALID_ARGUMENT','Choose an explicit analysis ID');const request=flags.request?JSON.parse(await readFile(resolve(flags.request),'utf8')):{op:'overview'};if(request.analysisId&&request.analysisId!==flags.analysis)throw new RoGraphError('INVALID_ARGUMENT','Request analysis conflicts with --analysis');
