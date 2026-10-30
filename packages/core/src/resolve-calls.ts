@@ -7,6 +7,6 @@ export function resolveCalls(snapshot:Snapshot,facts:Facts[],instances:Resolutio
  for(const f of facts)for(const raw of f.sites.filter(s=>s.kind==='call'&&!already.has(s.id))){const site={...raw,contexts:contexts.get(raw.ownerId)??['unknown']},callee=resolver.callable(resolver.get(site.expression.callee as Expr,f));
   if(callee.kind==='function'){const s=mark(result,site,callee);if(site.expression.colon)s.assumptions.push('Colon call supplies its receiver as the first argument.');emit(result,site.ownerId,callee.id!,'CALLS',s,'lexical-exported-function');}
   else if(callee.kind==='builtin'&&builtins.has(callee.name)){const id=`external:builtin:${callee.name}`;addNode(result,{id,kind:'external',label:`Luau ${callee.name}`,contexts:['unknown'],attributes:{builtin:true}});const s=mark(result,site,{kind:'external',id});emit(result,site.ownerId,id,'CALLS',s,'known-builtin');}
-  else if(callee.kind!=='native'&&callee.name!=='require')mark(result,site,{...callee,reason:callee.reason??'UNRESOLVED_CALL_TARGET'});
+  else if(callee.kind!=='native'&&callee.name!=='require')mark(result,site,callee.kind==='unknown'?callee:{kind:'unknown',reason:'NON_CALLABLE_TARGET'});
  }return result;
 }
