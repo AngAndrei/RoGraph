@@ -1,2 +1,49 @@
-import {test,expect} from './support.js';import {fixturePath} from '../support/fixtures.js';
-test('follows a potential remote path and opens exact source evidence',async({page,app})=>{await page.goto(app.url+'/#session='+app.sessionToken);await page.getByLabel('Place file').setInputFiles(fixturePath('shop/place.rbxlx'));await page.getByRole('button',{name:'Analyze',exact:true}).click();await expect(page.getByRole('heading',{name:'Coverage',exact:true})).toBeVisible({timeout:30000});await page.getByRole('button',{name:'Trace a path',exact:true}).click();await page.getByLabel('Trace start').selectOption({label:'ShopClient.BuySword'});await page.getByLabel('Trace destination').selectOption({label:'ShopConfig.Prices.Sword'});await page.getByRole('button',{name:'Find path',exact:true}).click();await expect(page.getByText('Potential communication',{exact:true}).first()).toBeVisible();await page.getByRole('button',{name:'Inspect hop 4'}).click();await expect(page.getByRole('heading',{name:'Source evidence'})).toBeVisible();await expect(page.locator('.source-code')).toContainText('Config.Prices.Sword');await page.getByRole('button',{name:'Close source'}).click();await page.getByRole('button',{name:'Export context',exact:true}).click();await expect(page.getByText('characters/4',{exact:false}).first()).toBeVisible();const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download JSON',exact:true}).click();expect((await download).suggestedFilename()).toMatch(/rograph.*\.json$/);await page.screenshot({path:'build/previews/evidence.png',fullPage:true});});
+import { test, expect } from "./support.js";
+import { fixturePath } from "../support/fixtures.js";
+test("follows a potential remote path and opens exact source evidence", async ({
+  page,
+  app,
+}) => {
+  await page.goto(app.url + "/#session=" + app.sessionToken);
+  await page
+    .getByLabel("Place file")
+    .setInputFiles(fixturePath("shop/place.rbxlx"));
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Coverage", exact: true }),
+  ).toBeVisible({ timeout: 30000 });
+  await page.getByRole("button", { name: "Trace a path", exact: true }).click();
+  await page
+    .getByLabel("Trace start")
+    .selectOption({ label: "ShopClient.BuySword" });
+  await page
+    .getByLabel("Trace destination")
+    .selectOption({ label: "ShopConfig.Prices.Sword" });
+  await page.getByRole("button", { name: "Find path", exact: true }).click();
+  await expect(
+    page.getByText("Potential communication", { exact: true }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Inspect hop 4" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Source evidence" }),
+  ).toBeVisible();
+  await expect(page.locator(".source-code")).toContainText(
+    "Config.Prices.Sword",
+  );
+  await page.getByRole("button", { name: "Close source" }).click();
+  await page
+    .getByRole("button", { name: "Export context", exact: true })
+    .click();
+  await expect(
+    page.getByText("characters/4", { exact: false }).first(),
+  ).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download JSON", exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toMatch(/rograph.*\.json$/);
+  await page.screenshot({
+    path: "build/previews/evidence.png",
+    fullPage: true,
+  });
+});

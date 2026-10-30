@@ -1,2 +1,10 @@
-import { defineConfig } from 'vitest/config';
-export default defineConfig({test:{include:['tests/**/*.test.ts','tests/**/*.test.tsx'],testTimeout:30000,hookTimeout:30000,fileParallelism:false,maxWorkers:1}});
+import { defineConfig } from "vitest/config";
+export default defineConfig({
+  test: {
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    fileParallelism: false,
+    maxWorkers: 1,
+  },
+});

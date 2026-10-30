@@ -1,1 +1,1 @@
-export {indexSource} from '../../contracts/src/position.js';
+export { indexSource } from "../../contracts/src/position.js";

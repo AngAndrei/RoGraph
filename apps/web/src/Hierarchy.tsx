@@ -1,4 +1,141 @@
-import {useEffect,useState} from 'react';import type {Node} from '../../../packages/contracts/src/model.js';import {api} from './api.js';
-export function NodeMark({node}:{node:Node}){const cls=String(node.attributes.className??node.kind),kind=node.kind==='unresolved'?'unknown':cls.includes('Remote')||cls.includes('Bindable')?'channel':node.kind==='field'?'field':node.kind==='function'?'function':cls==='LocalScript'?'client':cls==='ModuleScript'?'module':cls==='Script'?'server':'object';return <span className={'node-mark '+kind} aria-hidden="true">{kind==='function'?'ƒ':kind==='field'?'#':kind==='channel'?'⇄':kind==='unknown'?'?':kind==='object'?'◇':'◧'}</span>;}
-function Branch({node,analysisId,onSelect,level=0}:{node:Node;analysisId:string;onSelect:(id:string)=>void;level?:number}){const[open,setOpen]=useState(false),[children,setChildren]=useState<Node[]>(),[cursor,setCursor]=useState<string>(),[error,setError]=useState('');const load=async(more=false)=>{try{const r=await api.run({op:'tree',analysisId,parentId:node.id,limit:100,cursor:more?cursor:undefined});setChildren(old=>more?[...(old??[]),...r.nodes]:r.nodes);setCursor(r.meta.nextCursor);setOpen(true);}catch(e){setError((e as Error).message);}};return <div className="tree-branch"><div className="tree-row" style={{paddingLeft:level*13+8}}><button className="tree-toggle" aria-label={(open?'Collapse ':'Expand ')+node.label} aria-expanded={open} onClick={()=>open?setOpen(false):children?setOpen(true):void load()}>{open?'⌄':'›'}</button><button className="tree-node" onClick={()=>onSelect(node.id)}><NodeMark node={node}/><span>{node.label}</span></button></div>{open&&children?.map(n=><Branch key={n.id} node={n} analysisId={analysisId} onSelect={onSelect} level={level+1}/>)}{open&&cursor&&<button className="text-button" onClick={()=>void load(true)}>Load more objects</button>}{error&&<p className="error">{error}</p>}</div>;}
-export function Hierarchy({analysisId,onSelect}:{analysisId:string;onSelect:(id:string)=>void}){const[roots,setRoots]=useState<Node[]>([]);useEffect(()=>{let alive=true;void api.run({op:'tree',analysisId,parentId:null,limit:100}).then(r=>{if(alive)setRoots(r.nodes);});return()=>{alive=false;};},[analysisId]);return <nav aria-label="All saved objects" className="hierarchy">{roots.map(n=><Branch key={analysisId+n.id} node={n} analysisId={analysisId} onSelect={onSelect}/>)}<p className="tree-hint">All saved objects are here, including geometry. Expand a script to browse its functions and fields.</p></nav>;}
+import { useEffect, useState } from "react";
+import type { Node } from "../../../packages/contracts/src/model.js";
+import { api } from "./api.js";
+export function NodeMark({ node }: { node: Node }) {
+  const cls = String(node.attributes.className ?? node.kind),
+    kind =
+      node.kind === "unresolved"
+        ? "unknown"
+        : cls.includes("Remote") || cls.includes("Bindable")
+          ? "channel"
+          : node.kind === "field"
+            ? "field"
+            : node.kind === "function"
+              ? "function"
+              : cls === "LocalScript"
+                ? "client"
+                : cls === "ModuleScript"
+                  ? "module"
+                  : cls === "Script"
+                    ? "server"
+                    : "object";
+  return (
+    <span className={"node-mark " + kind} aria-hidden="true">
+      {kind === "function"
+        ? "ƒ"
+        : kind === "field"
+          ? "#"
+          : kind === "channel"
+            ? "⇄"
+            : kind === "unknown"
+              ? "?"
+              : kind === "object"
+                ? "◇"
+                : "◧"}
+    </span>
+  );
+}
+function Branch({
+  node,
+  analysisId,
+  onSelect,
+  level = 0,
+}: {
+  node: Node;
+  analysisId: string;
+  onSelect: (id: string) => void;
+  level?: number;
+}) {
+  const [open, setOpen] = useState(false),
+    [children, setChildren] = useState<Node[]>(),
+    [cursor, setCursor] = useState<string>(),
+    [error, setError] = useState("");
+  const load = async (more = false) => {
+    try {
+      const r = await api.run({
+        op: "tree",
+        analysisId,
+        parentId: node.id,
+        limit: 100,
+        cursor: more ? cursor : undefined,
+      });
+      setChildren((old) => (more ? [...(old ?? []), ...r.nodes] : r.nodes));
+      setCursor(r.meta.nextCursor);
+      setOpen(true);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div className="tree-branch">
+      <div className="tree-row" style={{ paddingLeft: level * 13 + 8 }}>
+        <button
+          className="tree-toggle"
+          aria-label={(open ? "Collapse " : "Expand ") + node.label}
+          aria-expanded={open}
+          onClick={() =>
+            open ? setOpen(false) : children ? setOpen(true) : void load()
+          }
+        >
+          {open ? "⌄" : "›"}
+        </button>
+        <button className="tree-node" onClick={() => onSelect(node.id)}>
+          <NodeMark node={node} />
+          <span>{node.label}</span>
+        </button>
+      </div>
+      {open &&
+        children?.map((n) => (
+          <Branch
+            key={n.id}
+            node={n}
+            analysisId={analysisId}
+            onSelect={onSelect}
+            level={level + 1}
+          />
+        ))}
+      {open && cursor && (
+        <button className="text-button" onClick={() => void load(true)}>
+          Load more objects
+        </button>
+      )}
+      {error && <p className="error">{error}</p>}
+    </div>
+  );
+}
+export function Hierarchy({
+  analysisId,
+  onSelect,
+}: {
+  analysisId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [roots, setRoots] = useState<Node[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api
+      .run({ op: "tree", analysisId, parentId: null, limit: 100 })
+      .then((r) => {
+        if (alive) setRoots(r.nodes);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [analysisId]);
+  return (
+    <nav aria-label="All saved objects" className="hierarchy">
+      {roots.map((n) => (
+        <Branch
+          key={analysisId + n.id}
+          node={n}
+          analysisId={analysisId}
+          onSelect={onSelect}
+        />
+      ))}
+      <p className="tree-hint">
+        All saved objects are here, including geometry. Expand a script to
+        browse its functions and fields.
+      </p>
+    </nav>
+  );
+}

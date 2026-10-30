@@ -1,0 +1,237 @@
+{
+  "profile": "release",
+  "runs": 3,
+  "createdAt": "2026-10-30T18:42:28.336Z",
+  "hardware": {
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "logicalProcessors": 8,
+    "ramBytes": 16861409280,
+    "os": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.19.0"
+  },
+  "input": {
+    "objects": 50000,
+    "scripts": 1000,
+    "sourceLines": 100000,
+    "utf8Bytes": 7909812,
+    "sha256": "0857b3193214ebc212ad5b5370128dd53db0a92661b7b3d11a89eba11fb59f4e",
+    "description": "Synthetic place: unique script texts, repeated exact config reads, minimal geometry properties; source never executes."
+  },
+  "cold": [
+    {
+      "durationMs": 31265.9158,
+      "stages": {
+        "import": 0.2578000000000884,
+        "parse": 1744.5744,
+        "resolve": 13837.509600000001,
+        "persist": 19923.597700000002,
+        "complete": 31265.0513
+      },
+      "parserMisses": 1000,
+      "parserHits": 0,
+      "nodes": 50002,
+      "relations": 53997,
+      "evidence": 150900,
+      "codeOccurrences": 100899,
+      "coverage": {
+        "importedInstances": 50000,
+        "discoveredScripts": 1000,
+        "parsedScripts": 1000,
+        "discoveredSites": 100899,
+        "resolvedSites": 100899,
+        "candidateSites": 0,
+        "unresolvedSites": 0,
+        "partialImport": false,
+        "limitations": [
+          "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent."
+        ]
+      }
+    },
+    {
+      "durationMs": 55979.2847,
+      "stages": {
+        "import": 0.14329999999608845,
+        "parse": 1899.7332999999999,
+        "resolve": 23508.248699999996,
+        "persist": 29402.4977,
+        "complete": 55978.623199999995
+      },
+      "parserMisses": 1000,
+      "parserHits": 0,
+      "nodes": 50002,
+      "relations": 53997,
+      "evidence": 150900,
+      "codeOccurrences": 100899,
+      "coverage": {
+        "importedInstances": 50000,
+        "discoveredScripts": 1000,
+        "parsedScripts": 1000,
+        "discoveredSites": 100899,
+        "resolvedSites": 100899,
+        "candidateSites": 0,
+        "unresolvedSites": 0,
+        "partialImport": false,
+        "limitations": [
+          "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent."
+        ]
+      }
+    },
+    {
+      "durationMs": 94197.6439,
+      "stages": {
+        "import": 0.03449999999429565,
+        "parse": 1663.9449000000022,
+        "resolve": 22272.324999999997,
+        "persist": 29207.780899999998,
+        "complete": 94196.3626
+      },
+      "parserMisses": 1000,
+      "parserHits": 0,
+      "nodes": 50002,
+      "relations": 53997,
+      "evidence": 150900,
+      "codeOccurrences": 100899,
+      "coverage": {
+        "importedInstances": 50000,
+        "discoveredScripts": 1000,
+        "parsedScripts": 1000,
+        "discoveredSites": 100899,
+        "resolvedSites": 100899,
+        "candidateSites": 0,
+        "unresolvedSites": 0,
+        "partialImport": false,
+        "limitations": [
+          "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent."
+        ]
+      }
+    }
+  ],
+  "queries": {
+    "searchResult": {
+      "nodes": 10,
+      "evidence": 0,
+      "truncated": false,
+      "omittedCounts": {}
+    },
+    "search": {
+      "medianMs": 1.1283999999868684,
+      "maxMs": 9.56930000000284,
+      "samplesMs": [
+        9.56930000000284,
+        1.4923999999882653,
+        1.1120999999984633,
+        1.08719999997993,
+        1.1037000000069384,
+        1.146199999988312,
+        1.1283999999868684
+      ]
+    },
+    "impactResult": {
+      "nodes": 1000,
+      "evidence": 5000,
+      "truncated": true,
+      "omittedCounts": {
+        "adjacencyOrEvidenceAtLeast": 1,
+        "pathsAtLeast": 1,
+        "additionalRecordsAtLeast": 1,
+        "sourceDocuments": 994
+      }
+    },
+    "impact": {
+      "medianMs": 478.49910000001546,
+      "maxMs": 546.5031999999774,
+      "samplesMs": [
+        482.7774999999965,
+        530.3591000000015,
+        478.49910000001546,
+        396.28349999999045,
+        546.5031999999774,
+        271.30549999998766,
+        293.9481000000087
+      ]
+    },
+    "overviewResult": {
+      "nodes": 300,
+      "evidence": 147,
+      "truncated": true,
+      "omittedCounts": {
+        "additionalRecordsAtLeast": 1,
+        "memberNodesAtLeast": 1,
+        "relations": 153,
+        "sourceDocuments": 121
+      }
+    },
+    "overview": {
+      "medianMs": 327.50700000001234,
+      "maxMs": 352.88099999999395,
+      "samplesMs": [
+        352.88099999999395,
+        332.1921999999904,
+        315.50400000001537,
+        316.77679999999236,
+        349.78270000001066,
+        324.56690000000526,
+        327.50700000001234
+      ]
+    }
+  },
+  "overview": {
+    "firstRenderedMs": 1860.1543999999994,
+    "initialQueries": [
+      {
+        "op": "tree",
+        "limit": 100
+      },
+      {
+        "op": "overview",
+        "limit": 300
+      }
+    ],
+    "neighborhoodQueries": [
+      {
+        "op": "inspect",
+        "limit": 300
+      }
+    ]
+  },
+  "memory": {
+    "method": "Sampled sum of process-tree working sets; Node workers share the parent process; sampler excluded",
+    "sampleIntervalMs": 200,
+    "peakAggregateBytes": 2051694592,
+    "samples": 476,
+    "limitation": "Short-lived helper peaks can fall between samples; shared DLL pages may be counted across processes."
+  },
+  "artifacts": {
+    "pins": {
+      "rbx_dom_weak": "4.2.0",
+      "npm": "11.17.0",
+      "node": "24.19.0",
+      "rbx_xml": "3.0.1",
+      "rust": "1.90.0",
+      "rbx_types": "3.1.0",
+      "luauCommit": "a4818b6678822bb726a0eb2299cae751d3017a6a",
+      "schema": 1
+    },
+    "importerSha256": "dc6b7ce4754158d822782a697a45e778aeae570ae643eae51659746040d42600",
+    "parserSha256": "a78866a30660dc196b0ec42aa61e6b57aef56a95bce232c9ba4b20d5a22294da",
+    "cliSha256": "b0ea6760df6f3890ee3f7f32edc23fd34a18fc4015859d82ff5c592c974682ef",
+    "workerSha256": "24c856997a7adc530dc82fe71071e68e309d8ae776c16486915c328203344d57"
+  },
+  "nodeHighWaterKiB": 2047048,
+  "coldSummary": {
+    "medianMs": 55979.2847,
+    "maxMs": 94197.6439,
+    "samplesMs": [
+      31265.9158,
+      55979.2847,
+      94197.6439
+    ]
+  },
+  "targets": {
+    "coldUnder60s": false,
+    "warmQueriesUnder500ms": true,
+    "firstOverviewUnder3s": true,
+    "sampledAggregateUnder2GB": true
+  }
+}

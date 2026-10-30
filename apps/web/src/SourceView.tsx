@@ -1,4 +1,170 @@
-import {useEffect,useState} from 'react';import type {Evidence} from '../../../packages/contracts/src/model.js';import type {SourceView as View} from '../../../packages/contracts/src/query.js';import {api} from './api.js';
-export function SourceView({analysisId,evidence,onClose}:{analysisId:string;evidence:Evidence;onClose:()=>void}){const[view,setView]=useState<View>(),[original,setOriginal]=useState(false),[offset,setOffset]=useState(Math.max(0,(evidence.span?.startByte??0)-300)),[error,setError]=useState('');useEffect(()=>{let alive=true;void api.run({op:'source',analysisId,sourceId:evidence.sourceId,original,startByte:offset,endByte:offset+8000}).then(r=>{if(alive)setView(r.sources[0]);}).catch(e=>setError(e.message));return()=>{alive=false;};},[analysisId,evidence.sourceId,original,offset]);const excerpt=view?.excerpts[0];let before=excerpt?.text??'',highlight='',after='';if(excerpt&&evidence.span&&!original&&evidence.span.startByte<excerpt.span.endByte&&evidence.span.endByte>excerpt.span.startByte){const bytes=new TextEncoder().encode(excerpt.text),a=Math.max(0,evidence.span.startByte-excerpt.span.startByte),b=Math.min(bytes.length,evidence.span.endByte-excerpt.span.startByte),decoder=new TextDecoder();before=decoder.decode(bytes.slice(0,a));highlight=decoder.decode(bytes.slice(a,b));after=decoder.decode(bytes.slice(b));}
- return <div className="modal-backdrop"><section className="source-panel" role="dialog" aria-label="Source evidence"><header><div><span className="eyebrow">EXACT SAVED EVIDENCE</span><h2>Source evidence</h2></div><button className="icon-button" aria-label="Close source" onClick={onClose}>×</button></header><p className="source-path">{view?.origin.originalPath??view?.origin.path??evidence.sourceId}</p>{view?.origin.originalSha256&&<div className="segmented"><button className={!original?'active':''} onClick={()=>{setOriginal(false);setOffset(Math.max(0,(evidence.span?.startByte??0)-300));}}>Saved Luau</button><button className={original?'active':''} onClick={()=>{setOriginal(true);setOffset(0);}}>Original file</button></div>}{view?.origin.kind==='generated'&&<p className="source-notice">Generated Luau from Rojo. {view.origin.mapping==='unavailable'?'Generated statement coordinates cannot be mapped to original JSON, TOML, or model lines.':'Original mapping: '+view.origin.mapping}.</p>}{original&&<p className="source-notice">Original file text. The selected saved-source location is highlighted only in the Saved Luau view.</p>}<div className="source-locator">{original?'Original file':`Saved source · L${evidence.span?.startLine}:${evidence.span?.startColumn} · bytes ${evidence.span?.startByte}–${evidence.span?.endByte}`}<small>sha256 {view?.sha256}</small></div>{error&&<p className="error" role="alert">{error}</p>}<pre className="source-code" tabIndex={0}><code>{before}{highlight&&<mark>{highlight}</mark>}{after}</code></pre>{view&&<footer><span>Excerpt starts at line {excerpt?.span.startLine}, column {excerpt?.span.startColumn} · {view.omittedBytes.toLocaleString()} bytes outside this excerpt</span><button className="text-button" disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-8000))}>Previous</button><button className="text-button" disabled={!excerpt||excerpt.span.endByte>=view.omittedBytes+new TextEncoder().encode(excerpt.text).length} onClick={()=>setOffset(excerpt?.span.endByte??0)}>Next</button></footer>}</section></div>;
+import { useEffect, useState } from "react";
+import type { Evidence } from "../../../packages/contracts/src/model.js";
+import type { SourceView as View } from "../../../packages/contracts/src/query.js";
+import { api } from "./api.js";
+export function SourceView({
+  analysisId,
+  evidence,
+  onClose,
+}: {
+  analysisId: string;
+  evidence: Evidence;
+  onClose: () => void;
+}) {
+  const [view, setView] = useState<View>(),
+    [original, setOriginal] = useState(false),
+    [offset, setOffset] = useState(
+      Math.max(0, (evidence.span?.startByte ?? 0) - 300),
+    ),
+    [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void api
+      .run({
+        op: "source",
+        analysisId,
+        sourceId: evidence.sourceId,
+        original,
+        startByte: offset,
+        endByte: offset + 8000,
+      })
+      .then((r) => {
+        if (alive) setView(r.sources[0]);
+      })
+      .catch((e) => setError(e.message));
+    return () => {
+      alive = false;
+    };
+  }, [analysisId, evidence.sourceId, original, offset]);
+  const excerpt = view?.excerpts[0];
+  let before = excerpt?.text ?? "",
+    highlight = "",
+    after = "";
+  if (
+    excerpt &&
+    evidence.span &&
+    !original &&
+    evidence.span.startByte < excerpt.span.endByte &&
+    evidence.span.endByte > excerpt.span.startByte
+  ) {
+    const bytes = new TextEncoder().encode(excerpt.text),
+      a = Math.max(0, evidence.span.startByte - excerpt.span.startByte),
+      b = Math.min(
+        bytes.length,
+        evidence.span.endByte - excerpt.span.startByte,
+      ),
+      decoder = new TextDecoder();
+    before = decoder.decode(bytes.slice(0, a));
+    highlight = decoder.decode(bytes.slice(a, b));
+    after = decoder.decode(bytes.slice(b));
+  }
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="source-panel"
+        role="dialog"
+        aria-label="Source evidence"
+      >
+        <header>
+          <div>
+            <span className="eyebrow">EXACT SAVED EVIDENCE</span>
+            <h2>Source evidence</h2>
+          </div>
+          <button
+            className="icon-button"
+            aria-label="Close source"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </header>
+        <p className="source-path">
+          {view?.origin.originalPath ?? view?.origin.path ?? evidence.sourceId}
+        </p>
+        {view?.origin.originalSha256 && (
+          <div className="segmented">
+            <button
+              className={!original ? "active" : ""}
+              onClick={() => {
+                setOriginal(false);
+                setOffset(Math.max(0, (evidence.span?.startByte ?? 0) - 300));
+              }}
+            >
+              Saved Luau
+            </button>
+            <button
+              className={original ? "active" : ""}
+              onClick={() => {
+                setOriginal(true);
+                setOffset(0);
+              }}
+            >
+              Original file
+            </button>
+          </div>
+        )}
+        {view?.origin.kind === "generated" && (
+          <p className="source-notice">
+            Generated Luau from Rojo.{" "}
+            {view.origin.mapping === "unavailable"
+              ? "Generated statement coordinates cannot be mapped to original JSON, TOML, or model lines."
+              : "Original mapping: " + view.origin.mapping}
+            .
+          </p>
+        )}
+        {original && (
+          <p className="source-notice">
+            Original file text. The selected saved-source location is
+            highlighted only in the Saved Luau view.
+          </p>
+        )}
+        <div className="source-locator">
+          {original
+            ? "Original file"
+            : `Saved source · L${evidence.span?.startLine}:${evidence.span?.startColumn} · bytes ${evidence.span?.startByte}–${evidence.span?.endByte}`}
+          <small>sha256 {view?.sha256}</small>
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <pre className="source-code" tabIndex={0}>
+          <code>
+            {before}
+            {highlight && <mark>{highlight}</mark>}
+            {after}
+          </code>
+        </pre>
+        {view && (
+          <footer>
+            <span>
+              Excerpt starts at line {excerpt?.span.startLine}, column{" "}
+              {excerpt?.span.startColumn} · {view.omittedBytes.toLocaleString()}{" "}
+              bytes outside this excerpt
+            </span>
+            <button
+              className="text-button"
+              disabled={offset === 0}
+              onClick={() => setOffset(Math.max(0, offset - 8000))}
+            >
+              Previous
+            </button>
+            <button
+              className="text-button"
+              disabled={
+                !excerpt ||
+                excerpt.span.endByte >=
+                  view.omittedBytes +
+                    new TextEncoder().encode(excerpt.text).length
+              }
+              onClick={() => setOffset(excerpt?.span.endByte ?? 0)}
+            >
+              Next
+            </button>
+          </footer>
+        )}
+      </section>
+    </div>
+  );
 }

@@ -1,2 +1,21 @@
-import {join} from 'node:path';import {openStore} from '../../packages/core/src/store.js';import {analyze} from '../../packages/core/src/pipeline.js';import {fixturePath} from './fixtures.js';import {withWorkspace} from './workspace.js';
-export async function analyzeFixture(name:string,workspacePath?:string){const run=async(dir:string)=>{const store=await openStore(join(dir,'graph.db'));try{return await analyze({kind:'place',path:fixturePath(name)},store,undefined,{cacheDir:join(dir,'cache')});}finally{await store.close();}};return workspacePath?run(workspacePath):withWorkspace(run);}
+import { join } from "node:path";
+import { openStore } from "../../packages/core/src/store.js";
+import { analyze } from "../../packages/core/src/pipeline.js";
+import { fixturePath } from "./fixtures.js";
+import { withWorkspace } from "./workspace.js";
+export async function analyzeFixture(name: string, workspacePath?: string) {
+  const run = async (dir: string) => {
+    const store = await openStore(join(dir, "graph.db"));
+    try {
+      return await analyze(
+        { kind: "place", path: fixturePath(name) },
+        store,
+        undefined,
+        { cacheDir: join(dir, "cache") },
+      );
+    } finally {
+      await store.close();
+    }
+  };
+  return workspacePath ? run(workspacePath) : withWorkspace(run);
+}

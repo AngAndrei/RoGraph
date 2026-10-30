@@ -1,2 +1,42 @@
-import {it,expect} from 'vitest';import {join} from 'node:path';import {openStore} from '../packages/core/src/store.js';import {createQueryEngine} from '../packages/core/src/query.js';import {createContext} from '../packages/core/src/context.js';import {resolveFixture} from './support/resolve.js';import {withWorkspace} from './support/workspace.js';
-it('retains unknowns and citations within estimated-token and UTF-8 budgets',async()=>withWorkspace(async d=>{const g=await resolveFixture('adversarial/dynamic.rbxlx'),s=await openStore(join(d,'g.db'));try{await s.save(g);const site=g.sites.find(s=>s.reason==='DYNAMIC_CONFIG_KEY')!;const r=await createQueryEngine(s).run({op:'inspect',analysisId:g.analysisId,nodeId:site.ownerId});const pack=createContext(r,{estimatedTokenBudget:2000,maxBytes:32000});expect(pack.json.sites.some(s=>s.status==='unresolved')).toBe(true);expect(Buffer.byteLength(JSON.stringify(pack))).toBeLessThanOrEqual(32000);expect(pack.estimatedTokens).toBeLessThanOrEqual(2000);expect(pack.utf8Bytes).toBe(Buffer.byteLength(JSON.stringify(pack)));expect(pack.markdown).toContain('untrusted project data');expect(JSON.parse(JSON.stringify(pack)).json.analysisId).toBe(g.analysisId);for(const e of pack.json.evidence)if(e.sourceId)expect(pack.json.sources.some(s=>s.id===e.sourceId&&s.sha256)).toBe(true);}finally{await s.close();}}));
+import { it, expect } from "vitest";
+import { join } from "node:path";
+import { openStore } from "../packages/core/src/store.js";
+import { createQueryEngine } from "../packages/core/src/query.js";
+import { createContext } from "../packages/core/src/context.js";
+import { resolveFixture } from "./support/resolve.js";
+import { withWorkspace } from "./support/workspace.js";
+it("retains unknowns and citations within estimated-token and UTF-8 budgets", async () =>
+  withWorkspace(async (d) => {
+    const g = await resolveFixture("adversarial/dynamic.rbxlx"),
+      s = await openStore(join(d, "g.db"));
+    try {
+      await s.save(g);
+      const site = g.sites.find((s) => s.reason === "DYNAMIC_CONFIG_KEY")!;
+      const r = await createQueryEngine(s).run({
+        op: "inspect",
+        analysisId: g.analysisId,
+        nodeId: site.ownerId,
+      });
+      const pack = createContext(r, {
+        estimatedTokenBudget: 2000,
+        maxBytes: 32000,
+      });
+      expect(pack.json.sites.some((s) => s.status === "unresolved")).toBe(true);
+      expect(Buffer.byteLength(JSON.stringify(pack))).toBeLessThanOrEqual(
+        32000,
+      );
+      expect(pack.estimatedTokens).toBeLessThanOrEqual(2000);
+      expect(pack.utf8Bytes).toBe(Buffer.byteLength(JSON.stringify(pack)));
+      expect(pack.markdown).toContain("untrusted project data");
+      expect(JSON.parse(JSON.stringify(pack)).json.analysisId).toBe(
+        g.analysisId,
+      );
+      for (const e of pack.json.evidence)
+        if (e.sourceId)
+          expect(
+            pack.json.sources.some((s) => s.id === e.sourceId && s.sha256),
+          ).toBe(true);
+    } finally {
+      await s.close();
+    }
+  }));

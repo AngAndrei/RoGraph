@@ -1,2 +1,41 @@
-import {it,expect} from 'vitest';import {execFile} from 'node:child_process';import {promisify} from 'node:util';import {join} from 'node:path';import {readFile} from 'node:fs/promises';import {withWorkspace} from './support/workspace.js';import {fixturePath} from './support/fixtures.js';const exec=promisify(execFile);
-it('analyzes and reopens through the real CLI without modifying input',async()=>withWorkspace(async d=>{const input=fixturePath('shop/place.rbxlx'),before=await readFile(input);const run=(args:string[])=>exec(process.execPath,['--import','tsx','apps/local/src/cli.ts',...args],{windowsHide:true});const a=JSON.parse((await run(['analyze','--input',input,'--workspace',d])).stdout);expect(a.analysisId).toMatch(/^[a-f0-9]{64}$/);const output=join(d,'context.json');await run(['export','--workspace',d,'--analysis',a.analysisId,'--format','json','--output',output]);const pack=JSON.parse(await readFile(output,'utf8'));expect(pack.json.analysisId).toBe(a.analysisId);expect(await readFile(input)).toEqual(before);await expect(run(['analyze','--input',join(d,'missing.rbxlx'),'--workspace',d])).rejects.toMatchObject({code:1});}));
+import { it, expect } from "vitest";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { withWorkspace } from "./support/workspace.js";
+import { fixturePath } from "./support/fixtures.js";
+const exec = promisify(execFile);
+it("analyzes and reopens through the real CLI without modifying input", async () =>
+  withWorkspace(async (d) => {
+    const input = fixturePath("shop/place.rbxlx"),
+      before = await readFile(input);
+    const run = (args: string[]) =>
+      exec(
+        process.execPath,
+        ["--import", "tsx", "apps/local/src/cli.ts", ...args],
+        { windowsHide: true },
+      );
+    const a = JSON.parse(
+      (await run(["analyze", "--input", input, "--workspace", d])).stdout,
+    );
+    expect(a.analysisId).toMatch(/^[a-f0-9]{64}$/);
+    const output = join(d, "context.json");
+    await run([
+      "export",
+      "--workspace",
+      d,
+      "--analysis",
+      a.analysisId,
+      "--format",
+      "json",
+      "--output",
+      output,
+    ]);
+    const pack = JSON.parse(await readFile(output, "utf8"));
+    expect(pack.json.analysisId).toBe(a.analysisId);
+    expect(await readFile(input)).toEqual(before);
+    await expect(
+      run(["analyze", "--input", join(d, "missing.rbxlx"), "--workspace", d]),
+    ).rejects.toMatchObject({ code: 1 });
+  }));
