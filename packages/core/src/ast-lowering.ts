@@ -1,7 +1,7 @@
 import type {Facts,Expr,Span,Binding,Site} from '../../contracts/src/model.js';
 import type {ParsedSource} from '../../contracts/src/protocol.js';
 export function lowerAst(parsed:ParsedSource):Facts {
- const f:Facts={scriptId:parsed.scriptId,sourceId:parsed.sourceId,scopes:[],bindings:[],symbols:[],sites:[],exports:[],diagnostics:parsed.diagnostics.map(d=>({...d,ownerId:parsed.scriptId})),members:[],globalAssignments:[],ast:parsed.ast};
+ const f:Facts={scriptId:parsed.scriptId,sourceId:parsed.sourceId,scopes:[],bindings:[],symbols:[],sites:[],exports:[],diagnostics:parsed.diagnostics.map(d=>({...d,ownerId:parsed.scriptId})),members:[],globalAssignments:[],ast:parsed.ast,parserVersion:parsed.parserVersion,featureHash:parsed.featureHash};
  if(!parsed.ast||parsed.diagnostics.some(d=>d.code==='LUAU_PARSE_ERROR'))return f;
  const bindings=new Map<string,Binding>(),functions=new Map<number,string>();
  const fallback:Span={startByte:0,endByte:0,startLine:1,startColumn:1,endLine:1,endColumn:1};
@@ -22,7 +22,7 @@ export function lowerAst(parsed:ParsedSource):Facts {
    case 'AstExprTable':return {...base,kind:'table',entries:(v.items??[]).map((item:any,n:number)=>({key:item.kind==='List'?String(n+1):(item.key?.value===undefined?null:String(item.key.value)),value:expr(item.value,owner,scope,'read'),span:loc(item.key??item.value)}))};
    case 'AstExprFunction':{
     let id=functions.get(span.startByte);if(id)return {...base,kind:'function',symbolId:id};id=`${f.scriptId}:fn:${span.startByte}`;functions.set(span.startByte,id);
-    const childScope=`${f.scriptId}:scope:${span.startByte}`;const symbol={id,ownerId:f.scriptId,name:name??v.debugname??`callback@${span.startLine}`,span,parameters:(v.args??[]).map((a:any)=>a.name),bodyScopeId:childScope};f.symbols.push(symbol);
+    const childScope=`${f.scriptId}:scope:${span.startByte}`;const symbol={id,ownerId:f.scriptId,name:name||v.debugname||`callback@${span.startLine}`,span,parameters:[v.self,...(v.args??[])].filter(Boolean).map((a:any)=>a.name),bodyScopeId:childScope};f.symbols.push(symbol);
     for(const a of [v.self,...(v.args??[])].filter(Boolean))binding(a,childScope);
     stat(v.body,id,childScope);return {...base,kind:'function',symbolId:id};
    }
