@@ -1,0 +1,10 @@
+{
+  "rbx_dom_weak": "4.2.0",
+  "npm": "11.17.0",
+  "node": "24.19.0",
+  "rbx_xml": "3.0.1",
+  "rust": "1.90.0",
+  "rbx_types": "3.1.0",
+  "luauCommit": "a4818b6678822bb726a0eb2299cae751d3017a6a",
+  "schema": 1
+}
