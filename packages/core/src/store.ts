@@ -5,8 +5,8 @@ import {dirname,join} from 'node:path';import {setImmediate} from 'node:timers/p
 import {validateGraph,type Graph,type Source,type RelationType} from '../../contracts/src/model.js';
 import type {QueryResult,AnalysisSummary} from '../../contracts/src/query.js';
 import {indexSource} from './source-index.js';import {RoGraphError} from './util.js';
-export type StoreSelection={analysisId:string;limit:number;cursor?:string}&(
- {op:'nodes';ids:string[]}|{op:'adjacent';nodeIds:string[];direction:'in'|'out';relationTypes?:RelationType[]}|
+export type StoreSelection={analysisId:string;limit:number;cursor?:string;classes?:string[];statuses?:string[];contexts?:string[]}&(
+ {op:'nodes';ids:string[]}|{op:'members';ownerIds:string[]}|{op:'adjacent';nodeIds:string[];direction:'in'|'out';relationTypes?:RelationType[]}|
  {op:'search';text:string}|{op:'sites';ownerIds:string[]}|{op:'evidence';relationIds:string[]}|
  {op:'sources';ids:string[];startByte?:number;endByte?:number}|{op:'children';parentId:string|null}|
  {op:'overview';groupBy?:'service'|'folder'}|{op:'manifest'});
@@ -65,6 +65,7 @@ export async function openStore(path:string):Promise<GraphStore>{
    switch(q.op){
     case'manifest':return result;
     case'nodes':ids('nodes','id',q.ids);break;
+    case'members':ids('nodes','owner',q.ownerIds);break;
     case'adjacent':key='relations';ids('relations',q.direction==='out'?'source':'target',q.nodeIds);if(q.relationTypes?.length){sql=sql.replace(' ORDER BY',` AND type IN (${placeholders(q.relationTypes)}) ORDER BY`);args.push(...q.relationTypes);}break;
     case'evidence':key='evidence';ids('evidence','relation',q.relationIds);break;
     case'sites':key='sites';ids('sites','owner',q.ownerIds);break;
@@ -73,6 +74,13 @@ export async function openStore(path:string):Promise<GraphStore>{
     case'overview':sql="SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";args=[q.analysisId];break;
     case'search':{const tokens=q.text.slice(0,256).match(/[\p{L}\p{N}_]+/gu);if(!tokens?.length)return result;sql='SELECT n.data FROM node_search JOIN nodes n ON n.analysis=node_search.analysis AND n.id=node_search.id WHERE node_search MATCH ? AND n.analysis=? ORDER BY n.id';args=[`analysis : "${q.analysisId.replaceAll('"','""')}" AND label : (${tokens.map(t=>'"'+t+'"*').join(' AND ')})`,q.analysisId];break;}
    }
+   const predicates:string[]=[];const alias=q.op==='search'?'n':'nodes';
+   if(key==='nodes'){
+    if(q.classes?.length){predicates.push(`COALESCE(json_extract(${alias}.data,'$.attributes.className'),json_extract(${alias}.data,'$.attributes.scriptClassName')) IN (${placeholders(q.classes)})`);args.push(...q.classes);}
+    if(q.contexts?.length){predicates.push(`EXISTS(SELECT 1 FROM json_each(${alias}.data,'$.contexts') WHERE value IN (${placeholders(q.contexts)}))`);args.push(...q.contexts);}
+    if(q.statuses?.length){predicates.push(`COALESCE(json_extract(${alias}.data,'$.attributes.status'),CASE ${alias}.kind WHEN 'instance' THEN 'saved' WHEN 'unresolved' THEN 'unresolved' ELSE 'resolved' END) IN (${placeholders(q.statuses)})`);args.push(...q.statuses);}
+   }
+   if(predicates.length)sql=sql.replace(' ORDER BY',` AND ${predicates.join(' AND ')} ORDER BY`);
    const rows=all(sql+' LIMIT ? OFFSET ?',...args,limit+1,offset);result.meta.truncated=rows.length>limit;if(result.meta.truncated){result.meta.nextCursor=String(offset+limit);result.meta.omittedCounts.additionalRecordsAtLeast=1;}
    const values=parse(rows.slice(0,limit));
    if(key==='sources')result.sources=values.map((s:Source)=>{const bytes=Buffer.byteLength(s.text),start=q.op==='sources'?(q.startByte??0):0,end=Math.min(bytes,start+32000,q.op==='sources'?(q.endByte??bytes):bytes);const index=indexSource(s.text);const buf=Buffer.from(s.text);let a=Math.max(0,Math.min(start,bytes)),b=Math.max(a,end);while(a<bytes&&(buf[a]&192)===128)a++;while(b> a&&b<bytes&&(buf[b]&192)===128)b--;const span=index.span(a,b);const origin={...s.origin,originalText:undefined};return{id:s.id,scriptId:s.scriptId,sha256:s.sha256,origin,...(a===0&&b===bytes?{text:s.text}:{}),excerpts:[{span,text:buf.subarray(a,b).toString('utf8')}],omittedBytes:bytes-(b-a)};});
