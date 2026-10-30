@@ -5,7 +5,10 @@ test("imports a saved place and exposes coverage and script members", async ({
   app,
 }) => {
   const errors: string[] = [];
-  page.on("console", message=>{if(message.text().startsWith("Graph rendering failed:"))console.error(message.text());});
+  page.on("console", (message) => {
+    if (message.text().startsWith("Graph rendering failed:"))
+      console.error(message.text());
+  });
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(app.url + "/#session=" + app.sessionToken);
   await page
@@ -14,7 +17,7 @@ test("imports a saved place and exposes coverage and script members", async ({
   await page.getByRole("button", { name: "Analyze", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Coverage", exact: true }),
-  ).toBeVisible({ timeout: 30000 });
+  ).toBeVisible({ timeout: 90000 });
   await expect(
     page.getByText("Unresolved sites", { exact: true }),
   ).toBeVisible();

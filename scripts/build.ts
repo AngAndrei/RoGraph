@@ -1,2 +1,27 @@
-import {build as bundle} from 'esbuild';import {build as web} from 'vite';import {mkdir,copyFile,writeFile} from 'node:fs/promises';import {resolve} from 'node:path';
-await mkdir('dist',{recursive:true});await bundle({entryPoints:{cli:'apps/local/src/cli.ts',worker:'apps/local/src/worker.ts'},bundle:true,platform:'node',target:'node24',format:'esm',outdir:'dist',sourcemap:true,banner:{js:'import {createRequire as __createRequire} from "node:module"; const require=__createRequire(import.meta.url);'}});await copyFile('packages/core/src/schema.sql','dist/schema.sql');await writeFile('dist/package.json','{"type":"module"}\n');await web({root:resolve('apps/web'),configFile:resolve('apps/web/vite.config.ts')});
+import { build as bundle } from "esbuild";
+import { build as web } from "vite";
+import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+await mkdir("dist", { recursive: true });
+await bundle({
+  entryPoints: {
+    cli: "apps/local/src/cli.ts",
+    worker: "apps/local/src/worker.ts",
+  },
+  bundle: true,
+  platform: "node",
+  mainFields: ["module", "main"],
+  target: "node24",
+  format: "esm",
+  outdir: "dist",
+  sourcemap: true,
+  banner: {
+    js: 'import {createRequire as __createRequire} from "node:module"; const require=__createRequire(import.meta.url);',
+  },
+});
+await copyFile("packages/core/src/schema.sql", "dist/schema.sql");
+await writeFile("dist/package.json", '{"type":"module"}\n');
+await web({
+  root: resolve("apps/web"),
+  configFile: resolve("apps/web/vite.config.ts"),
+});

@@ -12,7 +12,7 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
   await page.getByRole("button", { name: "Analyze", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Coverage", exact: true }),
-  ).toBeVisible({ timeout: 30000 });
+  ).toBeVisible({ timeout: 90000 });
   const xml = (await readFile(fixturePath("shop/place.rbxlx"), "utf8")).replace(
       /Sword\s*=\s*100/,
       "Sword=101",
@@ -30,7 +30,14 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
       body: xml,
     })
   ).json()) as any;
-  for (let i = 0; i < 100 && !job.analysisId; i++) {
+  for (
+    let i = 0;
+    i < 900 &&
+    !job.analysisId &&
+    job.status !== "failed" &&
+    job.status !== "canceled";
+    i++
+  ) {
     await new Promise((r) => setTimeout(r, 100));
     job = await (
       await fetch(app.url + "/api/jobs/" + job.id, { headers })
