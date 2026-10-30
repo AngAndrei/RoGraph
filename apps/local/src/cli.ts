@@ -8,7 +8,7 @@ async function main(){
  const allowed=['input','rojo','workspace','analysis','request','format','output'];for(const key of Object.keys(flags))if(!allowed.includes(key))throw new RoGraphError('INVALID_ARGUMENT','Unknown option: '+key);
  const workspace=resolve(flags.workspace??'.rograph');
  if(command==='mcp'){const {serveMcp}=await import('./mcp.js');await serveMcp(workspace);return;}
- if(command==='open')throw new RoGraphError('NOT_IMPLEMENTED','Local explorer entry point is under construction');
+ if(command==='open'){const {startServer}=await import('./server.js');const app=await startServer(workspace);const {execFile}=await import('node:child_process');const target=app.url+'/#session='+app.sessionToken;const command=process.platform==='win32'?'rundll32.exe':process.platform==='darwin'?'open':'xdg-open';execFile(command,process.platform==='win32'?['url.dll,FileProtocolHandler',target]:[target],{windowsHide:true},error=>{if(error)process.stderr.write('Could not open the browser. Restart RoGraph after setting a default browser.\n');});process.stdout.write('RoGraph is running at '+app.url+'. Use Stop app in the explorer to close it.\n');const stop=()=>{void app.close();};process.once('SIGINT',stop);process.once('SIGTERM',stop);return;}
  if(!['analyze','query','export'].includes(command))throw new RoGraphError('INVALID_ARGUMENT','Unknown command');
  const store=await openWorkerStore(join(workspace,'graph.db'));const controller=new AbortController(),cancel=()=>controller.abort();process.once('SIGINT',cancel);process.once('SIGTERM',cancel);
  try{
