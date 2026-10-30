@@ -1,0 +1,6 @@
+import {it,expect} from 'vitest';
+import {importPlace} from '../packages/core/src/import.js';
+import {fixturePath} from './support/fixtures.js';
+it('normalizes the same input repeatably without merging duplicate names',async()=>{const a=await importPlace(fixturePath('adversarial/duplicates.rbxlx'));const b=await importPlace(fixturePath('adversarial/duplicates.rbxlx'));expect(a.instances.map(i=>i.id)).toEqual(b.instances.map(i=>i.id));const p=a.instances.filter(i=>i.name==='Purchase');expect(p).toHaveLength(2);expect(p[0].id).not.toBe(p[1].id);expect(a.sources.find(s=>s.text.includes('TryPurchase'))?.text).toContain('Service.TryPurchase(player, itemId)');expect(a.coverage.partialImport).toBe(false);});
+it('retains incomplete import diagnostics rather than declaring completeness',async()=>{const s=await importPlace(fixturePath('adversarial/partial.rbxlx'));expect(s.coverage.partialImport).toBe(true);expect(s.diagnostics.map(d=>d.code)).toContain('DANGLING_REFERENT');expect(s.inventory.rawInput.sha256).toBe(s.snapshotId);});
+it('does not begin a canceled import',async()=>{const c=new AbortController();c.abort();await expect(importPlace(fixturePath('shop/place.rbxlx'),c.signal)).rejects.toBeDefined();});
