@@ -7,7 +7,8 @@ async function main(){
  for(let i=0;i<args.length;i+=2){if(!/^--[a-z]+$/.test(args[i])||!args[i+1]||args[i+1].startsWith('--'))throw new RoGraphError('INVALID_ARGUMENT','Flags require a value');flags[args[i].slice(2)]=args[i+1];}
  const allowed=['input','rojo','workspace','analysis','request','format','output'];for(const key of Object.keys(flags))if(!allowed.includes(key))throw new RoGraphError('INVALID_ARGUMENT','Unknown option: '+key);
  const workspace=resolve(flags.workspace??'.rograph');
- if(command==='open'||command==='mcp')throw new RoGraphError('NOT_IMPLEMENTED','Local explorer and MCP entry points are under construction');
+ if(command==='mcp'){const {serveMcp}=await import('./mcp.js');await serveMcp(workspace);return;}
+ if(command==='open')throw new RoGraphError('NOT_IMPLEMENTED','Local explorer entry point is under construction');
  if(!['analyze','query','export'].includes(command))throw new RoGraphError('INVALID_ARGUMENT','Unknown command');
  const store=await openWorkerStore(join(workspace,'graph.db'));const controller=new AbortController(),cancel=()=>controller.abort();process.once('SIGINT',cancel);process.once('SIGTERM',cancel);
  try{
