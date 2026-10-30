@@ -8,7 +8,7 @@ import {indexSource} from './source-index.js';import {RoGraphError} from './util
 export type StoreSelection={analysisId:string;limit:number;cursor?:string;classes?:string[];statuses?:string[];contexts?:string[]}&(
  {op:'nodes';ids:string[]}|{op:'members';ownerIds:string[]}|{op:'adjacent';nodeIds:string[];direction:'in'|'out';relationTypes?:RelationType[]}|
  {op:'search';text:string}|{op:'sites';ownerIds:string[]}|{op:'evidence';relationIds:string[]}|
- {op:'sources';ids:string[];startByte?:number;endByte?:number}|{op:'children';parentId:string|null}|
+ {op:'sources';ids:string[];original?:boolean;startByte?:number;endByte?:number}|{op:'children';parentId:string|null}|
  {op:'overview';groupBy?:'service'|'folder'}|{op:'manifest'});
 export interface GraphStore {
  save(graph:Graph,signal?:AbortSignal):Promise<void>;publish(id:string):Promise<void>;current():Promise<string|null>;
@@ -83,7 +83,7 @@ export async function openStore(path:string):Promise<GraphStore>{
    if(predicates.length)sql=sql.replace(' ORDER BY',` AND ${predicates.join(' AND ')} ORDER BY`);
    const rows=all(sql+' LIMIT ? OFFSET ?',...args,limit+1,offset);result.meta.truncated=rows.length>limit;if(result.meta.truncated){result.meta.nextCursor=String(offset+limit);result.meta.omittedCounts.additionalRecordsAtLeast=1;}
    const values=parse(rows.slice(0,limit));
-   if(key==='sources')result.sources=values.map((s:Source)=>{const bytes=Buffer.byteLength(s.text),start=q.op==='sources'?(q.startByte??0):0,end=Math.min(bytes,start+32000,q.op==='sources'?(q.endByte??bytes):bytes);const index=indexSource(s.text);const buf=Buffer.from(s.text);let a=Math.max(0,Math.min(start,bytes)),b=Math.max(a,end);while(a<bytes&&(buf[a]&192)===128)a++;while(b> a&&b<bytes&&(buf[b]&192)===128)b--;const span=index.span(a,b);const origin={...s.origin,originalText:undefined};return{id:s.id,scriptId:s.scriptId,sha256:s.sha256,origin,...(a===0&&b===bytes?{text:s.text}:{}),excerpts:[{span,text:buf.subarray(a,b).toString('utf8')}],omittedBytes:bytes-(b-a)};});
+   if(key==='sources')result.sources=values.map((s:Source)=>{const original=q.op==='sources'&&q.original;if(original&&s.origin.originalText===undefined)throw new RoGraphError('SOURCE_NOT_FOUND','No separate original file is stored for this source');const text=original?s.origin.originalText!:s.text;const bytes=Buffer.byteLength(text),start=q.op==='sources'?(q.startByte??0):0,end=Math.min(bytes,start+32000,q.op==='sources'?(q.endByte??bytes):bytes);const index=indexSource(text);const buf=Buffer.from(text);let a=Math.max(0,Math.min(start,bytes)),b=Math.max(a,end);while(a<bytes&&(buf[a]&192)===128)a++;while(b>a&&b<bytes&&(buf[b]&192)===128)b--;const span=index.span(a,b);const origin={...s.origin,originalText:undefined};return{id:s.id,scriptId:s.scriptId,sha256:original?s.origin.originalSha256!:s.sha256,origin,variant:original?'original':'saved',...(a===0&&b===bytes?{text}:{}),excerpts:[{span,text:buf.subarray(a,b).toString('utf8')}],omittedBytes:bytes-(b-a)};});
    else(result[key] as any[])=values;
    return result;
   },
