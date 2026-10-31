@@ -14,6 +14,8 @@ The first baseline took about 125 seconds overall; that run overlapped diagnosti
 
 Opaque `SharedString` values over 1,024 bytes are represented by BLAKE3 hash, byte length and an explicit `rawInput` retention marker instead of repeated inline physics/geometry buffers. A diagnostic and partial-import status disclose this representation. Exact payload bytes remain in the retained raw place; script source, references and small buffers remain inline. These observations establish the listed saved-file workflows, not complete runtime behavior, universal game compatibility or a clean-PC performance guarantee.
 
+The rebuilt Windows executable was tested separately on all three originals in dedicated workspaces. It completed analysis in **89.7 / 50.4 / 1.0 seconds** respectively, then reopened both Gameplay and Code overviews for each revision. All input hashes remained unchanged. These executable timings include startup and differ from the development-pipeline observations above; the portable smoke procedure ran alongside part of this check. The rebuilt package also passed all **21** dependency-isolated portable checks.
+
 ## Gameplay update (0.2.0)
 
 The same unchanged inputs were reanalyzed with the final gameplay resolver (version 8) on 2026-10-31. These are raw site counts with the same denominators; recognized platform operations and conditional targets are reported separately. Lower unresolved counts do not establish runtime completeness.
