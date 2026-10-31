@@ -17,6 +17,7 @@ import { Inspector } from "./Inspector.js";
 import { TraceControls, TraceView } from "./TraceView.js";
 import { SourceView } from "./SourceView.js";
 import { ContextExport } from "./ContextExport.js";
+import { gameplayTypes } from "../../../packages/contracts/src/relation-names.js";
 function Brand() {
   return (
     <div className="brand">
@@ -397,7 +398,7 @@ export default function App() {
           )}
           <div className="sidebar-footer">
             <span>
-              RoGraph <b>0.1</b>
+              RoGraph <b>0.2</b>
             </span>
             <a
               href="https://github.com/AngAndrei/RoGraph"
@@ -534,13 +535,17 @@ export default function App() {
                 >
                   {[
                     "all",
-                    "REQUIRES",
-                    "CALLS",
-                    "READS",
-                    "WRITES",
-                    "REFERENCES",
-                    "SENDS_VIA",
-                    "HANDLES",
+                    ...(view === "gameplay"
+                      ? gameplayTypes
+                      : [
+                          "REQUIRES",
+                          "CALLS",
+                          "READS",
+                          "WRITES",
+                          "REFERENCES",
+                          "SENDS_VIA",
+                          "HANDLES",
+                        ]),
                   ].map((s) => (
                     <option key={s} value={s}>
                       {s === "all" ? "All relationships" : s}

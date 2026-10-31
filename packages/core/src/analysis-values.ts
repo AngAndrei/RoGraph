@@ -4,11 +4,22 @@ export function alternatives(v: Value): Value[] {
   return v.kind === "alternatives" ? v.values : [v];
 }
 export function joinValues(values: Value[], open = false): Value {
+  if (
+    values.length === 1 &&
+    values[0].kind !== "alternatives" &&
+    !open &&
+    !values[0].open
+  )
+    return values[0];
   const unique = new Map<string, Value>();
   for (const v of values.flatMap(alternatives))
     unique.set(JSON.stringify(v), v);
   const all = [...unique.values()],
-    tail = open || values.some(v=>v.open) || all.length > VALUE_LIMIT || all.some((v) => v.open);
+    tail =
+      open ||
+      values.some((v) => v.open) ||
+      all.length > VALUE_LIMIT ||
+      all.some((v) => v.open);
   if (all.length === 1 && !tail) return all[0];
   return {
     kind: "alternatives",

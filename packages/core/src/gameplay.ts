@@ -10,6 +10,7 @@ import type {
 import { FlowResolver } from "./flow-resolver.js";
 import { alternatives, anchorIds } from "./analysis-values.js";
 import type { Value } from "./resolver.js";
+import type { GameplayRelation } from "../../contracts/src/gameplay.js";
 import { emptyResolution, emit, addNode } from "./resolution.js";
 import { hash } from "./util.js";
 const effects: Record<string, RelationType> = {
@@ -18,6 +19,7 @@ const effects: Record<string, RelationType> = {
   PivotTo: "TRANSFORMS",
   ScaleTo: "TRANSFORMS",
   MoveTo: "TRANSFORMS",
+  SetAttribute: "MODIFIES",
 };
 export function resolveGameplay(
   snapshot: Snapshot,
@@ -27,6 +29,7 @@ export function resolveGameplay(
   const result = emptyResolution(),
     resolver = new FlowResolver(snapshot, facts);
   const siteMap = new Map(facts.flatMap((f) => f.sites).map((s) => [s.id, s]));
+  const relationIds = new Set<string>();
   const scriptOf = (id: string) => resolver.owners.get(id) ?? id;
   const entity = (id: string): string | undefined => {
     let current = resolver.objects.get(id),
@@ -86,6 +89,7 @@ export function resolveGameplay(
     method: string,
     label: string,
     value?: Value,
+    details: Partial<GameplayRelation> = {},
   ) => {
     if (
       source === target ||
@@ -97,7 +101,8 @@ export function resolveGameplay(
       siteMap.has(id),
     );
     const guards = ((raw.expression.guards as Expr[]) ?? []).map(
-      (g) => `${f.sourceId}:${g.span.startByte}-${g.span.endByte}`,
+      (g) =>
+        `${f.sourceId}:${g.span.startByte}-${g.span.endByte}:${g.negated ? "false" : "true"}`,
     );
     const conditional =
       !!value?.open ||
@@ -106,7 +111,8 @@ export function resolveGameplay(
       value?.kind === "runtime";
     const id =
       "gameplay:" + hash([source, target, type, method, raw.id].join("|"));
-    if (result.relations.some((r) => r.id === id)) return;
+    if (relationIds.has(id)) return;
+    relationIds.add(id);
     const occurrence = emptyResolution();
     emit(
       occurrence,
@@ -144,6 +150,7 @@ export function resolveGameplay(
         conditional,
         rule: "typed-object-flow",
         version: "1",
+        ...details,
         ...(value?.kind === "allocation"
           ? { allocationId: value.id, templateId: value.templateId }
           : {}),
@@ -158,6 +165,7 @@ export function resolveGameplay(
         const callee = resolver.get(e.callee as Expr, f),
           value = resolver.get(e, f);
         if (
+          e.colon &&
           callee.kind === "signal-connect" &&
           !/^(Remote|UnreliableRemote|Bindable)/.test(
             String(callee.signal.className),
@@ -209,7 +217,7 @@ export function resolveGameplay(
             );
         }
         for (const c of alternatives(callee))
-          if (c.kind === "native" && effects[c.method]) {
+          if (e.colon && c.kind === "native" && effects[c.method]) {
             const receiver = c.receiverValue ?? {
               kind: "instance",
               id: c.receiver,
@@ -223,12 +231,20 @@ export function resolveGameplay(
                 f,
                 c.method,
                 c.method === "Clone" ? "clones" : c.method,
-                receiver,
+                c.method === "Clone"
+                  ? {
+                      ...(alternatives(value).find(
+                        (v) => v.kind === "allocation" && v.templateId === id,
+                      ) ?? receiver),
+                      open: !!value.open || !!callee.open || !!receiver.open,
+                    }
+                  : { ...receiver, open: !!callee.open || !!receiver.open },
               );
           }
         if (
-          callee.kind === "intrinsic" ||
-          ["native", "signal-connect"].includes(callee.kind)
+          alternatives(callee).every((c) =>
+            ["intrinsic", "native", "signal-connect"].includes(c.kind),
+          )
         ) {
           const values = alternatives(value),
             known = values.filter((v) =>
@@ -246,7 +262,9 @@ export function resolveGameplay(
             result.sites.push({
               ...site,
               status:
-                value.open || values.length > 1 ? "candidate" : "resolved",
+                value.open || callee.open || values.length > 1
+                  ? "candidate"
+                  : "resolved",
               targetIds: anchorIds(value),
               reason: value.open ? "CONDITIONAL_RUNTIME_VALUE" : undefined,
               assumptions: [
@@ -258,6 +276,49 @@ export function resolveGameplay(
       }
       if (site.kind === "read") {
         const value = resolver.get(e, f);
+        const targets = alternatives(value);
+        if (
+          targets.length &&
+          targets.every((v) =>
+            [
+              "instance",
+              "module",
+              "field",
+              "table",
+              "property",
+              "runtime",
+              "allocation",
+              "signal",
+              "intrinsic",
+              "scalar",
+              "literal",
+            ].includes(v.kind),
+          )
+        ) {
+          const conditional = !!value.open || targets.length > 1;
+          result.sites.push({
+            ...site,
+            status: conditional ? "candidate" : "resolved",
+            targetIds: [
+              ...new Set(
+                targets.flatMap((v) =>
+                  v.fieldId
+                    ? [v.fieldId]
+                    : v.kind === "allocation"
+                      ? anchorIds(v)
+                      : v.id
+                        ? [v.id]
+                        : [],
+                ),
+              ),
+            ],
+            reason: conditional ? "CONDITIONAL_RUNTIME_VALUE" : undefined,
+            assumptions: [
+              ...site.assumptions,
+              "Reference identity recognized; symbolic values and alternatives do not establish runtime execution.",
+            ],
+          });
+        }
         const subject = entity(f.scriptId);
         if (
           subject &&
@@ -307,6 +368,25 @@ export function resolveGameplay(
       if (site.kind === "write" && e.kind === "index") {
         const key = (e.key as Expr).value,
           base = resolver.get(e.base as Expr, f);
+        if (anchorIds(base).length && typeof key === "string")
+          result.sites.push({
+            ...site,
+            status:
+              base.kind === "allocation" || base.kind === "runtime" || base.open
+                ? "candidate"
+                : "resolved",
+            reason:
+              base.kind === "allocation"
+                ? "RUNTIME_ALLOCATION_EFFECT"
+                : base.kind === "runtime"
+                  ? "RUNTIME_ROLE_EFFECT"
+                  : undefined,
+            targetIds: anchorIds(base),
+            assumptions: [
+              ...site.assumptions,
+              "Known write target; changes refer to code-created copies or runtime roles where indicated.",
+            ],
+          });
         if (
           [
             "Parent",
@@ -320,15 +400,48 @@ export function resolveGameplay(
           ].includes(String(key))
         )
           for (const id of anchorIds(base)) {
+            const member = (f.members as any[]).find(
+              (m) =>
+                m.target.span.startByte === site.span.startByte &&
+                m.target.span.endByte === site.span.endByte,
+            );
+            const destination =
+              key === "Parent" && member
+                ? resolver.get(member.value, f)
+                : undefined;
+            const playerDestination = destination
+              ? alternatives(destination).find(
+                  (v) =>
+                    v.kind === "runtime" &&
+                    String(v.rolePath).endsWith(".Backpack"),
+                )
+              : undefined;
+            const toPlayer = !!playerDestination;
             link(
               f.scriptId,
               id,
-              key === "Parent" ? "REPARENTS" : "TRANSFORMS",
+              key === "Parent"
+                ? toPlayer
+                  ? "TRANSFERS"
+                  : "REPARENTS"
+                : ["CFrame", "Position", "Size", "PrimaryPart"].includes(
+                      String(key),
+                    )
+                  ? "TRANSFORMS"
+                  : "MODIFIES",
               site,
               f,
               "write " + key,
-              "sets " + key,
-              base,
+              toPlayer ? "gives to Backpack" : "sets " + key,
+              { ...base, open: !!base.open || !!destination?.open },
+              destination
+                ? {
+                    destinationId:
+                      playerDestination?.id ?? anchorIds(destination)[0],
+                    destinationRole:
+                      playerDestination?.rolePath ?? destination.rolePath,
+                  }
+                : undefined,
             );
           }
       }

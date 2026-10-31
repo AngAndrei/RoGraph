@@ -24,7 +24,14 @@ it("connects real chicken/config/egg objects with source-backed spawning effects
     ),
   ).toBe(false);
   const semantic = g.relations.filter((r) => r.gameplay);
+  expect(
+    g.relations.find((r) => r.type === "SPAWNS" && r.target === "egg")?.gameplay
+      ?.allocationId,
+  ).toBeTruthy();
   expect(semantic.length).toBeGreaterThan(2);
+  expect(
+    g.sites.filter((s) => s.reason === "REFERENCE_NOT_RESOLVED"),
+  ).toHaveLength(0);
   for (const r of semantic) {
     expect(r.gameplay!.supportSiteIds.length).toBeGreaterThan(0);
     expect(g.evidence.some((e) => e.relationId === r.id)).toBe(true);
@@ -52,6 +59,23 @@ it("connects real prompts and players service to pickup code and actual item/mod
   expect(g.relations.some((r) => r.source === "players" && r.gameplay)).toBe(
     true,
   );
+});
+it("records state changes and a transfer destination without inventing an inventory node", async () => {
+  const g = await gameplayGraph({
+    PickupScript:
+      'local chicken=script.Parent;chicken.HumanoidRootPart.ProximityPrompt.Triggered:Connect(function(player) chicken:SetAttribute("Carried",true);local tool=game:GetService("ServerStorage").ChickenItem:Clone();tool.Parent=player.Backpack end)',
+  });
+  expect(
+    g.relations.some((r) => r.type === "MODIFIES" && r.target === "chicken"),
+  ).toBe(true);
+  expect(
+    g.relations.some(
+      (r) =>
+        r.type === "TRANSFERS" &&
+        r.target === "chickentool" &&
+        r.gameplay?.destinationId === "players",
+    ),
+  ).toBe(true);
 });
 it("does not connect two entities merely for shared utilities or configuration", async () => {
   const g = await gameplayGraph({

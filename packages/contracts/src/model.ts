@@ -338,6 +338,7 @@ export function validateGraph(value: unknown): Graph {
     rels = new Set(result.relations.map((v) => v.id)),
     sources = new Map(result.sources.map((v) => [v.id, v]));
   const siteIds = new Set(result.sites.map((s) => s.id));
+  const nodesById = new Map(result.nodes.map((n) => [n.id, n]));
   for (const relation of result.relations)
     if (relation.gameplay) {
       if (!nodes.has(relation.gameplay.sourceScriptId))
@@ -345,7 +346,7 @@ export function validateGraph(value: unknown): Graph {
       if (relation.gameplay.supportSiteIds.some((id) => !siteIds.has(id)))
         throw new Error("Gameplay support site unavailable");
       for (const id of [relation.source, relation.target]) {
-        const node = result.nodes.find((n) => n.id === id);
+        const node = nodesById.get(id);
         if (node?.kind !== "instance")
           throw new Error(
             "Gameplay endpoints must be concrete project objects",

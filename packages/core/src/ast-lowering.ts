@@ -239,11 +239,11 @@ export function lowerAst(parsed: ParsedSource): Facts {
           ownerId: owner,
           span: loc(v),
         });
-        guards = [...outer, condition];
+        guards = [...outer, { kind: "guard", span: condition.span }];
         stat(v.thenbody, owner, scope);
         guards = [
           ...outer,
-          { kind: "unary", op: "Not", value: condition, span: condition.span },
+          { kind: "guard", negated: true, span: condition.span },
         ];
         stat(v.elsebody, owner, scope);
         guards = outer;
@@ -259,7 +259,7 @@ export function lowerAst(parsed: ParsedSource): Facts {
           ownerId: owner,
           span: loc(v),
         });
-        guards = [...outer, condition];
+        guards = [...outer, { kind: "guard", span: condition.span }];
         stat(v.body, owner, scope);
         guards = outer;
         break;

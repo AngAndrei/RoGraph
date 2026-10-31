@@ -76,3 +76,26 @@ it("keeps nil distinct from unknown when selecting a fallback", async () => {
     r.get(f.bindings.find((b) => b.name === "b")!.initializer, f).value,
   ).not.toBe("Standard");
 });
+it("does not attach a dot-style native clone to the wrong receiver", async () => {
+  const c = await gameplayCase({
+    ChickenController:
+      'local storage=game:GetService("ServerStorage");local a=storage.Egg;local b=storage.ChickenItem;local copy=a.Clone(b)',
+  });
+  const r = new ModuleResolver(c.snapshot, c.facts),
+    f = c.facts[0];
+  expect(
+    r.anchorIds(
+      r.get(f.bindings.find((b) => b.name === "copy")!.initializer, f),
+    ),
+  ).not.toContain("egg");
+});
+it("does not bind Workspace descendant callbacks to objects inside ServerStorage", async () => {
+  const c = await gameplayCase({
+    EggPickup:
+      "workspace.DescendantAdded:Connect(function(descendant) local obj=descendant end)",
+  });
+  const r = new ModuleResolver(c.snapshot, c.facts),
+    f = c.facts[0],
+    binding = f.bindings.find((b) => b.name === "obj")!;
+  expect(r.anchorIds(r.get(binding.initializer, f))).not.toContain("egg");
+});

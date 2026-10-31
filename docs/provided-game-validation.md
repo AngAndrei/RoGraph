@@ -1,5 +1,21 @@
 # Provided-game validation
 
+## Gameplay update (0.2.0)
+
+The same unchanged inputs were reanalyzed with resolver version 6 on 2026-10-31. These are raw site counts with the same denominators; recognized platform operations and conditional targets are reported separately. Lower unresolved counts do not establish runtime completeness.
+
+| Game           | Code sites | Resolved | Conditional candidates | Unresolved (0.1 → 0.2) | Gameplay relations | Visible object/file nodes | Observed analysis |
+| -------------- | ---------: | -------: | ---------------------: | ---------------------: | -----------------: | ------------------------: | ----------------: |
+| Big Brain      |      1,550 |      743 |                    159 |            1,052 → 648 |                172 |                        95 |             6.3 s |
+| Egg High       |      4,136 |    2,036 |                    522 |          3,119 → 1,578 |                224 |                        91 |             6.2 s |
+| Grow a Chicken |      1,666 |      820 |                    241 |            1,246 → 605 |                365 |                        69 |             4.1 s |
+
+Every game passed gameplay overview/context checks and retained only concrete object/file nodes in that view. Grow a Chicken also passed a model → controller → clone-template gameplay trace with source evidence. Inspection confirmed pickup/prompt/tool and Home-button/remote connections. The other two inputs did not supply that particular sampled owned-model/clone pattern; their gameplay trace check is reported as not sampled, not a passing runtime claim. Raw-input retention, unchanged original hashes, Code queries/source/context, and database reopening passed for all three.
+
+All imports retain the earlier partial-import limitations below. Remaining cases include dynamic callable targets, unbound callbacks, missing saved engine services, reassigned aliases, unsupported iterators and computed keys. Local-model categorization and Studio capture remain future work. Timings were observed on the development computer; they are not guarantees or directly controlled comparisons with the earlier runs.
+
+## Original preview baseline
+
 Three locally supplied games were tested on 2026-10-31. Their place files, script source, snapshots, and detailed reports are excluded from this repository. These results validate the listed saved-file workflows, with the coverage limits below.
 
 | Game           | Format   | Saved objects | Scripts parsed | Resolved / unresolved code sites | Import status                                                  |

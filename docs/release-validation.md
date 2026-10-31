@@ -1,4 +1,12 @@
-# RoGraph 0.1.0 validation
+# RoGraph validation
+
+## 0.2.0 gameplay update
+
+Application checks: 121/121 unit/integration/component tests; typecheck/build; five Edge browser workflows including the authored Chicken/Egg gameplay fixture, cross-view selection, Code source/context, XML/binary imports and snapshot pinning. Final portable checks are repeated after packaging. Three private inputs were reanalyzed with gameplay overview/context and unchanged-input/reopen checks; see [provided-game-validation.md](provided-game-validation.md).
+
+The update keeps one canonical graph with Gameplay/Code projections. Visible gameplay endpoints must be concrete saved or source-defined objects and retain real names. Template-copy identity and player role paths stay in relationship metadata. Regression checks cover config alternatives, nil versus unknown, library shadowing/mutation, callback/guard growth, native class/receiver safety, actual model-to-template paths, and remote direction compatibility. No model weights or Studio plugin are installed.
+
+## 0.1.0 baseline
 
 Status: **Windows x64 preview validated with synthetic fixtures and three supplied games**. See [provided-game-validation.md](provided-game-validation.md) for the partial-import and parsing limits in those games. A separate clean Windows computer was not available. Saved-file static analysis is the first release; runtime Studio capture is deferred.
 

@@ -24,12 +24,17 @@ const members: Record<string, Set<string>> = Object.fromEntries(
       "create fromstring tostring len readi8 readu8 readi16 readu16 readi32 readu32 readf32 readf64 writei8 writeu8 writei16 writeu16 writei32 writeu32 writef32 writef64 readstring writestring copy fill",
   }).map(([name, list]) => [name, new Set(list.split(" "))]),
 );
+const bindingsByFacts = new WeakMap<
+  Facts,
+  Map<string, Facts["bindings"][number]>
+>();
+const overwrittenByFacts = new WeakMap<Facts, Set<string>>();
 function path(e: Expr | undefined, f: Facts, depth = 0): string | undefined {
   if (!e || depth > 16) return;
   if (e.kind === "global") return String(e.name);
   if (e.kind === "binding")
     return path(
-      f.bindings.find((b) => b.id === e.bindingId)?.initializer,
+      bindingsByFacts.get(f)?.get(String(e.bindingId))?.initializer,
       f,
       depth + 1,
     );
@@ -44,13 +49,17 @@ export function platformMember(
   f: Facts,
 ): string | undefined {
   const name = root.split(".")[0];
-  if (
-    ((f.members as any[]) ?? []).some((m) => {
-      const target = path(m.target, f);
-      return target === name || target?.startsWith(name + ".");
-    })
-  )
-    return;
+  let overwritten = overwrittenByFacts.get(f);
+  if (!overwritten) {
+    bindingsByFacts.set(f, new Map(f.bindings.map((b) => [b.id, b])));
+    overwritten = new Set<string>();
+    for (const m of (f.members as any[]) ?? []) {
+      const target = path(m.target.base, f);
+      if (target) overwritten.add(target.split(".")[0]);
+    }
+    overwrittenByFacts.set(f, overwritten);
+  }
+  if (overwritten.has(name)) return;
   return name === "Enum" || members[root]?.has(String(key))
     ? root + "." + key
     : undefined;

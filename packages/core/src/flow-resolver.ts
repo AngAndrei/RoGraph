@@ -21,6 +21,7 @@ const methods = new Set([
   "FindFirstAncestorOfClass",
   "GetChildren",
   "GetDescendants",
+  "GetPlayers",
   "GetPlayerFromCharacter",
   "SetAttribute",
   "GetAttribute",
@@ -42,6 +43,12 @@ const events = new Set([
 ]);
 export class FlowResolver extends ModuleResolver {
   readonly created = new Map<string, Instance>();
+  private readonly lexicalTargets = new Map<string, string | undefined>();
+  private callerIndex?: Map<
+    string,
+    { owner: Facts; expression: Expr; direct: boolean; callback: boolean }[]
+  >;
+  private allocationParents?: { parent: string; value: Value }[];
   readonly alternatives = alternatives;
   readonly anchorIds = anchorIds;
   override get(e: Expr | undefined, f: Facts, seen = new Set<string>()): Value {
@@ -93,8 +100,9 @@ export class FlowResolver extends ModuleResolver {
         return this.refine(
           this.parameter(b.id, f, new Set([...seen, b.id])),
           e,
+          f,
         );
-      if (b?.initializer) return this.refine(super.get(e, f, seen), e);
+      if (b?.initializer) return this.refine(super.get(e, f, seen), e, f);
     }
     if (e.kind === "iteration") {
       const collection = this.get(e.iterable as Expr, f, seen);
@@ -214,6 +222,8 @@ export class FlowResolver extends ModuleResolver {
   ): Value {
     if (c.kind !== "native" && c.kind !== "signal-connect")
       return unknown("DYNAMIC_CALL_RESULT");
+    if (c.kind === "native" && !e.colon)
+      return unknown("DOT_STYLE_NATIVE_CALL");
     const base = c.receiverValue ?? { kind: "instance", id: c.receiver },
       id = anchorIds(base)[0],
       object = this.objects.get(id ?? base.id);
@@ -234,26 +244,19 @@ export class FlowResolver extends ModuleResolver {
       };
     }
     if (["GetChildren", "GetDescendants"].includes(c.method)) {
-      let list = [...this.objects.values()].filter((o) => o.parentId === id),
-        all = [...list];
-      if (c.method === "GetDescendants") {
-        const visited = new Set([id]);
-        while (list.length && all.length < 4096) {
-          const parents = new Set(list.map((o) => o.id));
-          list = [...this.objects.values()].filter(
-            (o) => o.parentId && parents.has(o.parentId) && !visited.has(o.id),
-          );
-          list.forEach((o) => visited.add(o.id));
-          all.push(...list);
-        }
-      }
       return {
         kind: "collection",
-        values: all.slice(0, 32).map((o) => ({ kind: "instance", id: o.id })),
-        open: all.length > 32,
+        values: this.objectSet(id, c.method === "GetDescendants"),
+        open: true,
       };
     }
     if (c.method === "GetPlayerFromCharacter") return this.playerRole("Player");
+    if (c.method === "GetPlayers")
+      return {
+        kind: "collection",
+        values: [this.playerRole("Player")],
+        open: true,
+      };
     if (
       [
         "FindFirstChild",
@@ -331,15 +334,26 @@ export class FlowResolver extends ModuleResolver {
       ? {
           kind: "runtime",
           id: players.id,
-          className: path === "Player" ? "Player" : "Instance",
+          className:
+            path === "Player" || path === "LocalPlayer" ? "Player" : "Instance",
           rolePath: path,
           open: true,
         }
       : unknown("PLAYER_SERVICE_NOT_SAVED");
   }
-  private refine(value: Value, e: Expr): Value {
+  private refine(value: Value, e: Expr, f: Facts): Value {
     const names: string[] = [];
     const inspect = (g: Expr) => {
+      if (g.kind === "guard") {
+        if (g.negated) return;
+        const condition = (f.control as any[]).find(
+          (c) =>
+            c.condition?.span.startByte === g.span.startByte &&
+            c.condition?.span.endByte === g.span.endByte,
+        )?.condition;
+        if (condition) inspect(condition);
+        return;
+      }
       if (g?.kind !== "binary") return;
       if (["And", "and"].includes(String(g.op))) {
         inspect(g.left as Expr);
@@ -377,50 +391,187 @@ export class FlowResolver extends ModuleResolver {
     if (!symbol) return unknown("UNBOUND_PARAMETER");
     const index = (symbol.parameterIds as string[]).indexOf(id),
       values: Value[] = [];
-    for (const owner of this.facts)
-      for (const site of owner.sites.filter((s) => s.kind === "call")) {
-        const e = site.expression,
-          callee = this.get(e.callee as Expr, owner, seen),
-          args = e.args as Expr[];
-        if (callee.kind === "function" && callee.id === symbol.id) {
-          if (args[index]) values.push(this.get(args[index], owner, seen));
-        }
-        const callback = args.find(
-          (a) => a.kind === "function" && a.symbolId === symbol.id,
-        );
-        if (callback && callee.kind === "signal-connect") {
-          const signal = callee.signal;
-          if (
-            [
-              "Triggered",
-              "MouseClick",
-              "PlayerAdded",
-              "OnServerEvent",
-            ].includes(signal.signal) &&
-            index === 0
-          )
-            values.push(this.playerRole("Player"));
-          if (
-            ["DescendantAdded", "ChildAdded"].includes(signal.signal) &&
-            index === 0
-          ) {
-            const object = this.objects.get(signal.id);
-            if (object)
-              values.push(
-                ...[...this.objects.values()]
-                  .filter((o) =>
-                    signal.signal === "ChildAdded"
-                      ? o.parentId === object.id
-                      : o.id !== object.id,
-                  )
-                  .map((o) => ({ kind: "instance", id: o.id })),
-              );
-          }
+    let contexts = 0,
+      exhausted = false;
+    for (const { owner, expression: e, direct, callback } of this.callersFor(
+      symbol.id,
+    )) {
+      if (++contexts > 4) {
+        exhausted = true;
+        break;
+      }
+      const args = e.colon
+        ? [(e.callee as Expr).base as Expr, ...(e.args as Expr[])]
+        : (e.args as Expr[]);
+      if (direct) {
+        if (args[index]) values.push(this.get(args[index], owner, seen));
+      }
+      const callee = callback
+        ? this.get(e.callee as Expr, owner, seen)
+        : undefined;
+      if (callback && callee?.kind === "signal-connect") {
+        const signal = callee.signal;
+        if (
+          ["Triggered", "MouseClick", "PlayerAdded", "OnServerEvent"].includes(
+            signal.signal,
+          ) &&
+          index === 0
+        )
+          values.push(this.playerRole("Player"));
+        if (
+          ["DescendantAdded", "ChildAdded"].includes(signal.signal) &&
+          index === 0
+        ) {
+          const object = this.objects.get(signal.id);
+          if (object)
+            values.push(
+              ...this.objectSet(object.id, signal.signal === "DescendantAdded"),
+            );
         }
       }
+    }
     return values.length
-      ? joinValues(values, values.length > 4)
+      ? joinValues(values, exhausted)
       : unknown("UNBOUND_CALLBACK_PARAMETER");
+  }
+  private callersFor(symbolId: string) {
+    if (!this.callerIndex) {
+      this.callerIndex = new Map();
+      const add = (
+        id: string,
+        record: {
+          owner: Facts;
+          expression: Expr;
+          direct: boolean;
+          callback: boolean;
+        },
+      ) => {
+        const list = this.callerIndex!.get(id) ?? [];
+        list.push(record);
+        this.callerIndex!.set(id, list);
+      };
+      for (const owner of this.facts)
+        for (const site of owner.sites) {
+          if (site.kind !== "call") continue;
+          const e = site.expression,
+            direct = this.lexicalFunction(e.callee as Expr, owner);
+          if (direct)
+            add(direct, {
+              owner,
+              expression: e,
+              direct: true,
+              callback: false,
+            });
+          for (const id of new Set(
+            (e.args as Expr[])
+              .map((a) => this.lexicalFunction(a, owner))
+              .filter((id): id is string => !!id),
+          ))
+            add(id, { owner, expression: e, direct: false, callback: true });
+        }
+    }
+    return this.callerIndex.get(symbolId) ?? [];
+  }
+  private descendantOf(id: string, root: string): boolean {
+    const seen = new Set<string>();
+    let current = this.objects.get(id);
+    while (current?.parentId && !seen.has(current.id)) {
+      seen.add(current.id);
+      if (current.parentId === root) return true;
+      current = this.objects.get(current.parentId);
+    }
+    return false;
+  }
+  private objectSet(root: string, recursive: boolean): Value[] {
+    if (!this.allocationParents) {
+      this.allocationParents = [];
+      for (const f of this.facts)
+        for (const member of f.members as any[]) {
+          if (member.target?.key?.value !== "Parent") continue;
+          const parents = anchorIds(this.get(member.value, f));
+          if (!parents.length) continue;
+          for (const value of alternatives(this.get(member.target.base, f)))
+            if (value.kind === "allocation")
+              for (const parent of parents)
+                this.allocationParents.push({
+                  parent,
+                  value: { ...value, open: true },
+                });
+        }
+    }
+    return [
+      ...[...this.objects.values()]
+        .filter((o) =>
+          recursive ? this.descendantOf(o.id, root) : o.parentId === root,
+        )
+        .map((o) => ({ kind: "instance", id: o.id })),
+      ...this.allocationParents
+        .filter(
+          (a) =>
+            a.parent === root ||
+            (recursive && this.descendantOf(a.parent, root)),
+        )
+        .map((a) => a.value),
+    ];
+  }
+  private lexicalFunction(
+    e: Expr | undefined,
+    f: Facts,
+    seen = new Set<string>(),
+  ): string | undefined {
+    if (!e || seen.size > 16) return;
+    if (e.kind === "function") return String(e.symbolId);
+    const key = f.scriptId + ":" + e.span.startByte + ":" + e.span.endByte;
+    if (this.lexicalTargets.has(key)) return this.lexicalTargets.get(key);
+    if (e.kind === "binding") {
+      const b = this.bindings.get(String(e.bindingId));
+      if (!b || b.assignments.length || seen.has(b.id)) {
+        this.lexicalTargets.set(key, undefined);
+        return;
+      }
+      const target = this.lexicalFunction(
+        b.initializer,
+        f,
+        new Set([...seen, b.id]),
+      );
+      this.lexicalTargets.set(key, target);
+      return target;
+    }
+    // Only a closed lexical/table expression can identify a function without
+    // recursively demanding the parameters of unrelated callback receivers.
+    const closed = (
+      x: Expr | undefined,
+      visited = new Set<string>(),
+    ): boolean => {
+      if (!x || visited.size > 16) return false;
+      if (x.kind === "binding") {
+        const b = this.bindings.get(String(x.bindingId));
+        return (
+          !!b &&
+          !b.assignments.length &&
+          !visited.has(b.id) &&
+          closed(b.initializer, new Set([...visited, b.id]))
+        );
+      }
+      if (x.kind === "index")
+        return (
+          closed(x.base as Expr, visited) && (x.key as Expr)?.kind === "literal"
+        );
+      if (x.kind === "call")
+        return (
+          closed(x.callee as Expr, visited) &&
+          (x.args as Expr[]).every((a) => a.kind === "literal")
+        );
+      return ["global", "function", "table", "literal"].includes(x.kind);
+    };
+    if (!closed(e)) {
+      this.lexicalTargets.set(key, undefined);
+      return;
+    }
+    const value = super.get(e, f);
+    const target = value.kind === "function" ? value.id : undefined;
+    this.lexicalTargets.set(key, target);
+    return target;
   }
   override member(
     base: Value,
@@ -446,12 +597,28 @@ export class FlowResolver extends ModuleResolver {
         : result;
     }
     if (base.kind === "runtime") {
-      if(methods.has(String(key)))return {kind:'native',method:key,receiver:base.id,receiverValue:base};
+      if (
+        methods.has(String(key)) &&
+        apiMember(base.className, String(key)) === "Function"
+      )
+        return {
+          kind: "native",
+          method: key,
+          receiver: base.id,
+          receiverValue: base,
+        };
       if (key === "Parent") return unknown("RUNTIME_PARENT_UNAVAILABLE");
       return {
         ...base,
         rolePath: base.rolePath + "." + key,
-        className: key === "Character" ? "Model" : "Instance",
+        className:
+          key === "Character"
+            ? "Model"
+            : key === "Backpack"
+              ? "Backpack"
+              : key === "PlayerGui"
+                ? "PlayerGui"
+                : "Instance",
       };
     }
     if (base.kind === "instance") {
@@ -459,7 +626,10 @@ export class FlowResolver extends ModuleResolver {
       if (!object) return unknown("OBJECT_NOT_AVAILABLE");
       if (object.className === "Players" && key === "LocalPlayer")
         return this.playerRole("LocalPlayer");
-      if (events.has(String(key)))
+      if (
+        events.has(String(key)) &&
+        apiMember(object.className, String(key)) === "Event"
+      )
         return {
           kind: "signal",
           id: base.id,
@@ -467,8 +637,11 @@ export class FlowResolver extends ModuleResolver {
           className: object.className,
         };
       if (
-        methods.has(String(key)) ||
-        ["FindFirstChild", "WaitForChild", "GetService"].includes(String(key))
+        (methods.has(String(key)) ||
+          ["FindFirstChild", "WaitForChild", "GetService"].includes(
+            String(key),
+          )) &&
+        apiMember(object.className, String(key)) === "Function"
       )
         return {
           kind: "native",

@@ -3,6 +3,7 @@ import { gameplayCase } from "./support.js";
 import { Resolver } from "../../packages/core/src/resolver.js";
 import { resolveCalls } from "../../packages/core/src/resolve-calls.js";
 import { resolveInstances } from "../../packages/core/src/resolve-instances.js";
+import { platformMember } from "../../packages/core/src/semantics/luau.js";
 it("recognizes platform calls without inventing missing project packages", async () => {
   const c = await gameplayCase({
     ChickenController:
@@ -21,6 +22,52 @@ it("recognizes platform calls without inventing missing project packages", async
   expect(
     r.nodes.some((n) => n.kind === "unresolved" || n.label.includes("math")),
   ).toBe(false);
+});
+it("indexes library mutation checks once per immutable analysis rather than once per call", async () => {
+  const c = await gameplayCase({
+    ChickenController: Array.from(
+      { length: 100 },
+      (_, i) => `object.field${i}=1`,
+    ).join("\n"),
+  });
+  const f = c.facts[0];
+  let accesses = 0;
+  for (const member of f.members as any[]) {
+    const target = member.target;
+    Object.defineProperty(member, "target", {
+      get() {
+        accesses++;
+        return target;
+      },
+    });
+  }
+  for (let i = 0; i < 30; i++)
+    expect(platformMember("math", "random", f)).toBe("math.random");
+  expect(accesses).toBeLessThanOrEqual(200);
+});
+it("does not infer a native signal or effect merely from a reserved name on the wrong class", async () => {
+  const c = await gameplayCase({
+    ChickenController:
+      "script.Parent.MouseButton1Click:Connect(function()end);script.Parent:ScaleTo(2)",
+  });
+  const { FlowResolver } = await import(
+    "../../packages/core/src/flow-resolver.js"
+  );
+  const r = new FlowResolver(c.snapshot, c.facts),
+    f = c.facts[0];
+  expect(
+    r.get(
+      f.sites.find(
+        (s) =>
+          s.kind === "call" &&
+          (s.expression.callee as any)?.key?.value === "Connect",
+      )!.expression.callee as any,
+      f,
+    ).kind,
+  ).not.toBe("signal-connect");
+  expect(
+    r.member({ kind: "instance", id: "server" }, "ScaleTo", f, new Set()).kind,
+  ).not.toBe("native");
 });
 it("preserves Luau fallback truthiness and the saved Workspace identity", async () => {
   const c = await gameplayCase({

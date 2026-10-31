@@ -9,21 +9,11 @@ export const gameplayRelationSchema = z.object({
   allocationId: z.string().optional(),
   templateId: z.string().optional(),
   rolePath: z.string().optional(),
+  destinationId: z.string().optional(),
+  destinationRole: z.string().optional(),
   configPaths: z.array(z.string()).optional(),
   rule: z.string(),
   version: z.literal("1"),
 });
 export type GameplayRelation = z.infer<typeof gameplayRelationSchema>;
-export const gameplayTypes = [
-  "TRIGGERS",
-  "CAN_INTERACT",
-  "READS_CONFIG",
-  "CONFIGURED_BY",
-  "SPAWNS",
-  "DESTROYS",
-  "TRANSFORMS",
-  "TRANSFERS",
-  "REPARENTS",
-  "LOCATED_USING",
-  "HAS_BEHAVIOR",
-] as const;
+export { gameplayTypes } from "./relation-names.js";
