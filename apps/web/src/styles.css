@@ -1586,3 +1586,11 @@ small {
 .trace-controls label {
   display: block;
 }
+.relation-card .config-source {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+  font: inherit;
+  margin-top: 6px;
+}

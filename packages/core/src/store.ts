@@ -16,6 +16,8 @@ import type {
 } from "../../contracts/src/query.js";
 import { indexSource } from "./source-index.js";
 import { RoGraphError } from "./util.js";
+import { migrateDatabase } from "./migrations.js";
+import { gameplayTypes } from "../../contracts/src/gameplay.js";
 export type StoreSelection = {
   analysisId: string;
   limit: number;
@@ -23,6 +25,7 @@ export type StoreSelection = {
   classes?: string[];
   statuses?: string[];
   contexts?: string[];
+  view?: "code" | "gameplay";
 } & (
   | { op: "nodes"; ids: string[] }
   | { op: "members"; ownerIds: string[] }
@@ -34,6 +37,7 @@ export type StoreSelection = {
     }
   | { op: "search"; text: string }
   | { op: "sites"; ownerIds: string[] }
+  | { op: "sitesByIds"; ids: string[] }
   | { op: "evidence"; relationIds: string[] }
   | {
       op: "sources";
@@ -69,14 +73,18 @@ export async function openStore(path: string): Promise<GraphStore> {
   await mkdir(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   const version = (db.prepare("PRAGMA user_version").get() as any).user_version;
-  if (version !== 0 && version !== 1) {
+  if (version !== 0 && version !== 1 && version !== 2) {
     db.close();
     throw new RoGraphError(
       "SCHEMA_VERSION",
       "Workspace uses an unsupported storage version",
     );
   }
-  db.exec(await readFile(new URL("./schema.sql", import.meta.url), "utf8"));
+  migrateDatabase(
+    db,
+    await readFile(new URL("./schema.sql", import.meta.url), "utf8"),
+    version,
+  );
   const all = (sql: string, ...args: SQLInputValue[]) =>
     db.prepare(sql).all(...args) as any[];
   const header = (id: string) => {
@@ -102,6 +110,7 @@ export async function openStore(path: string): Promise<GraphStore> {
     return {
       analysisId: id,
       ...h,
+      capabilities: { code: true, gameplay: !!h.versions?.gameplay },
       nodes: [],
       relations: [],
       evidence: [],
@@ -489,6 +498,10 @@ export async function openStore(path: string): Promise<GraphStore> {
           key = "sites";
           ids("sites", "owner", q.ownerIds);
           break;
+        case "sitesByIds":
+          key = "sites";
+          ids("sites", "id", q.ids);
+          break;
         case "sources":
           key = "sources";
           ids("sources", "id", q.ids);
@@ -499,10 +512,22 @@ export async function openStore(path: string): Promise<GraphStore> {
           args = [q.analysisId, q.parentId];
           break;
         case "overview":
-          sql = q.includeInstances
-            ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
-            : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
-          args = [q.analysisId];
+          sql =
+            q.view === "gameplay" && !q.includeInstances
+              ? `SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND id IN (SELECT source FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])}) UNION SELECT target FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])})) ORDER BY id`
+              : q.includeInstances
+                ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
+                : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
+          args =
+            q.view === "gameplay" && !q.includeInstances
+              ? [
+                  q.analysisId,
+                  q.analysisId,
+                  ...gameplayTypes,
+                  q.analysisId,
+                  ...gameplayTypes,
+                ]
+              : [q.analysisId];
           break;
         case "search": {
           const tokens = q.text.slice(0, 256).match(/[\p{L}\p{N}_]+/gu);

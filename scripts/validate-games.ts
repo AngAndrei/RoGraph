@@ -24,12 +24,55 @@ for (const name of inputs) {
   await mkdir(workspace, { recursive: true });
   let store = await openWorkerStore(join(workspace, "graph.db"));
   const started = performance.now();
+  let previousStage = "";
   try {
     const graph = await analyze({ kind: "place", path }, store, undefined, {
       cacheDir: join(workspace, "cache"),
       excludedRoots: [workspace],
+      onProgress: (p) => {
+        if (p.stage !== previousStage) {
+          process.stderr.write(name + ": " + p.stage + "\n");
+          previousStage = p.stage;
+        }
+      },
     });
     const milliseconds = performance.now() - started;
+    const semantic = graph.relations.filter((r) => r.gameplay);
+    const gameplay = await store.query({
+      op: "overview",
+      analysisId: graph.analysisId,
+      view: "gameplay",
+      limit: 300,
+    });
+    if (gameplay.nodes.some((n) => n.kind !== "instance"))
+      throw Error("ABSTRACT_GAMEPLAY_NODE");
+    let gameplayTraceChecked = false;
+    const behavior = semantic.find(
+      (r) =>
+        r.type === "HAS_BEHAVIOR" &&
+        semantic.some((s) => s.type === "SPAWNS" && s.source === r.target),
+    );
+    if (behavior) {
+      const spawn = semantic.find(
+        (r) => r.type === "SPAWNS" && r.source === behavior.target,
+      )!;
+      const traced = await store.query({
+        op: "trace",
+        view: "gameplay",
+        analysisId: graph.analysisId,
+        fromId: behavior.source,
+        toId: spawn.target,
+        depth: 6,
+        limit: 300,
+      });
+      if (!traced.paths.length) throw Error("GAMEPLAY_MODEL_FLOW_MISSING");
+      gameplayTraceChecked = true;
+    }
+    const gameplayPack = createContext(gameplay, {
+      estimatedTokenBudget: 4000,
+    });
+    if (gameplayPack.utf8Bytes > 32000)
+      throw Error("GAMEPLAY_CONTEXT_OVER_BUDGET");
     const searchable =
       graph.nodes.find((n) => n.kind === "function") ??
       graph.nodes.find((n) => n.kind === "instance" && n.attributes.sourceId);
@@ -148,6 +191,33 @@ for (const name of inputs) {
       nodes: graph.nodes.length,
       relations: graph.relations.length,
       evidence: graph.evidence.length,
+      gameplay: {
+        relations: semantic.length,
+        types: Object.fromEntries(
+          [...new Set(semantic.map((r) => r.type))].map((type) => [
+            type,
+            semantic.filter((r) => r.type === type).length,
+          ]),
+        ),
+        visibleNodes: gameplay.nodes.length,
+        visibleEdges: gameplay.projection?.edges.length ?? 0,
+        traceChecked: gameplayTraceChecked,
+        contextChecked: true,
+      },
+      unresolvedReasons: Object.fromEntries(
+        [
+          ...new Set(
+            graph.sites
+              .filter((s) => s.status === "unresolved")
+              .map((s) => s.reason ?? "unknown"),
+          ),
+        ].map((reason) => [
+          reason,
+          graph.sites.filter(
+            (s) => s.status === "unresolved" && s.reason === reason,
+          ).length,
+        ]),
+      ),
       diagnosticCounts,
       checks: {
         searched,

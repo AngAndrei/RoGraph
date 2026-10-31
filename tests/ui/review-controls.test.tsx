@@ -99,6 +99,7 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
     screen.getByLabelText("Evidence status"),
     "resolved",
   );
+  await user.click(screen.getByRole("button", { name: "Code" }));
   await user.selectOptions(screen.getByLabelText("Relationship type"), "CALLS");
   await user.click(screen.getByRole("button", { name: "Overview" }));
   const filters = {

@@ -1,5 +1,31 @@
 # Final review and execution decisions
 
+## Gameplay update (0.2.0)
+
+The Native implementation received one independent whole-branch review at `bb1696f`. It reported seven Important findings and one Minor. The cross-view inspection issue was regraded Important because it blocked the promised implementation drilldown. All eight were addressed in one regression-driven fix pass; no second review was dispatched.
+
+- Copies retain allocation identity through child lookups, enumeration and alternative-selected writes; graph labels still name the actual template/child.
+- Forward traces and reverse impact follow the selected handler, explicit calls and scheduled continuations. Unrelated callbacks and unused functions in the same file do not create causal paths. Handler reachability is capped at 256 owners with omission disclosure.
+- Recognized but unsupported engine behavior has an explicit diagnostic and noncausal object-use relationship; API recognition alone is not complete effect modeling.
+- Query retrieval follows support-site IDs rather than only displayed owners. Config fields retain row-specific paths, defining source and exact spans. Context budgets disclose missing support and definition excerpts.
+- A saved non-Archivable template does not receive a claimed clone-spawn relationship.
+- Named `Instance.new` objects retain their source creation and supplied parent, and appear under their actual names.
+- Remote/bindable handlers receive bounded known payloads with channel, direction, context and player/recipient offsets preserved; unknown runtime values remain open alternatives.
+- Switching to Code clears stale Gameplay edge focus. The inspector exposes handler names and direct config-definition source buttons.
+
+Regression evidence is in `tests/gameplay/final-review.test.ts`, `tests/ui/gameplay.test.tsx` and the Gameplay browser workflow. The full release results are in [release-validation.md](release-validation.md).
+
+Rulings made for this implementation, in order:
+
+1. Honor the user's concrete-node amendment: keep actions and copies in connection metadata, using real object/file names as visible endpoints. Cost if wrong: detailed edges are less compact than abstract action nodes.
+2. Use the existing dedicated feature checkout rather than another filesystem worktree, retaining installed tools and private testing paths. Cost if wrong: isolation is by branch rather than a second directory.
+3. Regrade and fix the stale edge filter as Important. Cost if wrong: switching views loses an edge focus that cannot apply in the destination view.
+4. Keep local weights and Studio capture as future extensions, and avoid runtime certainty for randomness, counts and arbitrary execution. Cost: those dynamic cases still need observation or later assistance; saved-file analysis remains incomplete.
+
+No new Minor findings were deferred in the gameplay review. The earlier preview's deferred minors remain listed below. The single pre-final-fix performance sample missed targets and is disclosed in [performance.md](performance.md).
+
+## Original preview (0.1.0)
+
 One independent, fresh-context whole-branch review identified 15 Important findings. All were corrected in one regression-driven pass; a shutdown regression found during browser verification was also fixed. The full suite passed 96 tests and all four Edge/WebGL workflows passed. The review was not repeated after the fixes; regression evidence provides their verification.
 
 Corrections cover serialized-property retention, alternative module returns, aliased/cross-module writes, API-member shadowing, dot-style native calls, binary source provenance, omitted expression sites, callback syntax, failed-trace uncertainty, diagnostics/locations/pagination, stale IDs, persistent viewer filters, snapshot-wide endpoint selection, grouping/controls, and complete Rojo component inventory.

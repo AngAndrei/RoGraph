@@ -28,6 +28,12 @@ test("imports a saved place and exposes coverage and script members", async ({
     .click();
   await expect(
     page.getByRole("heading", { name: "Functions", exact: true }),
+  ).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Show implementation", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Functions", exact: true }),
   ).toBeVisible();
   await expect(
     page

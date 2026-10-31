@@ -1,5 +1,13 @@
 # Measured performance
 
+## Gameplay preview (0.2.0)
+
+One development-machine run on 2026-10-31 used the same 50,000-object, 1,000-script, 100,000-line synthetic input as the baseline below. It measured 91.3 seconds cold analysis, 0.97 ms warm Code search, 633 ms Code impact, 620 ms Code overview, 2.29 seconds first browser overview, and 2.14 GiB sampled aggregate working set. Cold-import, warm-query and memory targets were missed. These are observations from one run before the final correctness fixes, not repeated final-build measurements or a Gameplay performance guarantee. See [performance-gameplay-results.json](performance-gameplay-results.json) for the input, tool hashes and samples.
+
+The final correctness checks and private-game timings are recorded separately in [release-validation.md](release-validation.md) and [provided-game-validation.md](provided-game-validation.md). Larger games can take over a minute and require several GiB of memory. The sampling limits below still apply.
+
+## Original preview baseline (0.1.0)
+
 RoGraph 0.1 has synthetic-fixture and provided-game validation. This benchmark is a synthetic workload, not a promise about every game with the same object count.
 
 The final 2026-10-31 Windows run used an Intel i7-1165G7 (8 logical processors), about 16 GB RAM, Node 24.19.0, 50,000 saved Instances, 1,000 unique script texts, 100,000 source lines, and 100,899 source relationship occurrences. Geometry has minimal saved properties. The scripts repeatedly read a shared configuration; this does not represent 100,000 unique call edges or large mesh/binary properties.

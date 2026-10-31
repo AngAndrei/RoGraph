@@ -4,7 +4,7 @@ import type {
   Resolution,
   Expr,
 } from "../../contracts/src/model.js";
-import { ModuleResolver } from "./module-values.js";
+import { FlowResolver as ModuleResolver } from "./flow-resolver.js";
 import { emptyResolution, mark, emit, addNode } from "./resolution.js";
 import { resolveContexts } from "./execution-context.js";
 export function resolveCalls(
@@ -59,7 +59,18 @@ export function resolveCalls(
         callee = resolver.callable(
           resolver.get(site.expression.callee as Expr, f),
         );
-      if (callee.kind === "function") {
+      if (callee.kind === "intrinsic") {
+        result.sites.push({
+          ...site,
+          status: "resolved",
+          reason: undefined,
+          targetIds: [],
+          assumptions: [
+            ...site.assumptions,
+            `Recognized platform operation: ${callee.path}; not a project dependency.`,
+          ],
+        });
+      } else if (callee.kind === "function") {
         const s = mark(result, site, callee);
         if (site.expression.colon)
           s.assumptions.push(

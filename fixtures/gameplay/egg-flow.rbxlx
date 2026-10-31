@@ -1,0 +1,30 @@
+<roblox version="4">
+<Item class="Workspace" referent="workspace"><Properties><string name="Name">Workspace</string></Properties>
+<Item class="Model" referent="chicken"><Properties><string name="Name">Chicken</string></Properties>
+<Item class="Part" referent="rootPart"><Properties><string name="Name">HumanoidRootPart</string></Properties></Item>
+<Item class="Script" referent="controller"><Properties><string name="Name">ChickenController</string><ProtectedString name="Source"><![CDATA[local chicken = script.Parent
+local ChickenConfig = require(game:GetService("ReplicatedStorage").ChickenConfig)
+local ServerStorage = game:GetService("ServerStorage")
+task.spawn(function()
+    while true do
+        local chickenType = chicken:GetAttribute("ChickenType") or "Standard"
+        local config = ChickenConfig[chickenType] or ChickenConfig.Standard
+        task.wait(math.random(config.EggSpawnIntervalMin, config.EggSpawnIntervalMax))
+        local rootPart = chicken:FindFirstChild("HumanoidRootPart")
+        if not rootPart then continue end
+        local eggTemplate = ServerStorage:FindFirstChild(config.EggTemplateName)
+        if not eggTemplate then continue end
+        local newEgg = eggTemplate:Clone()
+        if newEgg:IsA("Model") then
+            newEgg:PivotTo(CFrame.new(rootPart.Position))
+            newEgg:ScaleTo(config.EggScaleFactorMin)
+        end
+        newEgg.Parent = workspace
+    end
+end)
+]]></ProtectedString></Properties></Item>
+</Item></Item>
+<Item class="ServerStorage" referent="server"><Properties><string name="Name">ServerStorage</string></Properties><Item class="Model" referent="egg"><Properties><string name="Name">Egg</string></Properties><Item class="Part" referent="eggPart"><Properties><string name="Name">EggPart</string></Properties></Item></Item></Item>
+<Item class="ReplicatedStorage" referent="replicated"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="ModuleScript" referent="config"><Properties><string name="Name">ChickenConfig</string><ProtectedString name="Source"><![CDATA[return {Standard={EggTemplateName="Egg",EggSpawnIntervalMin=1,EggSpawnIntervalMax=3,EggScaleFactorMin=1}}
+]]></ProtectedString></Properties></Item></Item>
+</roblox>

@@ -22,11 +22,36 @@ export function projectGraph(
   details: boolean,
   groupId = "all",
 ) {
+  if (result.projection?.view === "gameplay") {
+    const available = new Set(result.projection.nodeIds);
+    const groups = result.groups
+      .map((g) => ({
+        ...g,
+        nodeIds: g.nodeIds.filter((id) => available.has(id)),
+      }))
+      .filter((g) => g.nodeIds.length);
+    const chosen =
+      groupId === "all" ? undefined : groups.find((g) => g.id === groupId);
+    const nodes = result.nodes.filter(
+        (n) =>
+          available.has(n.id) && (!chosen || chosen.nodeIds.includes(n.id)),
+      ),
+      ids = new Set(nodes.map((n) => n.id));
+    const edges = result.projection.edges
+      .filter((e) => ids.has(e.source) && ids.has(e.target))
+      .map((e) => ({
+        ...e,
+        type:
+          result.relations.find((r) => r.id === e.relationIds[0])?.type ??
+          "REFERENCES",
+        originalId: e.id,
+      }));
+    return { nodes, edges, groups };
+  }
   const all = new Map(result.nodes.map((n) => [n.id, n]));
   let visible = result.nodes.filter(
     (n) =>
       details ||
-      n.kind === "unresolved" ||
       (n.kind === "instance" &&
         [...scripts, ...channels].includes(String(n.attributes.className))),
   );
@@ -68,6 +93,7 @@ export function projectGraph(
       source: owner(r.source),
       target: owner(r.target),
       originalId: r.id,
+      label: r.type,
     }))
     .filter((r) => r.source && r.target && r.source !== r.target);
   return { nodes: visible, edges, groups };
@@ -132,7 +158,7 @@ export function GraphView({
     );
     view.edges.forEach((e) =>
       g.addDirectedEdgeWithKey(e.id, e.source!, e.target!, {
-        label: e.type,
+        label: e.label,
         size: 1.5,
         color: ["SENDS_VIA", "HANDLES"].includes(e.type)
           ? "#bea46c"
@@ -171,6 +197,12 @@ export function GraphView({
         },
       });
       renderer.current = sigma;
+      sigma.on("downNode", () => {
+        // Keep the coordinate frame stable when an outer node changes the extent.
+        if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
+      });
+      // Rapid successive node drags must not become a double-click camera zoom.
+      sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
       sigma.on("clickNode", (e) => selectRef.current(e.node));
       sigma.on("clickEdge", (e) =>
         edgeRef.current?.(g.getEdgeAttribute(e.edge, "originalId")),
@@ -179,6 +211,7 @@ export function GraphView({
         type: "module",
       });
       worker.onmessage = (e) => {
+        sigma.setCustomBBox(null);
         for (const p of e.data)
           if (g.hasNode(p.id)) g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
         sigma.refresh();
@@ -235,7 +268,11 @@ export function GraphView({
       />
       <div className="graph-guide">
         <span className="eyebrow">
-          {details ? "METHODS & CONFIGURATION" : "PROJECT CONNECTIONS"}
+          {result.projection?.view === "gameplay"
+            ? "GAMEPLAY CONNECTIONS"
+            : details
+              ? "METHODS & CONFIGURATION"
+              : "CODE CONNECTIONS"}
         </span>
         <p>
           {view.nodes.length} nodes · {view.edges.length} links
@@ -262,9 +299,11 @@ export function GraphView({
         </button>
         <button
           aria-label="Fit graph"
-          onClick={() =>
-            void renderer.current?.getCamera().reset({ duration: 180 })
-          }
+          onClick={() => {
+            renderer.current?.setCustomBBox(null);
+            renderer.current?.refresh();
+            void renderer.current?.getCamera().reset({ duration: 180 });
+          }}
         >
           ⌖
         </button>

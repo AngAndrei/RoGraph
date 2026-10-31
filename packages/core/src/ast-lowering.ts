@@ -33,6 +33,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
     return f;
   const bindings = new Map<string, Binding>(),
     functions = new Map<number, string>();
+  let guards: Expr[] = [];
+  f.control = [];
   const fallback: Span = {
     startByte: 0,
     endByte: 0,
@@ -79,7 +81,7 @@ export function lowerAst(parsed: ParsedSource): Facts {
     if (!v)
       return { kind: "unknown", span: fallback, reason: "MISSING_EXPRESSION" };
     const span = loc(v),
-      base = { span };
+      base = { span, guards: [...guards] };
     switch (v.type) {
       case "AstExprConstantNil":
         return { ...base, kind: "literal", value: null };
@@ -120,6 +122,29 @@ export function lowerAst(parsed: ParsedSource): Facts {
         site("call", e, owner);
         return e;
       }
+      case "AstExprBinary":
+        return {
+          ...base,
+          kind: "binary",
+          op: v.op,
+          left: expr(v.left, owner, scope),
+          right: expr(v.right, owner, scope),
+        };
+      case "AstExprUnary":
+        return {
+          ...base,
+          kind: "unary",
+          op: v.op,
+          value: expr(v.expr, owner, scope),
+        };
+      case "AstExprIfElse":
+        return {
+          ...base,
+          kind: "conditional",
+          condition: expr(v.condition, owner, scope),
+          yes: expr(v.trueExpr, owner, scope),
+          no: expr(v.falseExpr, owner, scope),
+        };
       case "AstExprTable": {
         let listIndex = 0;
         return {
@@ -156,6 +181,10 @@ export function lowerAst(parsed: ParsedSource): Facts {
             .filter(Boolean)
             .map((a: any) => a.name),
           bodyScopeId: childScope,
+          parameterIds: [v.self, ...(v.args ?? [])]
+            .filter(Boolean)
+            .map((a: any) => bid(a)),
+          returns: [] as Expr[],
         };
         f.symbols.push(symbol);
         for (const a of [v.self, ...(v.args ?? [])].filter(Boolean))
@@ -201,6 +230,69 @@ export function lowerAst(parsed: ParsedSource): Facts {
   const stat = (v: any, owner: string, scope: string): void => {
     if (!v) return;
     switch (v.type) {
+      case "AstStatIf": {
+        const condition = expr(v.condition, owner, scope),
+          outer = guards;
+        (f.control as any[]).push({
+          kind: "branch",
+          condition,
+          ownerId: owner,
+          span: loc(v),
+        });
+        guards = [...outer, { kind: "guard", span: condition.span }];
+        stat(v.thenbody, owner, scope);
+        guards = [
+          ...outer,
+          { kind: "guard", negated: true, span: condition.span },
+        ];
+        stat(v.elsebody, owner, scope);
+        guards = outer;
+        break;
+      }
+      case "AstStatWhile":
+      case "AstStatRepeat": {
+        const condition = expr(v.condition, owner, scope),
+          outer = guards;
+        (f.control as any[]).push({
+          kind: "loop",
+          condition,
+          ownerId: owner,
+          span: loc(v),
+        });
+        guards = [...outer, { kind: "guard", span: condition.span }];
+        stat(v.body, owner, scope);
+        guards = outer;
+        break;
+      }
+      case "AstStatForIn": {
+        const values = (v.values ?? []).map((x: any) => expr(x, owner, scope));
+        for (const [index, variable] of (v.vars ?? []).entries()) {
+          const b = binding(variable, scope);
+          if (index > 0)
+            b.initializer = {
+              kind: "iteration",
+              iterable: values[0],
+              span: loc(variable),
+            };
+        }
+        (f.control as any[]).push({
+          kind: "iteration",
+          values,
+          ownerId: owner,
+          span: loc(v),
+        });
+        stat(v.body, owner, scope);
+        break;
+      }
+      case "AstStatContinue":
+      case "AstStatBreak":
+        (f.control as any[]).push({
+          kind: v.type,
+          ownerId: owner,
+          span: loc(v),
+          guards: [...guards],
+        });
+        break;
       case "AstStatBlock": {
         const childScope = `${f.scriptId}:scope:${loc(v).startByte}`;
         f.scopes.push({
@@ -264,6 +356,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
         break;
       case "AstStatReturn": {
         const list = (v.list ?? []).map((x: any) => expr(x, owner, scope));
+        const symbol = f.symbols.find((s) => s.id === owner);
+        if (symbol) (symbol.returns as Expr[]).push(...list);
         if (owner === f.scriptId) {
           f.returnExpr = list[0];
           f.exports.push(

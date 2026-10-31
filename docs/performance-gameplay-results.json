@@ -1,0 +1,240 @@
+{
+  "profile": "release",
+  "runs": 1,
+  "createdAt": "2026-10-31T16:06:41.724Z",
+  "hardware": {
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "logicalProcessors": 8,
+    "ramBytes": 16861409280,
+    "os": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.19.0"
+  },
+  "input": {
+    "objects": 50000,
+    "scripts": 1000,
+    "sourceLines": 100000,
+    "utf8Bytes": 7909812,
+    "sha256": "0857b3193214ebc212ad5b5370128dd53db0a92661b7b3d11a89eba11fb59f4e",
+    "description": "Synthetic place: unique script texts, repeated exact config reads, minimal geometry properties; source never executes."
+  },
+  "cold": [
+    {
+      "durationMs": 91341.5435,
+      "stages": {
+        "import": 0.2575000000001637,
+        "parse": 1888.3756,
+        "resolve": 14672.2884,
+        "persist": 27382.1666,
+        "complete": 91340.7401
+      },
+      "parserMisses": 1000,
+      "parserHits": 0,
+      "nodes": 50002,
+      "relations": 151899,
+      "evidence": 248802,
+      "codeOccurrences": 198801,
+      "coverage": {
+        "importedInstances": 50000,
+        "discoveredScripts": 1000,
+        "parsedScripts": 1000,
+        "discoveredSites": 100899,
+        "resolvedSites": 100899,
+        "candidateSites": 0,
+        "unresolvedSites": 0,
+        "partialImport": false,
+        "limitations": [
+          "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent."
+        ]
+      }
+    }
+  ],
+  "queries": {
+    "searchResult": {
+      "nodes": 10,
+      "evidence": 0,
+      "truncated": false,
+      "omittedCounts": {}
+    },
+    "search": {
+      "medianMs": 0.9745000000111759,
+      "maxMs": 6.129100000005565,
+      "samplesMs": [
+        6.129100000005565, 1.3057000000117114, 0.9426999999996042,
+        0.9745000000111759, 0.9460000000108266, 1.0582999999896856,
+        0.832299999994575
+      ]
+    },
+    "impactResult": {
+      "nodes": 1000,
+      "evidence": 5000,
+      "truncated": true,
+      "omittedCounts": {
+        "adjacencyOrEvidenceAtLeast": 1,
+        "pathsAtLeast": 1,
+        "additionalRecordsAtLeast": 1,
+        "sourceDocuments": 994
+      }
+    },
+    "impact": {
+      "medianMs": 633.3001999999979,
+      "maxMs": 662.8312000000005,
+      "samplesMs": [
+        662.8312000000005, 643.4377999999997, 626.6257000000041,
+        636.5527000000002, 624.3104999999923, 633.3001999999979,
+        632.9581000000035
+      ]
+    },
+    "overviewResult": {
+      "nodes": 127,
+      "evidence": 147,
+      "truncated": true,
+      "omittedCounts": {
+        "additionalRecordsAtLeast": 1,
+        "memberNodesAtLeast": 1,
+        "relations": 153,
+        "sourceDocuments": 121
+      }
+    },
+    "overview": {
+      "medianMs": 619.7687000000005,
+      "maxMs": 684.0876999999891,
+      "samplesMs": [
+        684.0876999999891, 619.7687000000005, 601.9688999999926,
+        620.2811000000074, 620.9082999999955, 588.277900000001,
+        602.3043999999936
+      ]
+    }
+  },
+  "overview": {
+    "firstRenderedMs": 2285.456699999995,
+    "initialQueries": [
+      {
+        "op": "tree",
+        "limit": 100
+      },
+      {
+        "op": "overview",
+        "limit": 300
+      },
+      {
+        "op": "diagnostics",
+        "limit": 100
+      }
+    ],
+    "neighborhoodQueries": [
+      {
+        "op": "inspect",
+        "limit": 300
+      }
+    ]
+  },
+  "memory": {
+    "method": "Sampled sum of process-tree working sets; Node workers share the parent process; sampler excluded",
+    "sampleIntervalMs": 200,
+    "peakAggregateBytes": 2302808064,
+    "samples": 263,
+    "observedProcesses": {
+      "444": {
+        "name": "luau-parser",
+        "peakWorkingSetBytes": 6049792
+      },
+      "6688": {
+        "name": "identity_helper",
+        "peakWorkingSetBytes": 31576064
+      },
+      "12796": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7901184
+      },
+      "16196": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 178446336
+      },
+      "20656": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 150401024
+      },
+      "22056": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 39825408
+      },
+      "23256": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 183984128
+      },
+      "25880": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7897088
+      },
+      "28144": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 24756224
+      },
+      "29052": {
+        "name": "node",
+        "peakWorkingSetBytes": 2412306432
+      },
+      "31084": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 24121344
+      },
+      "32548": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 26525696
+      },
+      "32608": {
+        "name": "rbx-import",
+        "peakWorkingSetBytes": 323985408
+      },
+      "32760": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 50249728
+      },
+      "32952": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 15351808
+      }
+    },
+    "limitation": "Short-lived helper peaks can fall between samples; shared DLL pages may be counted across processes."
+  },
+  "artifacts": {
+    "pins": {
+      "rbx_dom_weak": "4.2.0",
+      "npm": "11.17.0",
+      "node": "24.19.0",
+      "rbx_xml": "3.0.1",
+      "rust": "1.90.0",
+      "rbx_types": "3.1.0",
+      "luauCommit": "a4818b6678822bb726a0eb2299cae751d3017a6a",
+      "schema": 1,
+      "rojo": "7.7.1",
+      "rojoWindowsX64Sha256": "e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3",
+      "nlohmannJson": "3.12.0",
+      "jsonHeaderSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "nativeSerialization": 3,
+      "rbx_binary": "3.0.1",
+      "rojoSourceCommit": "26b6cc6d83ef068d356aac689110ad89f3b05d65",
+      "rojoSourceCargoLockSha256": "a1d2927ea6f74d9f63d21dce5ff7bf2427fa4121e7e46a594a8f6c3bdaafcde3",
+      "robloxApiVersion": "version-d0e8cfcd943d4ae2",
+      "robloxApiSha256": "02276f872886a6bc29e2e05a2e551a8c92c0e1745276520f4203d52a15679856"
+    },
+    "importerSha256": "56b8820f080286fe52f5a532abb42f760f3a5c42672a9f96ba74c41c061d0054",
+    "parserSha256": "8d0260a2421ede50f9544ea6e8690cf3137aacb6eb585273d8d2f00d4fffd8e5",
+    "cliSha256": "9c0ee410043cb7bd45447931cef2c0e0b08e5992cb9e394f8bdfcc95415ef9d0",
+    "workerSha256": "d0ca53314c3abc3b3d9f1f05052db0f0c376912f1be7a5ebac63afe39af5c7da"
+  },
+  "nodeHighWaterKiB": 2355768,
+  "coldSummary": {
+    "medianMs": 91341.5435,
+    "maxMs": 91341.5435,
+    "samplesMs": [91341.5435]
+  },
+  "targets": {
+    "coldUnder60s": false,
+    "warmQueriesUnder500ms": false,
+    "firstOverviewUnder3s": true,
+    "sampledAggregateUnder2GB": false
+  },
+  "measurementScope": "Single gameplay-development run before final correctness fixes; Code queries; not a final-build capacity guarantee"
+}

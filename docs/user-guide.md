@@ -4,7 +4,11 @@ Extract the whole Windows ZIP into a writable folder and open `RoGraph.exe`. Kee
 
 In Roblox Studio, save your place as **Roblox Place (.rbxlx or .rbxl)**. Choose that file in RoGraph and click **Analyze**. The original file is read, not modified. Native game code is never executed. A snapshot keeps decoded script text and an owned copy of the raw place, so inspection works after the original is moved or edited.
 
-The left panel searches all indexed objects, methods, fields, and unknown nodes. Expand the hierarchy to find objects omitted from the default graph, including geometry. The center opens with a bounded script overview. **Details** shows methods and fields; selecting a node opens its functions, configuration, and relationships. **Overview** returns to the initial view. Context/type/status filters narrow the graph.
+The center opens in **Gameplay**. Its nodes use actual model, tool, GUI, script and config names; connections describe supported triggers, configuration reads, cloning, movement, state changes and transfers. Clones use the real template node, with the creation site and copy identity in edge details. Players are represented through the actual Players service and explicit runtime role paths.
+
+Switch to **Code** for script dependencies, then **Methods & config** to display functions and fields. Select **Show implementation** to inspect supporting code while preserving the selected object. Click a connection to inspect its retained source occurrences and conditions. **Overview** returns to the selected view's overview. The left panel searches all indexed objects, methods and fields; expand the hierarchy for geometry. Context/type/status filters narrow the graph. Old snapshots require reimporting before Gameplay is available; their Code view stays usable.
+
+Unresolved/candidate sites are attached to the inspected neighborhood rather than drawn as generic gameplay objects. **Saved source excerpt** means the imported text is retained exactly; **Relationship resolution** separately reports whether analysis identified a target. Conditional config choices remain visible with their alternatives. The app models potential behavior, not a recorded play session.
 
 **Dependencies** follows modeled uses. **Impact** follows reverse uses and separately labels potential channel effects. Structural containment is not a dependency. **Trace a path** selects a start and destination from the current bounded graph. Search/inspect a different neighborhood if the desired endpoint is not present.
 

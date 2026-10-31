@@ -1,0 +1,15 @@
+export const gameplayTypes = [
+  "TRIGGERS",
+  "CAN_INTERACT",
+  "READS_CONFIG",
+  "CONFIGURED_BY",
+  "SPAWNS",
+  "DESTROYS",
+  "TRANSFORMS",
+  "TRANSFERS",
+  "REPARENTS",
+  "LOCATED_USING",
+  "HAS_BEHAVIOR",
+  "MODIFIES",
+  "USES_OBJECT",
+] as const;

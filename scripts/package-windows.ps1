@@ -24,18 +24,22 @@ try {
     foreach($name in @('rbx-import','luau-parser','rojo')){Copy-Item -LiteralPath "build/bin/$name.exe" -Destination (Join-Path $stage "build/bin/$name.exe")}
     if((Get-RoGraphHash (Join-Path $stage 'build/bin/rojo.exe')) -ne 'e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3'){throw 'ROJO_HASH_MISMATCH'}
     Copy-Item -LiteralPath fixtures/shop/place.rbxlx -Destination (Join-Path $stage 'samples/shop.rbxlx')
+    Copy-Item -LiteralPath fixtures/gameplay/egg-flow.rbxlx -Destination (Join-Path $stage 'samples/gameplay.rbxlx')
     [IO.File]::WriteAllBytes((Join-Path $stage 'samples/shop.rbxl'),[Convert]::FromBase64String((Get-Content -LiteralPath fixtures/binary/shop.rbxl.base64 -Raw)))
-    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/performance.md,docs/performance-results.json,docs/release-validation.md,docs/provided-game-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
+    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/performance.md,docs/performance-results.json,docs/performance-gameplay-results.json,docs/release-validation.md,docs/provided-game-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
     $env:ROGRAPH_CARGO=$cargoPath
     & node.exe --import tsx scripts/collect-notices.ts $stage
     if($LASTEXITCODE -ne 0){throw 'NOTICES_FAILED'}
+    # Cargo notices can retain 1970 timestamps, outside ZIP's 1980-2107 range.
+    # Normalize only owned staging copies; file bytes and original notices stay exact.
+    foreach($entry in Get-ChildItem -LiteralPath $stage -Recurse -Force){if($entry.LastWriteTime.Year -lt 1980 -or $entry.LastWriteTime.Year -gt 2107){$entry.LastWriteTimeUtc=[datetime]::new(2000,1,1,0,0,0,[DateTimeKind]::Utc)}}
     $files=@(Get-ChildItem -LiteralPath $stage -Recurse -File|ForEach-Object{[ordered]@{path=$_.FullName.Substring($stage.Length+1).Replace('\','/');sha256=(Get-RoGraphHash $_.FullName)}})
-    [ordered]@{product='RoGraph';version='0.1.0';platform='windows-x64';files=$files}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $stage 'checksums.json') -Encoding utf8
+    [ordered]@{product='RoGraph';version='0.2.0';platform='windows-x64';files=$files}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $stage 'checksums.json') -Encoding utf8
     $destination=Join-Path $repoPath 'dist/windows-x64'
     New-Item -ItemType Directory -Force -Path $destination|Out-Null
     # Copy only release files; an existing user's workspace is preserved and never enters the ZIP.
     foreach($entry in Get-ChildItem -LiteralPath $stage -Force){Copy-Item -LiteralPath $entry.FullName -Destination $destination -Recurse -Force}
-    $archive=Join-Path $repoPath 'dist/RoGraph-0.1.0-windows-x64.zip'
+    $archive=Join-Path $repoPath 'dist/RoGraph-0.2.0-windows-x64.zip'
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -Force
     $resolvedStage=[IO.Path]::GetFullPath($stage)
     $buildRoot=[IO.Path]::GetFullPath((Join-Path $repoPath 'build'))

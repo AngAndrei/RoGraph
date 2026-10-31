@@ -17,4 +17,5 @@ CREATE INDEX IF NOT EXISTS idx_sites_owner ON sites(analysis,owner,id);
 CREATE TABLE IF NOT EXISTS sources(analysis TEXT NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,id TEXT NOT NULL,script TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(analysis,id));
 CREATE TABLE IF NOT EXISTS diagnostics(analysis TEXT NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,ordinal INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(analysis,ordinal));
 CREATE VIRTUAL TABLE IF NOT EXISTS node_search USING fts5(analysis,id UNINDEXED,label,tokenize='unicode61');
-PRAGMA user_version = 1;
+CREATE INDEX IF NOT EXISTS idx_rel_type ON relations(analysis,type,source,target);
+PRAGMA user_version = 2;

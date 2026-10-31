@@ -67,7 +67,7 @@ export function SourceView({
       >
         <header>
           <div>
-            <span className="eyebrow">EXACT SAVED EVIDENCE</span>
+            <span className="eyebrow">SAVED SOURCE EXCERPT</span>
             <h2>Source evidence</h2>
           </div>
           <button
@@ -78,6 +78,10 @@ export function SourceView({
             ×
           </button>
         </header>
+        <p className="source-resolution">
+          Relationship resolution: <strong>{evidence.status}</strong>. Saved
+          text and connection resolution are recorded separately.
+        </p>
         <p className="source-path">
           {view?.origin.originalPath ?? view?.origin.path ?? evidence.sourceId}
         </p>

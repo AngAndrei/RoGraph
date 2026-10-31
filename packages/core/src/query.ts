@@ -5,6 +5,8 @@ import { relationTypes, type Node } from "../../contracts/src/model.js";
 import { hash, canonical, RoGraphError } from "./util.js";
 import { traverse } from "./traversal.js";
 import { groupNodes } from "./grouping.js";
+import { projectResult } from "./projection.js";
+import { gameplayTypes } from "../../contracts/src/gameplay.js";
 export interface QueryEngine {
   run(q: Query, signal?: AbortSignal): Promise<QueryResult>;
 }
@@ -20,8 +22,14 @@ export const querySchema = z.object({
     "coverage",
     "diagnostics",
     "tree",
+    "explain",
+    "implementation",
   ]),
   analysisId: z.string().min(1).max(128),
+  view: z.enum(["code", "gameplay"]).optional(),
+  expandedIds: z.array(z.string().max(2048)).max(100).optional(),
+  includeIntrinsics: z.boolean().optional(),
+  traceGoal: z.enum(["flow", "influence"]).optional(),
   nodeId: z.string().max(2048).optional(),
   sourceId: z.string().max(2048).optional(),
   original: z.boolean().optional(),
@@ -51,6 +59,17 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
   return {
     async run(input, signal) {
       const q = querySchema.parse(input) as Query;
+      if (q.op === "explain") q.op = "inspect";
+      if (q.op === "implementation") {
+        q.op = "inspect";
+        q.view = "code";
+      }
+      q.relationTypes ??=
+        q.view === "gameplay"
+          ? [...gameplayTypes]
+          : relationTypes.filter(
+              (t) => !(gameplayTypes as readonly string[]).includes(t),
+            );
       signal?.throwIfAborted();
       const { cursor, ...shape } = q,
         fingerprint = hash(canonical(shape));
@@ -205,6 +224,7 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
                 op: "overview",
                 groupBy: q.groupBy,
                 includeInstances: q.includeInstances,
+                view: q.view,
                 cursor: offset,
               })
             : await select({ op: "nodes", ids: q.nodeId ? [q.nodeId] : [] });
@@ -335,10 +355,45 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
         mergeMeta(sites);
       }
       if (q.op !== "source") {
+        if (r.relations.some((rel) => rel.gameplay?.scopeIncomplete)) {
+          r.meta.truncated = true;
+          r.meta.omittedCounts.handlerReachabilityAtLeast = 1;
+        }
+        const support = [
+          ...new Set(
+            r.relations.flatMap((rel) => rel.gameplay?.supportSiteIds ?? []),
+          ),
+        ];
+        if (support.length) {
+          const selected = await store.select({
+            op: "sitesByIds",
+            analysisId: q.analysisId,
+            ids: support.slice(0, 1000),
+            limit: 1000,
+          });
+          r.sites = [
+            ...new Map(
+              [...selected.sites, ...r.sites].map((s) => [s.id, s]),
+            ).values(),
+          ].slice(0, 1000);
+          const missing = support.filter(
+            (id) => !r.sites.some((s) => s.id === id),
+          ).length;
+          if (missing) {
+            r.meta.truncated = true;
+            r.meta.omittedCounts.supportSites = missing;
+          }
+        }
         const citations = [
           ...r.evidence,
           ...r.sites.filter(
             (s) => s.status === "unresolved" || s.status === "candidate",
+          ),
+          ...r.relations.flatMap((rel) =>
+            (rel.gameplay?.configInputs ?? []).map((input) => ({
+              sourceId: input.sourceId,
+              span: input.span,
+            })),
           ),
         ];
         const ids = [
@@ -385,7 +440,14 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
             "No modeled connections within these filters and bounds. Unresolved references, runtime behavior, and import coverage limit completeness.",
         });
       signal?.throwIfAborted();
-      return r;
+      if (q.view === "gameplay" && !r.capabilities?.gameplay)
+        r.diagnostics.push({
+          code: "GAMEPLAY_REANALYSIS_REQUIRED",
+          severity: "info",
+          message:
+            "This saved analysis predates gameplay extraction. Reimport the project to build gameplay connections; Code view remains available.",
+        });
+      return projectResult(r, q.view ?? "code", q.includeIntrinsics ?? true);
     },
   };
 }

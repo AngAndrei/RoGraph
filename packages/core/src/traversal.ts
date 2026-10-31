@@ -5,6 +5,7 @@ import type {
   Relation,
   RelationType,
 } from "../../contracts/src/model.js";
+import { gameplayTypes } from "../../contracts/src/gameplay.js";
 export const dependencyTypes: RelationType[] = [
   "CALLS",
   "REQUIRES",
@@ -56,6 +57,7 @@ export async function traverse(
     path: PathHop[];
     pending?: Evidence[];
     potential: boolean;
+    scope?: string[];
   };
   let frontier: State[] = roots.map((id) => ({
     id,
@@ -67,34 +69,51 @@ export async function traverse(
   for (let level = 0; frontier.length && level < depth; level++) {
     signal?.throwIfAborted();
     const ids = [...new Set(frontier.map((s) => s.id))];
-    const ordinary = dependencyTypes.filter(allowed);
-    const directions = impact
-      ? [
-          {
-            direction: "in" as const,
-            types: [
-              ...ordinary,
-              ...(allowed("SENDS_VIA") ? ["SENDS_VIA" as const] : []),
-            ],
-          },
-          {
-            direction: "out" as const,
-            types: allowed("HANDLES") ? ["HANDLES" as const] : [],
-          },
-        ]
-      : [
-          {
-            direction: "out" as const,
-            types: [
-              ...ordinary,
-              ...(allowed("SENDS_VIA") ? ["SENDS_VIA" as const] : []),
-            ],
-          },
-          {
-            direction: "in" as const,
-            types: allowed("HANDLES") ? ["HANDLES" as const] : [],
-          },
-        ];
+    const ordinary = (
+      q.view === "gameplay"
+        ? [...gameplayTypes].filter(
+            (t) =>
+              q.op !== "trace" ||
+              q.traceGoal === "influence" ||
+              !["READS_CONFIG", "CONFIGURED_BY"].includes(t),
+          )
+        : dependencyTypes
+    ).filter(allowed);
+    const directions =
+      q.view === "gameplay"
+        ? [
+            {
+              direction: impact ? ("in" as const) : ("out" as const),
+              types: ordinary,
+            },
+          ]
+        : impact
+          ? [
+              {
+                direction: "in" as const,
+                types: [
+                  ...ordinary,
+                  ...(allowed("SENDS_VIA") ? ["SENDS_VIA" as const] : []),
+                ],
+              },
+              {
+                direction: "out" as const,
+                types: allowed("HANDLES") ? ["HANDLES" as const] : [],
+              },
+            ]
+          : [
+              {
+                direction: "out" as const,
+                types: [
+                  ...ordinary,
+                  ...(allowed("SENDS_VIA") ? ["SENDS_VIA" as const] : []),
+                ],
+              },
+              {
+                direction: "in" as const,
+                types: allowed("HANDLES") ? ["HANDLES" as const] : [],
+              },
+            ];
     const batches = await Promise.all(
       directions.map((d) =>
         d.types.length
@@ -151,12 +170,40 @@ export async function traverse(
           const direction = directions[batch].direction,
             isOut = direction === "out";
           if ((isOut ? r.source : r.target) !== state.id) continue;
+          if (q.view === "gameplay" && r.gameplay?.scopeIncomplete) {
+            result.meta.truncated = true;
+            result.meta.omittedCounts.handlerReachabilityAtLeast = 1;
+          }
           const id = isOut ? r.target : r.source,
             occ = evMap.get(r.id) ?? [];
+          if (q.view === "gameplay" && r.type === "USES_OBJECT") continue;
+          if (
+            q.view === "gameplay" &&
+            isOut &&
+            state.scope &&
+            r.gameplay?.sourceScriptId === state.id &&
+            !state.scope.includes(
+              r.gameplay.ownerId ?? r.gameplay.sourceScriptId,
+            )
+          )
+            continue;
+          if (
+            q.view === "gameplay" &&
+            !isOut &&
+            state.scope &&
+            r.gameplay?.handlerId &&
+            !(r.gameplay.reachableOwnerIds ?? [r.gameplay.handlerId]).some(
+              (owner) => state.scope!.includes(owner),
+            )
+          )
+            continue;
           if (!occ.length || !available.has(id)) continue;
           const channelHop = impact
-            ? r.type === "SENDS_VIA"
-            : r.type === "HANDLES";
+            ? r.type === "SENDS_VIA" ||
+              (!!r.gameplay && r.gameplay.method in pairs)
+            : r.type === "HANDLES" ||
+              (!!r.gameplay &&
+                Object.values(pairs).includes(r.gameplay.method));
           if (
             channelHop &&
             state.pending &&
@@ -187,7 +234,10 @@ export async function traverse(
               result.meta.omittedCounts.evidenceAtLeast = 1;
             }
           const potential =
-            state.potential || r.type === "HANDLES" || r.type === "SENDS_VIA";
+            state.potential ||
+            !!r.gameplay ||
+            r.type === "HANDLES" ||
+            r.type === "SENDS_VIA";
           const transition: PathHop["transition"] = potential
             ? impact
               ? "potential-impact"
@@ -211,10 +261,25 @@ export async function traverse(
             }
           }
           const pending = (
-            impact ? r.type === "HANDLES" : r.type === "SENDS_VIA"
+            impact
+              ? r.type === "HANDLES" ||
+                (!!r.gameplay &&
+                  Object.values(pairs).includes(r.gameplay.method))
+              : r.type === "SENDS_VIA" ||
+                (!!r.gameplay && r.gameplay.method in pairs)
           )
             ? occ
             : undefined;
+          const scope =
+            q.view !== "gameplay"
+              ? undefined
+              : isOut
+                ? r.gameplay?.handlerId
+                  ? (r.gameplay.reachableOwnerIds ?? [r.gameplay.handlerId])
+                  : state.scope
+                : r.gameplay?.sourceScriptId === id
+                  ? [r.gameplay.ownerId ?? id]
+                  : state.scope;
           const key =
             id +
             "|" +
@@ -223,10 +288,12 @@ export async function traverse(
               .sort()
               .join(",") ?? "") +
             "|" +
-            potential;
+            potential +
+            "|" +
+            (scope?.join(",") ?? "");
           if (!visited.has(key)) {
             visited.add(key);
-            next.push({ id, path, pending, potential });
+            next.push({ id, path, pending, potential, scope });
           }
         }
     frontier = next;

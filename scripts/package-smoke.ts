@@ -82,7 +82,7 @@ if (
   binaryAnalysis.coverage.partialImport
 )
   throw Error("PACKAGED_BINARY_IMPORT_FAILED");
-async function query(q: Record<string, unknown>) {
+async function query(q: Record<string, unknown>, snapshotId = analysisId) {
   const path = join(owned, "request.json");
   await writeFile(path, JSON.stringify(q));
   return JSON.parse(
@@ -92,7 +92,7 @@ async function query(q: Record<string, unknown>) {
         "--workspace",
         workspace,
         "--analysis",
-        analysisId,
+        snapshotId,
         "--request",
         path,
       ])
@@ -202,6 +202,54 @@ for (let i = 0; i < 50; i++) {
   }
 }
 if (origin) throw Error("OWNED_PROCESS_LEAK");
+const gameplayInput = join(pkg, "samples", "gameplay.rbxlx");
+const gameplayAnalysis = JSON.parse(
+  (await run(["analyze", "--input", gameplayInput, "--workspace", workspace]))
+    .stdout,
+);
+const gameplay = await query(
+  { op: "overview", view: "gameplay" },
+  gameplayAnalysis.analysisId,
+);
+const chicken = gameplay.nodes.find((n: any) => n.label === "Chicken"),
+  egg = gameplay.nodes.find((n: any) => n.label === "Egg");
+if (!chicken || !egg || gameplay.nodes.some((n: any) => n.kind !== "instance"))
+  throw Error("GAMEPLAY_CONCRETE_OBJECTS_FAILED");
+const flow = await query(
+  { op: "trace", view: "gameplay", fromId: chicken.id, toId: egg.id, depth: 6 },
+  gameplayAnalysis.analysisId,
+);
+if (
+  !flow.paths.length ||
+  flow.paths.some((p: any[]) =>
+    p.some(
+      (h) => !flow.evidence.some((e: any) => e.relationId === h.relationId),
+    ),
+  )
+)
+  throw Error("GAMEPLAY_TRACE_PROOF_FAILED");
+const eggProof = await query(
+  { op: "inspect", view: "gameplay", nodeId: egg.id },
+  gameplayAnalysis.analysisId,
+);
+const support = [
+  ...new Set(
+    eggProof.relations.flatMap((r: any) => r.gameplay?.supportSiteIds ?? []),
+  ),
+];
+if (
+  support.filter((id) => !eggProof.sites.some((s: any) => s.id === id)).length >
+  (eggProof.meta.omittedCounts.supportSites ?? 0)
+)
+  throw Error("GAMEPLAY_SUPPORT_DISCLOSURE_FAILED");
+if (
+  !eggProof.relations.some((r: any) =>
+    r.gameplay?.configInputs?.some((i: any) =>
+      i.path.includes("EggTemplateName"),
+    ),
+  )
+)
+  throw Error("GAMEPLAY_CONFIG_PROVENANCE_FAILED");
 const report = {
   passed: true,
   analysisId,
@@ -223,6 +271,10 @@ const report = {
     "pinned Rojo starts",
     "local UI assets",
     "launcher-owned process cleanup",
+    "concrete Gameplay objects from bundled sample",
+    "Gameplay model-to-template trace with evidence",
+    "support-site retrieval and omission disclosure",
+    "config-definition provenance",
   ],
   limitations: [
     "This is dependency-isolated validation on the development computer, not a separate clean PC.",

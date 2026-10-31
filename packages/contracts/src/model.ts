@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  gameplayRelationSchema,
+  gameplayTypes,
+  type GameplayRelation,
+} from "./gameplay.js";
 export type Context = "client" | "server" | "unknown";
 export type Status = "saved" | "resolved" | "candidate" | "unresolved";
 export type Input =
@@ -112,6 +117,7 @@ export const relationTypes = [
   "HANDLES",
   "CONNECTS_SIGNAL",
   "MEMBER_OF",
+  ...gameplayTypes,
 ] as const;
 export type RelationType = (typeof relationTypes)[number];
 export interface Relation {
@@ -119,6 +125,7 @@ export interface Relation {
   source: string;
   target: string;
   type: RelationType;
+  gameplay?: GameplayRelation;
 }
 export interface Evidence {
   id: string;
@@ -239,6 +246,7 @@ const schema = z.object({
       source: z.string(),
       target: z.string(),
       type: z.enum(relationTypes),
+      gameplay: gameplayRelationSchema.optional(),
     }),
   ),
   evidence: z.array(
@@ -329,6 +337,22 @@ export function validateGraph(value: unknown): Graph {
   const nodes = new Set(result.nodes.map((v) => v.id)),
     rels = new Set(result.relations.map((v) => v.id)),
     sources = new Map(result.sources.map((v) => [v.id, v]));
+  const siteIds = new Set(result.sites.map((s) => s.id));
+  const nodesById = new Map(result.nodes.map((n) => [n.id, n]));
+  for (const relation of result.relations)
+    if (relation.gameplay) {
+      if (!nodes.has(relation.gameplay.sourceScriptId))
+        throw new Error("Gameplay source unavailable");
+      if (relation.gameplay.supportSiteIds.some((id) => !siteIds.has(id)))
+        throw new Error("Gameplay support site unavailable");
+      for (const id of [relation.source, relation.target]) {
+        const node = nodesById.get(id);
+        if (node?.kind !== "instance")
+          throw new Error(
+            "Gameplay endpoints must be concrete project objects",
+          );
+      }
+    }
   for (const r of result.relations)
     if (!nodes.has(r.source) || !nodes.has(r.target))
       throw new Error("Dangling relation endpoint");

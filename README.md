@@ -2,16 +2,18 @@
 
 Understand how a Roblox game connects, with evidence that humans and AI agents can inspect.
 
-RoGraph reads a saved **`.rbxlx` XML or `.rbxl` binary place** or a **Rojo project**, preserves its saved object hierarchy, and maps script dependencies, functions, configuration reads/writes, and potential communication through remotes and bindables. Each relationship carries source or saved-property evidence. Unsupported dynamic references stay visible as unknowns.
+RoGraph reads a saved **`.rbxlx` XML or `.rbxl` binary place** or a **Rojo project**. **Gameplay** connects actual models, tools, GUI controls, scripts and configurations through supported interactions and effects. **Code** retains function/module dependencies and configuration inspection. Both views share one revision-pinned graph and source evidence.
+
+Nodes use real project names. A cloned Egg is represented through its actual Egg template and the source operation; the viewer does not invent a “symbolic spawned egg” object. Player references are anchored to the saved Players service, with runtime role paths in the evidence. Unknown/candidate sites remain inspectable without flooding the gameplay canvas with placeholders.
 
 ## Try the Windows app
 
-Extract the portable package into a writable folder and open **RoGraph.exe**. Your browser opens the local explorer. Choose a `.rbxlx` or `.rbxl` file and click **Analyze**. The included `samples/shop.rbxlx` demonstrates the complete workflow. No Roblox login, model account, API key, Node installation, or cloud upload is required to use the package.
+Extract the portable package into a writable folder and open **RoGraph.exe**. Your browser opens the local explorer. Choose a `.rbxlx` or `.rbxl` file and click **Analyze**. `samples/gameplay.rbxlx` demonstrates Chicken → controller → Egg/config connections; `samples/shop.rbxlx` demonstrates Code inspection and remote/config tracing. Reimport older snapshots to generate gameplay relationships. No Roblox login, model account, API key, Node installation, or cloud upload is required to use the package.
 
 - Search scripts, functions, fields, or any saved object; expand the hierarchy for geometry.
 - Select a node to inspect its incoming/outgoing relationships and retained occurrences.
 - Open **Source** for exact decoded code and revision/byte/line locators.
-- Trace `ShopClient.BuySword` to `ShopConfig.Prices.Sword` to follow a potential client → remote → server-handler → method → configuration path.
+- Switch to **Code** and trace `ShopClient.BuySword` to `ShopConfig.Prices.Sword` to follow a potential client → remote → server-handler → method → configuration path.
 - Export a bounded JSON/Markdown context pack, or connect an agent through read-only MCP.
 - Use **Stop app** to stop the service and its owned workers. Closing a browser tab alone leaves the local app running.
 
@@ -34,7 +36,7 @@ npm run test:e2e
 npm run dev
 ```
 
-Browser tests use Microsoft Edge. `npm run bench -- --profile release --output build/release-benchmark.json` also needs PowerShell 7 for memory sampling. `npm run package:windows` creates `dist/windows-x64/` and `dist/RoGraph-0.1.0-windows-x64.zip`; run `scripts/release-smoke.ps1` against the package before sharing it.
+Browser tests use Microsoft Edge. `npm run bench -- --profile release --output build/release-benchmark.json` also needs PowerShell 7 for memory sampling. `npm run package:windows` creates `dist/windows-x64/` and `dist/RoGraph-0.2.0-windows-x64.zip`; run `scripts/release-smoke.ps1` against the package before sharing it.
 
 ## Command line
 
@@ -48,7 +50,9 @@ RoGraph.exe export --workspace .rograph --analysis <analysis-id> --format graph 
 RoGraph.exe mcp --workspace .rograph
 ```
 
-Query files contain an operation such as `search`, `inspect`, `dependencies`, `impact`, `trace`, `source`, or `coverage`. Every query pins an analysis ID. CLI progress/errors go to stderr; results go to stdout. Full `graph` export is separate from bounded agent context.
+Query files contain an operation such as `search`, `inspect`, `explain`, `implementation`, `dependencies`, `impact`, `trace`, `source`, or `coverage`, and can select `"view":"gameplay"` or `"view":"code"`. Omitted views retain Code compatibility; the UI explicitly defaults to Gameplay. The CLI also accepts `--view gameplay`. Every query pins an analysis ID. CLI progress/errors go to stderr; results go to stdout. Full `graph` export is separate from bounded agent context.
+
+The optional local assistant/model weights and Studio observations remain future updates. Deterministic analysis requires neither. See the [accepted architecture](docs/superpowers/specs/2026-10-31-gameplay-semantic-architecture-design.md) and [implementation plan](docs/superpowers/plans/2026-10-31-gameplay-implementation.md).
 
 ## Implementation
 

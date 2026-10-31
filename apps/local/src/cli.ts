@@ -164,6 +164,7 @@ async function main() {
     const request = flags.request
       ? JSON.parse(await readFile(resolve(flags.request), "utf8"))
       : { op: "overview" };
+    if (flags.view) request.view = flags.view;
     if (request.analysisId && request.analysisId !== flags.analysis)
       throw new RoGraphError(
         "INVALID_ARGUMENT",
