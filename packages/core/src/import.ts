@@ -16,10 +16,11 @@ export async function importPlace(
 ): Promise<Snapshot> {
   signal?.throwIfAborted();
   path = resolve(path);
-  if (extname(path).toLowerCase() !== ".rbxlx")
+  const extension = extname(path).toLowerCase();
+  if (![".rbxlx", ".rbxl"].includes(extension))
     throw new RoGraphError(
       "UNSUPPORTED_FORMAT",
-      "Select an XML Roblox place (.rbxlx).",
+      "Select a Roblox place (.rbxlx or .rbxl).",
     );
   if ((await stat(path)).size > defaultLimits.inputBytes)
     throw new RoGraphError(
@@ -32,7 +33,7 @@ export async function importPlace(
   const snapshotId = hash(bytes),
     blobDir = join(tmpdir(), "rograph-blobs");
   await mkdir(blobDir, { recursive: true });
-  const blobPath = join(blobDir, snapshotId + ".rbxlx");
+  const blobPath = join(blobDir, snapshotId + extension);
   await writeFile(blobPath, bytes, { signal });
   const raw = await runNative<any>(
     "rbx-import",
@@ -52,7 +53,10 @@ export async function importPlace(
   );
   const siblings = new Map<string, number>();
   const sources: Source[] = [];
-  const diagnostics: Diagnostic[] = [...raw.diagnostics];
+  const diagnostics: Diagnostic[] = raw.diagnostics.map((d: Diagnostic) => ({
+    ...d,
+    ...(d.ownerId ? { ownerId: idMap.get(d.ownerId) ?? d.ownerId } : {}),
+  }));
   let totalSource = 0;
   const instances: Instance[] = raw.instances.map((v: any) => {
     const id = idMap.get(v.id)!,
@@ -133,6 +137,9 @@ export async function importPlace(
           "DANGLING_REFERENT",
           "INVENTORY_MISMATCH",
           "MISSING_SOURCE",
+          "PROPERTY_NOT_RETAINED",
+          "PROPERTY_DECODE_FALLBACK",
+          "DECODER_WARNING",
         ].includes(d.code),
       ),
       limitations: [
@@ -141,7 +148,12 @@ export async function importPlace(
     },
     inventory: {
       items: raw.inventory.items,
-      rawInput: { sha256: snapshotId, byteLength: bytes.length, blobPath },
+      rawInput: {
+        sha256: snapshotId,
+        byteLength: bytes.length,
+        blobPath,
+        extension: extension as ".rbxl" | ".rbxlx",
+      },
     },
   };
 }

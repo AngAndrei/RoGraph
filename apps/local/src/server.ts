@@ -152,10 +152,10 @@ export async function startServer(
                 String(req.headers["x-rograph-filename"] ?? "place.rbxlx"),
               ),
             );
-            if (!name.toLowerCase().endsWith(".rbxlx"))
+            if (!/\.(rbxlx|rbxl)$/i.test(name))
               throw new RoGraphError(
                 "UNSUPPORTED_FORMAT",
-                "Choose a .rbxlx XML place. In Studio, save as Roblox XML Place.",
+                "Choose a Roblox place (.rbxlx or .rbxl).",
               );
             const maximum = 512 * 1024 * 1024;
             if (Number(req.headers["content-length"] ?? 0) > maximum)
@@ -164,7 +164,12 @@ export async function startServer(
                 "Place exceeds the 512 MiB input limit",
               );
             await mkdir(join(workspace, "uploads"), { recursive: true });
-            destination = join(workspace, "uploads", randomUUID() + ".rbxlx");
+            destination = join(
+              workspace,
+              "uploads",
+              randomUUID() +
+                (name.toLowerCase().endsWith(".rbxl") ? ".rbxl" : ".rbxlx"),
+            );
             let bytes = 0;
             const counter = new Transform({
               transform(chunk, encoding, callback) {
@@ -389,7 +394,10 @@ export async function startServer(
       watchController?.abort();
       await jobs.close();
       await stopWatch();
-      await new Promise<void>((r) => server.close(() => r()));
+      await new Promise<void>((r) => {
+        server.close(() => r());
+        server.closeAllConnections();
+      });
       await store.close();
     })());
   return { url, sessionToken, close };

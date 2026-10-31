@@ -1,6 +1,6 @@
 # RoGraph 0.1.0 validation
 
-Status: **fixture-validated Windows x64 preview**. No representative user game or separate clean Windows computer was available. Saved-file static analysis is the first release; runtime Studio capture is deferred.
+Status: **Windows x64 preview validated with synthetic fixtures and three supplied games**. See [provided-game-validation.md](provided-game-validation.md) for the partial-import and parsing limits in those games. A separate clean Windows computer was not available. Saved-file static analysis is the first release; runtime Studio capture is deferred.
 
 The release was built with the versions in `tools/versions.lock.json`, the npm lockfile, and native Cargo lockfiles, on Windows 11 with Node 24.19.0 and Rust 1.90.0. The importer and Luau helper use static compiler runtimes. PE dependency inspection found Windows system DLLs only for the launcher and native helpers.
 

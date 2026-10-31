@@ -22,6 +22,7 @@ export interface Query {
     | "trace"
     | "overview"
     | "coverage"
+    | "diagnostics"
     | "tree";
   analysisId: string;
   nodeId?: string;
@@ -32,6 +33,7 @@ export interface Query {
   toId?: string;
   parentId?: string | null;
   groupBy?: "service" | "folder";
+  includeInstances?: boolean;
   depth?: number;
   limit?: number;
   cursor?: string;

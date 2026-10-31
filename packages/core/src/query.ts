@@ -18,6 +18,7 @@ export const querySchema = z.object({
     "trace",
     "overview",
     "coverage",
+    "diagnostics",
     "tree",
   ]),
   analysisId: z.string().min(1).max(128),
@@ -29,6 +30,7 @@ export const querySchema = z.object({
   toId: z.string().max(2048).optional(),
   parentId: z.string().max(2048).nullable().optional(),
   groupBy: z.enum(["service", "folder"]).optional(),
+  includeInstances: z.boolean().optional(),
   depth: z.number().int().nonnegative().max(100).optional(),
   limit: z.number().int().positive().max(100000).optional(),
   cursor: z.string().max(2048).optional(),
@@ -78,6 +80,35 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
         analysisId: q.analysisId,
         limit,
       });
+      const scopeOwners = new Set<string>();
+      const requireNode = async (id: string) => {
+        const selected = await store.select({
+          op: "nodes",
+          analysisId: q.analysisId,
+          ids: [id],
+          limit: 1,
+        });
+        if (!selected.nodes.length)
+          throw new RoGraphError(
+            "NODE_NOT_FOUND",
+            "Node is not in this pinned analysis",
+          );
+        return selected.nodes[0];
+      };
+      if (q.op === "inspect") {
+        if (!q.nodeId)
+          throw new RoGraphError("INVALID_QUERY", "Choose a node to inspect");
+        await requireNode(q.nodeId);
+      }
+      if (q.op === "trace") {
+        if (!q.fromId || !q.toId)
+          throw new RoGraphError(
+            "INVALID_QUERY",
+            "Choose both trace endpoints",
+          );
+        await requireNode(q.fromId);
+        await requireNode(q.toId);
+      }
       const select = (
         s: Omit<StoreSelection, "analysisId" | "limit"> &
           Record<string, unknown>,
@@ -95,7 +126,9 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
         r.meta.truncated ||= part.meta.truncated;
         Object.assign(r.meta.omittedCounts, part.meta.omittedCounts);
       };
-      if (q.op === "search")
+      if (q.op === "diagnostics")
+        r = await select({ op: "diagnostics", cursor: offset });
+      else if (q.op === "search")
         r = await select({ op: "search", text: q.text ?? "", cursor: offset });
       else if (q.op === "tree")
         r = await select({
@@ -131,7 +164,12 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
           throw new RoGraphError("INVALID_QUERY", "Choose a starting node");
         let roots = [root],
           targets = q.toId ? [q.toId] : [];
-        const rootNodes = await select({ op: "nodes", ids: roots });
+        const rootNodes = await store.select({
+          op: "nodes",
+          analysisId: q.analysisId,
+          ids: roots,
+          limit: 1,
+        });
         if (!rootNodes.nodes.length)
           throw new RoGraphError(
             "NODE_NOT_FOUND",
@@ -150,6 +188,7 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
           const m = await select({ op: "members", ownerIds: [q.toId] });
           targets.push(...m.nodes.map((n) => n.id));
         }
+        for (const id of [...roots, ...targets]) scopeOwners.add(id);
         await traverse(
           store,
           q,
@@ -165,6 +204,7 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
             ? await select({
                 op: "overview",
                 groupBy: q.groupBy,
+                includeInstances: q.includeInstances,
                 cursor: offset,
               })
             : await select({ op: "nodes", ids: q.nodeId ? [q.nodeId] : [] });
@@ -283,25 +323,31 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
       }
       if (
         ["dependencies", "impact", "trace"].includes(q.op) &&
-        r.nodes.length
+        (r.nodes.length || scopeOwners.size)
       ) {
         const sites = await store.select({
           op: "sites",
           analysisId: q.analysisId,
-          ownerIds: r.nodes.map((n) => n.id),
+          ownerIds: [...new Set([...r.nodes.map((n) => n.id), ...scopeOwners])],
           limit: 1000,
         });
         r.sites = sites.sites;
         mergeMeta(sites);
       }
       if (q.op !== "source") {
+        const citations = [
+          ...r.evidence,
+          ...r.sites.filter(
+            (s) => s.status === "unresolved" || s.status === "candidate",
+          ),
+        ];
         const ids = [
           ...new Set(
-            r.evidence.map((e) => e.sourceId).filter(Boolean) as string[],
+            citations.map((e) => e.sourceId).filter(Boolean) as string[],
           ),
         ];
         for (const id of ids.slice(0, 5)) {
-          const ev = r.evidence.find((e) => e.sourceId === id)!;
+          const ev = citations.find((e) => e.sourceId === id)!;
           const s = await store.select({
             op: "sources",
             analysisId: q.analysisId,

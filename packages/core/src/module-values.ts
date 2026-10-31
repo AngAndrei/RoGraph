@@ -2,6 +2,34 @@ import type { Facts, Expr } from "../../contracts/src/model.js";
 import { Resolver, unknown, type Value } from "./resolver.js";
 export class ModuleResolver extends Resolver {
   readonly tables = new Map<string, Value>();
+  private writes?: Map<string, { member: any; facts: Facts; key: unknown }[]>;
+  private indexingWrites = false;
+  private mutations(id: string) {
+    if (this.indexingWrites) return [];
+    if (!this.writes) {
+      this.writes = new Map();
+      this.indexingWrites = true;
+      try {
+        for (const facts of this.facts)
+          for (const member of facts.members as any[]) {
+            const base = this.callable(this.get(member.target.base, facts));
+            if (base.kind !== "table") continue;
+            const value = this.get(member.target.key, facts);
+            const key =
+              value.kind === "literal" &&
+              ["string", "number"].includes(typeof value.value)
+                ? value.value
+                : undefined;
+            const records = this.writes.get(base.id!) ?? [];
+            records.push({ member, facts, key });
+            this.writes.set(base.id!, records);
+          }
+      } finally {
+        this.indexingWrites = false;
+      }
+    }
+    return this.writes.get(id) ?? [];
+  }
   override get(e: Expr | undefined, f: Facts, seen = new Set<string>()): Value {
     if (e?.kind === "table") {
       const id = `${f.scriptId}:table:${e.span.startByte}`;
@@ -88,16 +116,18 @@ export class ModuleResolver extends Resolver {
     if (seen.has(guard) || seen.size > 64) return unknown("CYCLIC_MEMBER");
     const next = new Set([...seen, guard]),
       owner = this.byScript.get(base.scriptId)!;
+    if ((base.entries as any[]).some((e) => e.key === null))
+      return unknown("DYNAMIC_TABLE_KEY");
     const declarations = (base.entries as any[]).filter((e) => e.key === key);
-    const assigned = (owner.members as any[]).filter((m) => {
-      const k = m.target.key;
-      if (k?.kind !== "literal" || k.value !== key) return false;
-      const table = this.get(m.target.base, owner, next);
-      return table.kind === "table" && table.id === base.id;
-    });
+    const writes = this.mutations(base.id!);
+    if (writes.some((w) => w.key === undefined))
+      return unknown("DYNAMIC_MEMBER_WRITE");
+    const assigned = writes.filter((w) => w.key === key);
+    if (assigned.some((w) => w.facts.scriptId !== base.scriptId))
+      return unknown("EXTERNAL_MEMBER_WRITE");
     if (declarations.length + assigned.length > 1)
       return unknown("REASSIGNED_OR_AMBIGUOUS_MEMBER");
-    const entry = declarations[0] ?? assigned[0];
+    const entry = declarations[0] ?? assigned[0]?.member;
     if (!entry) return unknown("MODULE_MEMBER_NOT_FOUND");
     const value = this.get(entry.value, owner, next),
       path = [...base.path, key],

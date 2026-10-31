@@ -1,6 +1,6 @@
 # Use RoGraph with an AI agent
 
-Analyze a saved `.rbxlx` place or Rojo project first. RoGraph needs no model account, API key, cloud upload, or Roblox login. The MCP server reads the selected local workspace; it cannot edit your game or run code from it.
+Analyze a saved `.rbxlx` or `.rbxl` place or Rojo project first. RoGraph needs no model account, API key, cloud upload, or Roblox login. The MCP server reads the selected local workspace; it cannot edit your game or run code from it.
 
 For a portable Windows copy, configure an MCP client with:
 

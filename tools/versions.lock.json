@@ -11,5 +11,10 @@
   "rojoWindowsX64Sha256": "e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3",
   "nlohmannJson": "3.12.0",
   "jsonHeaderSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
-  "nativeSerialization": 2
+  "nativeSerialization": 3,
+  "rbx_binary": "3.0.1",
+  "rojoSourceCommit": "26b6cc6d83ef068d356aac689110ad89f3b05d65",
+  "rojoSourceCargoLockSha256": "a1d2927ea6f74d9f63d21dce5ff7bf2427fa4121e7e46a594a8f6c3bdaafcde3",
+  "robloxApiVersion": "version-d0e8cfcd943d4ae2",
+  "robloxApiSha256": "02276f872886a6bc29e2e05a2e551a8c92c0e1745276520f4203d52a15679856"
 }

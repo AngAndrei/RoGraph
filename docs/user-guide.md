@@ -2,7 +2,7 @@
 
 Extract the whole Windows ZIP into a writable folder and open `RoGraph.exe`. Keep the folders next to the executable; it uses its own Node runtime and native helpers. The default local workspace is the package's `workspace/` folder. A command-line `--workspace` argument chooses a different dedicated folder.
 
-In Roblox Studio, save your place as **Roblox XML Place (.rbxlx)**. Choose that file in RoGraph and click **Analyze**. The original file is read, not modified. Native game code is never executed. A snapshot keeps decoded script text and an owned copy of the raw place, so inspection works after the original is moved or edited.
+In Roblox Studio, save your place as **Roblox Place (.rbxlx or .rbxl)**. Choose that file in RoGraph and click **Analyze**. The original file is read, not modified. Native game code is never executed. A snapshot keeps decoded script text and an owned copy of the raw place, so inspection works after the original is moved or edited.
 
 The left panel searches all indexed objects, methods, fields, and unknown nodes. Expand the hierarchy to find objects omitted from the default graph, including geometry. The center opens with a bounded script overview. **Details** shows methods and fields; selecting a node opens its functions, configuration, and relationships. **Overview** returns to the initial view. Context/type/status filters narrow the graph.
 
@@ -25,3 +25,5 @@ Original Rojo code/config text is stored separately from generated Luau. Source 
 **Compare snapshots** compares modeled relationships after matching logical identities. Duplicate/ambiguous matches remain explicit. These are relationship differences, not a claim that two game files are otherwise identical.
 
 Use **Stop app** to close the local service. The portable launcher owns its Node process and helpers. Closing the browser tab alone does not stop an in-progress analysis. Snapshots and caches remain on disk; stop RoGraph before moving or deleting a workspace. Keep your original game files outside the dedicated workspace.
+
+Use **Group by** to organize the canvas by service or folder; **Visible group** focuses one group. **Classes**, **Depth**, and **Show saved objects** control the graph scope. Graph actions and context exports retain the selected filters. Trace endpoint search covers the pinned snapshot beyond the current canvas. The diagnostic report supports paging, affected-object inspection, and exact source locations for parse errors. Original binary Rojo models are retained as verified blobs and are never displayed as UTF-8 text.

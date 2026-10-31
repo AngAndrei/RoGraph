@@ -24,7 +24,8 @@ try {
     foreach($name in @('rbx-import','luau-parser','rojo')){Copy-Item -LiteralPath "build/bin/$name.exe" -Destination (Join-Path $stage "build/bin/$name.exe")}
     if((Get-RoGraphHash (Join-Path $stage 'build/bin/rojo.exe')) -ne 'e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3'){throw 'ROJO_HASH_MISMATCH'}
     Copy-Item -LiteralPath fixtures/shop/place.rbxlx -Destination (Join-Path $stage 'samples/shop.rbxlx')
-    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/performance.md,docs/performance-results.json,docs/release-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
+    [IO.File]::WriteAllBytes((Join-Path $stage 'samples/shop.rbxl'),[Convert]::FromBase64String((Get-Content -LiteralPath fixtures/binary/shop.rbxl.base64 -Raw)))
+    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/performance.md,docs/performance-results.json,docs/release-validation.md,docs/provided-game-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
     $env:ROGRAPH_CARGO=$cargoPath
     & node.exe --import tsx scripts/collect-notices.ts $stage
     if($LASTEXITCODE -ne 0){throw 'NOTICES_FAILED'}

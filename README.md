@@ -2,11 +2,11 @@
 
 Understand how a Roblox game connects, with evidence that humans and AI agents can inspect.
 
-RoGraph reads a saved **`.rbxlx` XML place** or a **Rojo project**, preserves its saved object hierarchy, and maps script dependencies, functions, configuration reads/writes, and potential communication through remotes and bindables. Each relationship carries source or saved-property evidence. Unsupported dynamic references stay visible as unknowns.
+RoGraph reads a saved **`.rbxlx` XML or `.rbxl` binary place** or a **Rojo project**, preserves its saved object hierarchy, and maps script dependencies, functions, configuration reads/writes, and potential communication through remotes and bindables. Each relationship carries source or saved-property evidence. Unsupported dynamic references stay visible as unknowns.
 
 ## Try the Windows app
 
-Extract the portable package into a writable folder and open **RoGraph.exe**. Your browser opens the local explorer. Choose a `.rbxlx` file and click **Analyze**. The included `samples/shop.rbxlx` demonstrates the complete workflow. No Roblox login, model account, API key, Node installation, or cloud upload is required to use the package.
+Extract the portable package into a writable folder and open **RoGraph.exe**. Your browser opens the local explorer. Choose a `.rbxlx` or `.rbxl` file and click **Analyze**. The included `samples/shop.rbxlx` demonstrates the complete workflow. No Roblox login, model account, API key, Node installation, or cloud upload is required to use the package.
 
 - Search scripts, functions, fields, or any saved object; expand the hierarchy for geometry.
 - Select a node to inspect its incoming/outgoing relationships and retained occurrences.
@@ -17,7 +17,7 @@ Extract the portable package into a writable folder and open **RoGraph.exe**. Yo
 
 This is static saved-file analysis. It does not execute game code or prove runtime behavior. Binary `.rbxl` import and Studio capture are deferred. Rojo imports cover their configured project; Studio-only objects are outside that input.
 
-See the [user guide](docs/user-guide.md), [agent setup](docs/agent-setup.md), [troubleshooting](docs/troubleshooting.md), and [measured performance](docs/performance.md). The release is **fixture-validated**; a representative real game and a separate clean PC have not been validated yet.
+See the [user guide](docs/user-guide.md), [agent setup](docs/agent-setup.md), [troubleshooting](docs/troubleshooting.md), and [measured performance](docs/performance.md). The preview has been tested with synthetic fixtures and three supplied games; see [provided-game validation](docs/provided-game-validation.md) for partial-import and parsing limits. A separate clean PC remains untested.
 
 ## Development on Windows
 

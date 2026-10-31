@@ -156,9 +156,15 @@ int main() {
                                         allocator, options);
       json diagnostics = json::array();
       for (const auto &e : result.errors)
-        diagnostics.push_back({{"code", "LUAU_PARSE_ERROR"},
-                               {"severity", "warning"},
-                               {"message", e.getMessage()}});
+        diagnostics.push_back(
+            {{"code", "LUAU_PARSE_ERROR"},
+             {"severity", "warning"},
+             {"message", e.getMessage()},
+             {"location", std::to_string(e.getLocation().begin.line) + "," +
+                              std::to_string(e.getLocation().begin.column) +
+                              " - " + std::to_string(e.getLocation().end.line) +
+                              "," +
+                              std::to_string(e.getLocation().end.column)}});
       json ast = nullptr;
       if (result.root && result.errors.empty()) {
         BinaryStrings strings;

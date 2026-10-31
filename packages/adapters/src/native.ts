@@ -40,11 +40,17 @@ export async function parseSource(
     scriptId: source.scriptId,
     ast: result.ast,
     spans,
-    diagnostics: result.diagnostics,
+    diagnostics: result.diagnostics.map((d: any) => ({
+      ...d,
+      sourceId: source.id,
+      ...(typeof d.location === "string"
+        ? { span: index.fromLocation(d.location) }
+        : {}),
+    })),
     sha256: source.sha256,
     parserVersion: result.parserVersion,
     featureHash:
-      "comments-on-declaration-off-upstream-defaults-binary-nonfinite-v2",
+      "comments-on-declaration-off-upstream-defaults-binary-nonfinite-diagnostics-v3",
   };
 }
 export const projectRoot = resolve(

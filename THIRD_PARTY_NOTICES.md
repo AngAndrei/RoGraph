@@ -7,3 +7,5 @@ The Node notice includes the notices for components bundled into the Node runtim
 Graphify and GitNexus supplied architectural inspiration. Their code is not bundled into RoGraph. Graphify's supplied checkout uses MIT; GitNexus's supplied checkout uses PolyForm Noncommercial. Inspiration here means the staged analysis and context-retrieval approach, rather than copying their implementation.
 
 See `notices/dependency-inventory.json`, the individual license texts, `package-lock.json`, and the native Cargo lockfiles for the component inventory. Build/test libraries in that inventory are not all loaded by the distributed application.
+
+The resolver also uses a pinned index of Roblox engine API member names from the official setup.rbxcdn.com API dump. Its source URL, engine version, and SHA-256 are recorded in api-members.json and tools/versions.lock.json. The pinned Rojo source lockfile is used to inventory its Windows dependency closure and nested notices.

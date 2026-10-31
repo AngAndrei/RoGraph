@@ -1,6 +1,6 @@
 # Troubleshooting
 
-- **Wrong file format:** `.rbxl` is binary and is not supported by this version. Save a Roblox XML Place (`.rbxlx`) from Studio and import that copy.
+- **Wrong file format:** saved places may be XML (`.rbxlx`) or binary (`.rbxl`). Model files (`.rbxm`/`.rbxmx`) are supported through a Rojo project; direct import expects a place file.
 - **The app does not open:** extract the entire ZIP into a writable folder. Keep `runtime/`, `dist/`, and `build/bin/` next to `RoGraph.exe`. Set a default browser in Windows. Another copy may hold the same workspace; stop it before rebuilding the package.
 - **Browser says a local session is required:** reopen through the launcher. The launcher gives each browser tab its local credential without logging it. A bare copied address does not contain that tab's session.
 - **Partial import or missing source:** inspect Coverage and diagnostics. Unknown serialized types, dangling saved references, or unmodeled numeric components remain explicit. The raw input and readable sources are retained; partial imports cannot replace a prior complete current snapshot.

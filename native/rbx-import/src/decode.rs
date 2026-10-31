@@ -59,13 +59,53 @@ fn exact_integers(value: &mut Value) {
         _ => {}
     }
 }
-pub fn decode(xml: &str) -> Result<Value, String> {
-    let (items, mut diagnostics) = crate::inventory::inspect(xml)?;
-    let dom = rbx_xml::from_reader(
-        xml.as_bytes(),
-        DecodeOptions::new().property_behavior(DecodePropertyBehavior::ReadUnknown),
-    )
-    .map_err(|e| e.to_string())?;
+fn property_names(class_name: &str, raw: &str) -> Vec<String> {
+    use rbx_reflection::{PropertyKind, PropertySerialization};
+    let mut names = vec![raw.to_owned()];
+    if let Ok(database) = rbx_reflection_database::get() {
+        if let Some(class) = database.classes.get(class_name) {
+            for class in database.superclasses_iter(class) {
+                for property in class.properties.values() {
+                    match &property.kind {
+                        PropertyKind::Alias { alias_for } if property.name == raw => {
+                            names.push((*alias_for).to_owned())
+                        }
+                        PropertyKind::Canonical {
+                            serialization: PropertySerialization::SerializesAs(name),
+                        } if *name == raw => names.push(property.name.to_owned()),
+                        PropertyKind::Canonical {
+                            serialization: PropertySerialization::Migrate(migration),
+                        } if property.name == raw => names.extend(
+                            migration
+                                .new_property_names()
+                                .iter()
+                                .map(|v| (*v).to_owned()),
+                        ),
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    names
+}
+pub fn decode(bytes: &[u8]) -> Result<Value, String> {
+    crate::warnings::reset();
+    let binary = bytes.starts_with(b"<roblox!");
+    let (items, mut diagnostics) = if binary {
+        (Vec::new(), Vec::new())
+    } else {
+        crate::inventory::inspect(std::str::from_utf8(bytes).map_err(|e| e.to_string())?)?
+    };
+    let dom = if binary {
+        rbx_binary::from_reader(bytes).map_err(|e| e.to_string())?
+    } else {
+        rbx_xml::from_reader(
+            bytes,
+            DecodeOptions::new().property_behavior(DecodePropertyBehavior::ReadUnknown),
+        )
+        .map_err(|e| e.to_string())?
+    };
     let mut instances = Vec::new();
     let mut stack = vec![(dom.root_ref(), None::<String>)];
     let mut index = 0;
@@ -108,15 +148,49 @@ pub fn decode(xml: &str) -> Result<Value, String> {
             index += 1;
             v
         };
+        if index > 200_000 {
+            return Err("INSTANCE_LIMIT".into());
+        }
+        if let Some(raw) = raw {
+            if let Some(raw_properties) = raw["properties"].as_array() {
+                for property in raw_properties {
+                    let name = property["name"].as_str().unwrap_or("");
+                    if name == "Name" {
+                        continue;
+                    }
+                    let names = property_names(i.class.as_str(), name);
+                    let decoded = names
+                        .iter()
+                        .find_map(|name| i.properties.get(&name.as_str().into()));
+                    if decoded.is_none() {
+                        diagnostics.push(json!({"code":"PROPERTY_NOT_RETAINED","severity":"warning","ownerId":id.to_string(),"message":format!("Serialized property {} was not retained by the decoder; raw input preserved",name)}));
+                    }
+                    if name == "AttributesSerialize"
+                        && !matches!(decoded, Some(rbx_types::Variant::Attributes(_)))
+                    {
+                        diagnostics.push(json!({"code":"PROPERTY_DECODE_FALLBACK","severity":"warning","ownerId":id.to_string(),"message":"AttributesSerialize could not be decoded as attributes; original bytes preserved"}));
+                    }
+                }
+            }
+        }
         instances.push(json!({"id":id.to_string(),"parentId":parent,"name":i.name.as_str(),"className":i.class.as_str(),"properties":properties,"synthetic":synthetic,"originalReferent":raw.and_then(|v|v.get("referent"))}));
         for child in i.children().iter().rev() {
             stack.push((*child, Some(id.to_string())));
         }
     }
-    if index != items.len() {
+    let declared = if binary {
+        bytes
+            .get(20..24)
+            .map(|b| u32::from_le_bytes(b.try_into().unwrap()) as usize)
+            .unwrap_or(0)
+    } else {
+        items.len()
+    };
+    if index != declared {
         diagnostics.push(json!({"code":"INVENTORY_MISMATCH","severity":"error","message":"Decoded object count differs from raw inventory"}));
     }
+    diagnostics.extend(crate::warnings::take());
     Ok(
-        json!({"instances":instances,"inventory":{"items":items},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":2}),
+        json!({"instances":instances,"inventory":{"items":items,"format":if binary{"rbxl"}else{"rbxlx"}},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":3}),
     )
 }

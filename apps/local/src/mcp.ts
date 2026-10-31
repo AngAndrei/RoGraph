@@ -74,6 +74,7 @@ export async function serveMcp(workspace: string): Promise<void> {
     "impact",
     "trace",
     "coverage",
+    "diagnostics",
     "overview",
     "tree",
   ] as const)

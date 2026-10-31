@@ -64,11 +64,11 @@ export function ImportView({
         <label className="file-drop">
           <span className="upload-symbol">↥</span>
           <strong>{file?.name ?? "Choose a Roblox place"}</strong>
-          <span>Roblox XML Place · .rbxlx · up to 512 MiB</span>
+          <span>Roblox Place · .rbxlx or .rbxl · up to 512 MiB</span>
           <input
             aria-label="Place file"
             type="file"
-            accept=".rbxlx"
+            accept=".rbxlx,.rbxl"
             onChange={(e) => {
               setFile(e.target.files?.[0]);
               setError("");
@@ -115,7 +115,7 @@ export function ImportView({
         {busy ? "Reading project…" : "Analyze"}
       </button>
       <small className="hint">
-        In Roblox Studio: Save to File → Roblox XML Place (.rbxlx).
+        In Roblox Studio: Save to File → Roblox Place (.rbxl or .rbxlx).
       </small>
     </section>
   );
