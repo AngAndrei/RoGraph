@@ -49,6 +49,7 @@ export default function App() {
     [job, setJob] = useState<Job>(),
     [error, setError] = useState(""),
     [details, setDetails] = useState(false),
+    [view, setView] = useState<"gameplay" | "code">("gameplay"),
     [context, setContext] = useState("all"),
     [status, setStatus] = useState("all"),
     [type, setType] = useState("all"),
@@ -66,8 +67,11 @@ export default function App() {
   const [newSnapshot, setNewSnapshot] = useState<string>(),
     [watching, setWatching] = useState(false);
   const requestRef = useRef(0);
+  const previousAnalysis = useRef("");
+  const previousView = useRef(view);
   const graphFilters = useMemo(
     () => ({
+      view,
       contexts: context === "all" ? undefined : [context as any],
       statuses: status === "all" ? undefined : [status as any],
       relationTypes: type === "all" ? undefined : [type as any],
@@ -81,7 +85,16 @@ export default function App() {
       groupBy,
       includeInstances,
     }),
-    [context, status, type, classFilter, depth, groupBy, includeInstances],
+    [
+      view,
+      context,
+      status,
+      type,
+      classFilter,
+      depth,
+      groupBy,
+      includeInstances,
+    ],
   );
   const refresh = async (id?: string) => {
     const w = await api.workspace();
@@ -96,8 +109,15 @@ export default function App() {
   useEffect(() => {
     if (!analysisId) return;
     let alive = true;
-    setSelection(undefined);
-    setSelected("");
+    const changed = previousAnalysis.current !== analysisId;
+    const changedView = previousView.current !== view;
+    previousView.current = view;
+    previousAnalysis.current = analysisId;
+    if (changed) {
+      setSelection(undefined);
+      setSelected("");
+      setEdgeId(undefined);
+    }
     setExportOpen(false);
     setTraceOpen(false);
     setTraceResult(undefined);
@@ -113,6 +133,7 @@ export default function App() {
       .then((r) => {
         if (alive) {
           setResult(r);
+          if (!changed && changedView && selectedId) void select(selectedId);
           setTraceResult(undefined);
           setActiveQuery({
             op: "overview",
@@ -174,6 +195,7 @@ export default function App() {
         analysisId,
         nodeId: id,
         limit: 300,
+        view,
       });
       if (request === requestRef.current) setSelection(r);
     } catch (e) {
@@ -453,17 +475,31 @@ export default function App() {
                 </div>
                 <div className="segmented">
                   <button
-                    className={!details ? "active" : ""}
-                    onClick={() => setDetails(false)}
+                    className={view === "gameplay" ? "active" : ""}
+                    onClick={() => {
+                      setView("gameplay");
+                      setType("all");
+                    }}
                   >
-                    Scripts
+                    Gameplay
                   </button>
                   <button
-                    className={details ? "active" : ""}
-                    onClick={() => setDetails(true)}
+                    className={view === "code" ? "active" : ""}
+                    onClick={() => {
+                      setView("code");
+                      setType("all");
+                    }}
                   >
-                    Details
+                    Code
                   </button>
+                  {view === "code" && (
+                    <button
+                      className={details ? "active" : ""}
+                      onClick={() => setDetails(!details)}
+                    >
+                      Methods &amp; config
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="filterbar">
@@ -574,6 +610,14 @@ export default function App() {
                   Show saved objects
                 </label>
               </div>
+              {view === "gameplay" &&
+                result.capabilities?.gameplay === false && (
+                  <div className="bounds-banner">
+                    This snapshot was indexed before gameplay support. Reimport
+                    the saved project to build gameplay connections, or open
+                    Code.
+                  </div>
+                )}
               <GraphView
                 result={result}
                 details={details || includeInstances}
@@ -582,7 +626,12 @@ export default function App() {
                   void select(id);
                 }}
                 onEdge={(id) => {
-                  const relation = result.relations.find((r) => r.id === id);
+                  const projected = result.projection?.edges.find(
+                    (e) => e.id === id,
+                  );
+                  const relation = result.relations.find(
+                    (r) => r.id === (projected?.relationIds[0] ?? id),
+                  );
                   if (relation) {
                     setEdgeId(id);
                     void select(relation.source);
@@ -651,14 +700,19 @@ export default function App() {
                 }}
                 onExplore={(op, id) => void explore(op, id)}
                 edgeId={edgeId}
+                onShowImplementation={() => {
+                  setView("code");
+                  setDetails(true);
+                  setType("all");
+                }}
               />
             ) : (
               <div className="inspector-empty">
                 <div className="selection-art">⌘</div>
                 <h2>Follow a connection</h2>
                 <p>
-                  Select a script, method, or field to see what it uses and what
-                  depends on it.
+                  Select an object, script, or connection to see what it uses
+                  and what depends on it.
                 </p>
                 <div className="inspector-tip">
                   <strong>Start with a question</strong>

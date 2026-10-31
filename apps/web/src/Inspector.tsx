@@ -10,12 +10,14 @@ export function Inspector({
   onSelect,
   onExplore,
   edgeId,
+  onShowImplementation,
 }: {
   result: QueryResult;
   selectedId: string;
   onSelect: (id: string) => void;
   onExplore: (op: "dependencies" | "impact", id: string) => void;
   edgeId?: string;
+  onShowImplementation?: () => void;
 }) {
   const [page, setPage] = useState<QueryResult>(),
     [pageBusy, setPageBusy] = useState(false),
@@ -29,10 +31,30 @@ export function Inspector({
   const members = r.nodes.filter((n) => n.ownerId === selectedId),
     rels = r.relations.filter((e) =>
       edgeId
-        ? e.id === edgeId
+        ? e.id === edgeId ||
+          Boolean(
+            r.projection?.edges
+              .find((p) => p.id === edgeId)
+              ?.relationIds.includes(e.id),
+          )
         : e.source === selectedId || e.target === selectedId,
     ),
     names = new Map(r.nodes.map((n) => [n.id, n.label]));
+  const sourceScripts = new Set(
+    rels.flatMap((rel) => (rel.gameplay ? [rel.gameplay.sourceScriptId] : [])),
+  );
+  const sourceIds = new Set(
+    r.sources
+      .filter((s) => sourceScripts.has(s.scriptId) || s.scriptId === selectedId)
+      .map((s) => s.id),
+  );
+  if (node.attributes.sourceId) sourceIds.add(String(node.attributes.sourceId));
+  const scopedSites =
+    r.projection?.view === "gameplay"
+      ? r.sites.filter(
+          (s) => sourceIds.has(s.sourceId) || s.ownerId === selectedId,
+        )
+      : r.sites;
   return (
     <>
       <span className="eyebrow">SELECTED {node.kind.toUpperCase()}</span>
@@ -42,6 +64,9 @@ export function Inspector({
       </span>
       <p className="muted">{node.contexts.join(" + ")} context</p>
       <div className="inspect-actions">
+        {r.projection?.view === "gameplay" && onShowImplementation && (
+          <button onClick={onShowImplementation}>Show implementation</button>
+        )}
         {Boolean(node.attributes.sourceId) && (
           <button
             onClick={() =>
@@ -138,7 +163,7 @@ export function Inspector({
               }
             >
               <span>
-                {rel.type.replaceAll("_", " ")}
+                {rel.gameplay?.label ?? rel.type.replaceAll("_", " ")}
                 <small>
                   {rel.source === selectedId ? "Outgoing" : "Incoming"} ·{" "}
                   {ev.length} retained occurrence{ev.length === 1 ? "" : "s"}
@@ -149,7 +174,25 @@ export function Inspector({
             <button className="relation-other" onClick={() => onSelect(other)}>
               {names.get(other) ?? other} ↗
             </button>
-            {(expanded === rel.id || edgeId === rel.id) &&
+            {rel.gameplay && (
+              <p className="muted">
+                {rel.gameplay.method} ·{" "}
+                {rel.gameplay.conditional
+                  ? "Conditional potential behavior"
+                  : "Potential static behavior"}
+                {rel.gameplay.guards.length
+                  ? " · " + rel.gameplay.guards.length + " condition(s)"
+                  : ""}
+                {rel.gameplay.allocationId
+                  ? " · affects a code-created copy of this template"
+                  : ""}
+              </p>
+            )}
+            {(expanded === rel.id ||
+              edgeId === rel.id ||
+              r.projection?.edges
+                .find((p) => p.id === edgeId)
+                ?.relationIds.includes(rel.id)) &&
               ev.map((e) => (
                 <div className="occurrence" key={e.id}>
                   <strong>{e.mechanism ?? e.rule}</strong>
@@ -173,12 +216,22 @@ export function Inspector({
           </div>
         );
       })}
-      {r.sites.some(
+      {scopedSites.some(
         (s) => s.status === "unresolved" || s.status === "candidate",
       ) && (
         <>
-          <h3>Unresolved / candidate sites</h3>
-          {r.sites
+          <h3>
+            Unresolved / candidate sites{" "}
+            <small>
+              {
+                scopedSites.filter(
+                  (s) => s.status === "unresolved" || s.status === "candidate",
+                ).length
+              }{" "}
+              retained
+            </small>
+          </h3>
+          {scopedSites
             .filter(
               (s) => s.status === "unresolved" || s.status === "candidate",
             )
@@ -195,7 +248,10 @@ export function Inspector({
                       relationId: "",
                       siteId: s.id,
                       sourceId: s.sourceId,
-                      span: s.span,
+                      span:
+                        s.kind === "call"
+                          ? ((s.expression.callee as any)?.span ?? s.span)
+                          : s.span,
                       rule: s.reason ?? "unresolved",
                       status: s.status,
                       assumptions: s.assumptions ?? [],
@@ -228,6 +284,7 @@ export function Inspector({
                 nodeId: selectedId,
                 limit: r.meta.limits.nodes,
                 cursor: r.meta.nextCursor,
+                view: r.projection?.view,
               })
               .then(setPage)
               .catch((e) => setPageError(e.message))

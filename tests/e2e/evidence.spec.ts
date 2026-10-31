@@ -12,6 +12,7 @@ test("follows a potential remote path and opens exact source evidence", async ({
   await expect(
     page.getByRole("heading", { name: "Coverage", exact: true }),
   ).toBeVisible({ timeout: 90000 });
+  await page.getByRole("button", { name: "Code", exact: true }).click();
   await page.getByRole("button", { name: "Trace a path", exact: true }).click();
   await page
     .getByLabel("Trace start")
