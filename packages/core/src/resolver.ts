@@ -67,6 +67,8 @@ export class Resolver {
     seen = new Set<string>(),
   ): Value {
     let v = this.get(e, f, seen);
+    if (v.kind === "property" && v.runtime && !v.targetId)
+      return unknown("UNSAVED_API_PROPERTY");
     if (v.kind === "literal" && typeof v.value === "number")
       return {
         kind: "external",

@@ -4,7 +4,7 @@ import type {
   Resolution,
   Expr,
 } from "../../contracts/src/model.js";
-import { ModuleResolver } from "./module-values.js";
+import { FlowResolver as ModuleResolver } from "./flow-resolver.js";
 import { emptyResolution, mark, emit, addNode } from "./resolution.js";
 import { resolveContexts } from "./execution-context.js";
 export function resolveCalls(

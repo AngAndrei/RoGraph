@@ -33,6 +33,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
     return f;
   const bindings = new Map<string, Binding>(),
     functions = new Map<number, string>();
+  let guards: Expr[] = [];
+  f.control = [];
   const fallback: Span = {
     startByte: 0,
     endByte: 0,
@@ -79,7 +81,7 @@ export function lowerAst(parsed: ParsedSource): Facts {
     if (!v)
       return { kind: "unknown", span: fallback, reason: "MISSING_EXPRESSION" };
     const span = loc(v),
-      base = { span };
+      base = { span, guards: [...guards] };
     switch (v.type) {
       case "AstExprConstantNil":
         return { ...base, kind: "literal", value: null };
@@ -140,8 +142,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
           ...base,
           kind: "conditional",
           condition: expr(v.condition, owner, scope),
-          yes: expr(v.trueexpr, owner, scope),
-          no: expr(v.falseexpr, owner, scope),
+          yes: expr(v.trueExpr, owner, scope),
+          no: expr(v.falseExpr, owner, scope),
         };
       case "AstExprTable": {
         let listIndex = 0;
@@ -228,6 +230,69 @@ export function lowerAst(parsed: ParsedSource): Facts {
   const stat = (v: any, owner: string, scope: string): void => {
     if (!v) return;
     switch (v.type) {
+      case "AstStatIf": {
+        const condition = expr(v.condition, owner, scope),
+          outer = guards;
+        (f.control as any[]).push({
+          kind: "branch",
+          condition,
+          ownerId: owner,
+          span: loc(v),
+        });
+        guards = [...outer, condition];
+        stat(v.thenbody, owner, scope);
+        guards = [
+          ...outer,
+          { kind: "unary", op: "Not", value: condition, span: condition.span },
+        ];
+        stat(v.elsebody, owner, scope);
+        guards = outer;
+        break;
+      }
+      case "AstStatWhile":
+      case "AstStatRepeat": {
+        const condition = expr(v.condition, owner, scope),
+          outer = guards;
+        (f.control as any[]).push({
+          kind: "loop",
+          condition,
+          ownerId: owner,
+          span: loc(v),
+        });
+        guards = [...outer, condition];
+        stat(v.body, owner, scope);
+        guards = outer;
+        break;
+      }
+      case "AstStatForIn": {
+        const values = (v.values ?? []).map((x: any) => expr(x, owner, scope));
+        for (const [index, variable] of (v.vars ?? []).entries()) {
+          const b = binding(variable, scope);
+          if (index > 0)
+            b.initializer = {
+              kind: "iteration",
+              iterable: values[0],
+              span: loc(variable),
+            };
+        }
+        (f.control as any[]).push({
+          kind: "iteration",
+          values,
+          ownerId: owner,
+          span: loc(v),
+        });
+        stat(v.body, owner, scope);
+        break;
+      }
+      case "AstStatContinue":
+      case "AstStatBreak":
+        (f.control as any[]).push({
+          kind: v.type,
+          ownerId: owner,
+          span: loc(v),
+          guards: [...guards],
+        });
+        break;
       case "AstStatBlock": {
         const childScope = `${f.scriptId}:scope:${loc(v).startByte}`;
         f.scopes.push({

@@ -5,7 +5,7 @@ import type {
   Expr,
   Node,
 } from "../../contracts/src/model.js";
-import { ModuleResolver } from "./module-values.js";
+import { FlowResolver as ModuleResolver } from "./flow-resolver.js";
 import { emptyResolution, addNode, mark, emit } from "./resolution.js";
 import { resolveContexts } from "./execution-context.js";
 import { unknown, type Value } from "./resolver.js";
