@@ -140,10 +140,16 @@ export async function importPlace(
           "PROPERTY_NOT_RETAINED",
           "PROPERTY_DECODE_FALLBACK",
           "DECODER_WARNING",
+          "OPAQUE_SHARED_PAYLOAD",
         ].includes(d.code),
       ),
       limitations: [
         "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent.",
+        ...(diagnostics.some((d) => d.code === "OPAQUE_SHARED_PAYLOAD")
+          ? [
+              "Large opaque shared buffers are represented by hash and size; exact payload bytes are retained in the raw place file.",
+            ]
+          : []),
       ],
     },
     inventory: {
