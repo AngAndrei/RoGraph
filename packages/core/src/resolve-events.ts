@@ -176,9 +176,11 @@ export function resolveEvents(
           (sends[resolver.objects.get(receiver.id!)!.className] ?? []).includes(
             method,
           )
-        )
-          record(raw, receiver, method, raw.ownerId, "SENDS_VIA");
-        else
+        ) {
+          if (!e.colon)
+            mark(result, raw, unknown("DOT_NATIVE_CALL_UNSUPPORTED"));
+          else record(raw, receiver, method, raw.ownerId, "SENDS_VIA");
+        } else
           mark(
             result,
             raw,
@@ -188,6 +190,10 @@ export function resolveEvents(
           );
       } else if (["Connect", "Once"].includes(method)) {
         if (receiver.kind === "signal") {
+          if (!e.colon) {
+            mark(result, raw, unknown("DOT_NATIVE_CALL_UNSUPPORTED"));
+            continue;
+          }
           const handler = resolver.callable(
             resolver.get((e.args as Expr[])[0], f),
           );

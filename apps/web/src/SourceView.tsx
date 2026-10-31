@@ -81,7 +81,7 @@ export function SourceView({
         <p className="source-path">
           {view?.origin.originalPath ?? view?.origin.path ?? evidence.sourceId}
         </p>
-        {view?.origin.originalSha256 && (
+        {view?.origin.originalSha256 && !view.origin.originalBinary && (
           <div className="segmented">
             <button
               className={!original ? "active" : ""}
@@ -102,6 +102,14 @@ export function SourceView({
               Original file
             </button>
           </div>
+        )}
+        {view?.origin.originalBinary && (
+          <p className="source-notice">
+            Original binary model preserved:{" "}
+            {view.origin.originalBinary.byteLength.toLocaleString()} bytes ·
+            SHA-256 {view.origin.originalBinary.sha256}. Binary model bytes have
+            no UTF-8 source coordinates.
+          </p>
         )}
         {view?.origin.kind === "generated" && (
           <p className="source-notice">

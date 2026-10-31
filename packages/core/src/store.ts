@@ -43,8 +43,13 @@ export type StoreSelection = {
       endByte?: number;
     }
   | { op: "children"; parentId: string | null }
-  | { op: "overview"; groupBy?: "service" | "folder" }
+  | {
+      op: "overview";
+      groupBy?: "service" | "folder";
+      includeInstances?: boolean;
+    }
   | { op: "manifest" }
+  | { op: "diagnostics" }
 );
 export interface GraphStore {
   save(graph: Graph, signal?: AbortSignal): Promise<void>;
@@ -87,6 +92,13 @@ export async function openStore(path: string): Promise<GraphStore> {
   };
   const base = (id: string): QueryResult => {
     const h = JSON.parse(header(id).data);
+    const diagnosticCount = Number(
+      (
+        db
+          .prepare("SELECT COUNT(*) AS n FROM diagnostics WHERE analysis=?")
+          .get(id) as any
+      ).n,
+    );
     return {
       analysisId: id,
       ...h,
@@ -104,8 +116,9 @@ export async function openStore(path: string): Promise<GraphStore> {
       paths: [],
       groups: [],
       meta: {
-        truncated: false,
-        omittedCounts: {},
+        truncated: diagnosticCount > 100,
+        omittedCounts:
+          diagnosticCount > 100 ? { diagnostics: diagnosticCount - 100 } : {},
         limits: { nodes: 1000, evidence: 5000 },
       },
     };
@@ -139,7 +152,10 @@ export async function openStore(path: string): Promise<GraphStore> {
           };
           const blobs = join(dirname(path), "blobs");
           await mkdir(blobs, { recursive: true });
-          const target = join(blobs, raw.sha256 + ".rbxlx");
+          const target = join(
+            blobs,
+            raw.sha256 + (raw.extension === ".rbxl" ? ".rbxl" : ".rbxlx"),
+          );
           let present = false;
           try {
             await access(target);
@@ -162,6 +178,49 @@ export async function openStore(path: string): Promise<GraphStore> {
             raw.sha256,
             target,
           );
+        }
+        signal?.throwIfAborted();
+        const originals = new Map<string, string>();
+        for (const source of g.sources) {
+          const original = source.origin.originalBinary;
+          if (!original) continue;
+          if (!/^[a-f0-9]{64}$/.test(original.sha256))
+            throw new Error("Invalid original content hash");
+          let target = originals.get(original.sha256);
+          if (!target) {
+            const directory = join(dirname(path), "blobs");
+            await mkdir(directory, { recursive: true });
+            target = join(directory, original.sha256 + ".rbxm");
+            const digest = async (file: string) => {
+              const h = createHash("sha256");
+              for await (const chunk of createReadStream(file)) h.update(chunk);
+              return h.digest("hex");
+            };
+            let present = false;
+            try {
+              await access(target);
+              present = true;
+            } catch {}
+            if (!present) {
+              if ((await digest(original.blobPath)) !== original.sha256)
+                throw new Error("Original binary hash mismatch");
+              const temporary = target + "." + process.pid + ".tmp";
+              await copyFile(original.blobPath, temporary);
+              if ((await digest(temporary)) !== original.sha256)
+                throw new Error("Original binary changed while retaining it");
+              await rename(temporary, target);
+            } else if ((await digest(target)) !== original.sha256)
+              throw new RoGraphError(
+                "BLOB_INTEGRITY",
+                "Stored binary original failed its integrity check",
+              );
+            db.prepare("INSERT OR IGNORE INTO blobs VALUES(?,?)").run(
+              original.sha256,
+              target,
+            );
+            originals.set(original.sha256, target);
+          }
+          source.origin.originalBinary = { ...original, blobPath: target };
         }
         signal?.throwIfAborted();
         db.exec("BEGIN IMMEDIATE");
@@ -292,15 +351,13 @@ export async function openStore(path: string): Promise<GraphStore> {
         offset,
       );
       return {
-        items: rows
-          .slice(0, count)
-          .map((r) => ({
-            analysisId: r.id,
-            snapshotId: r.snapshot,
-            inputKind: r.kind,
-            complete: !r.partial,
-            createdAt: r.created,
-          })),
+        items: rows.slice(0, count).map((r) => ({
+          analysisId: r.id,
+          snapshotId: r.snapshot,
+          inputKind: r.kind,
+          complete: !r.partial,
+          createdAt: r.created,
+        })),
         nextCursor: rows.length > count ? String(offset + count) : undefined,
       };
     },
@@ -340,6 +397,31 @@ export async function openStore(path: string): Promise<GraphStore> {
         offset = Number(q.cursor ?? 0);
       if (!Number.isSafeInteger(offset) || offset < 0)
         throw new Error("Invalid selection cursor");
+      if (q.op === "diagnostics") {
+        result.diagnostics = parse(
+          all(
+            "SELECT data FROM diagnostics WHERE analysis=? ORDER BY ordinal LIMIT ? OFFSET ?",
+            q.analysisId,
+            limit,
+            offset,
+          ),
+        );
+        const total = Number(
+            (
+              db
+                .prepare(
+                  "SELECT COUNT(*) AS n FROM diagnostics WHERE analysis=?",
+                )
+                .get(q.analysisId) as any
+            ).n,
+          ),
+          remaining = Math.max(0, total - offset - result.diagnostics.length);
+        result.meta.truncated = remaining > 0;
+        result.meta.omittedCounts = remaining ? { diagnostics: remaining } : {};
+        if (remaining)
+          result.meta.nextCursor = String(offset + result.diagnostics.length);
+        return result;
+      }
       if (q.op === "evidence") {
         const relationIds = [...new Set(q.relationIds)];
         if (!relationIds.length) return result;
@@ -417,8 +499,9 @@ export async function openStore(path: string): Promise<GraphStore> {
           args = [q.analysisId, q.parentId];
           break;
         case "overview":
-          sql =
-            "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
+          sql = q.includeInstances
+            ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
+            : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
           args = [q.analysisId];
           break;
         case "search": {
@@ -472,8 +555,12 @@ export async function openStore(path: string): Promise<GraphStore> {
           const original = q.op === "sources" && q.original;
           if (original && s.origin.originalText === undefined)
             throw new RoGraphError(
-              "SOURCE_NOT_FOUND",
-              "No separate original file is stored for this source",
+              s.origin.originalBinary
+                ? "BINARY_ORIGINAL_NOT_TEXT"
+                : "SOURCE_NOT_FOUND",
+              s.origin.originalBinary
+                ? "The exact binary model is retained as an owned blob; it has no UTF-8 text coordinates"
+                : "No separate original file is stored for this source",
             );
           const text = original ? s.origin.originalText! : s.text;
           const bytes = Buffer.byteLength(text),

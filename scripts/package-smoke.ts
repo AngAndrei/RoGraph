@@ -65,6 +65,23 @@ const input = join(pkg, "samples", "shop.rbxlx"),
     (await run(["analyze", "--input", input, "--workspace", workspace])).stdout,
   ),
   analysisId = analysis.analysisId;
+const binaryAnalysis = JSON.parse(
+  (
+    await run([
+      "analyze",
+      "--input",
+      join(pkg, "samples", "shop.rbxl"),
+      "--workspace",
+      join(owned, "binary-workspace"),
+    ])
+  ).stdout,
+);
+if (
+  binaryAnalysis.coverage.importedInstances < 1 ||
+  binaryAnalysis.coverage.parsedScripts < 1 ||
+  binaryAnalysis.coverage.partialImport
+)
+  throw Error("PACKAGED_BINARY_IMPORT_FAILED");
 async function query(q: Record<string, unknown>) {
   const path = join(owned, "request.json");
   await writeFile(path, JSON.stringify(q));
@@ -195,6 +212,7 @@ const report = {
     "external dependency loading blocked",
     "Node networking blocked",
     "XML import",
+    "binary place import",
     "indexed search",
     "four-hop evidence trace",
     "bounded context export",

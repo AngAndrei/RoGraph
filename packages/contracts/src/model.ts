@@ -18,6 +18,8 @@ export interface Diagnostic {
   message: string;
   ownerId?: string;
   siteId?: string;
+  sourceId?: string;
+  span?: Span;
 }
 export interface Origin {
   kind: "place" | "file" | "generated";
@@ -25,6 +27,13 @@ export interface Origin {
   originalPath?: string;
   originalSha256?: string;
   originalText?: string;
+  originalBinary?: {
+    encoding: "binary";
+    mediaType: string;
+    sha256: string;
+    byteLength: number;
+    blobPath: string;
+  };
   mapping?: "identity" | "crlf-to-lf" | "unavailable";
 }
 export interface Source {
@@ -69,6 +78,7 @@ export interface Inventory {
     byteLength: number;
     bytesBase64?: string;
     blobPath?: string;
+    extension?: ".rbxl" | ".rbxlx";
   };
   [key: string]: unknown;
 }
@@ -289,6 +299,8 @@ const schema = z.object({
       message: z.string(),
       ownerId: z.string().optional(),
       siteId: z.string().optional(),
+      sourceId: z.string().optional(),
+      span: spanSchema.optional(),
     }),
   ),
   coverage: z.object({

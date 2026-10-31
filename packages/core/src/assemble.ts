@@ -1,3 +1,4 @@
+import { apiMetadataHash } from "./api-members.js";
 import {
   validateGraph,
   type Snapshot,
@@ -226,7 +227,8 @@ export function assembleGraph(
     parser: String(facts[0]?.parserVersion ?? "none"),
     features: String(facts[0]?.featureHash ?? "none"),
     engine: "0.1.0",
-    resolver: "2",
+    resolver: "3",
+    apiMetadata: apiMetadataHash,
   };
   for (const source of snapshot.sources)
     if (hash(source.text) !== source.sha256)

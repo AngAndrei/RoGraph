@@ -1,5 +1,6 @@
 import { DiffView } from "./DiffView.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { DiagnosticView } from "./DiagnosticView.js";
 import type {
   AnalysisSummary,
   QueryResult,
@@ -51,6 +52,10 @@ export default function App() {
     [context, setContext] = useState("all"),
     [status, setStatus] = useState("all"),
     [type, setType] = useState("all"),
+    [classFilter, setClasses] = useState(""),
+    [depth, setDepth] = useState(6),
+    [groupBy, setGroupBy] = useState<"service" | "folder">("service"),
+    [includeInstances, setIncludeInstances] = useState(false),
     [stopped, setStopped] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false),
     [exportOpen, setExportOpen] = useState(false),
@@ -61,6 +66,23 @@ export default function App() {
   const [newSnapshot, setNewSnapshot] = useState<string>(),
     [watching, setWatching] = useState(false);
   const requestRef = useRef(0);
+  const graphFilters = useMemo(
+    () => ({
+      contexts: context === "all" ? undefined : [context as any],
+      statuses: status === "all" ? undefined : [status as any],
+      relationTypes: type === "all" ? undefined : [type as any],
+      classes: classFilter.trim()
+        ? classFilter
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
+      depth,
+      groupBy,
+      includeInstances,
+    }),
+    [context, status, type, classFilter, depth, groupBy, includeInstances],
+  );
   const refresh = async (id?: string) => {
     const w = await api.workspace();
     setAnalyses(w.analyses);
@@ -86,9 +108,7 @@ export default function App() {
         op: "overview",
         analysisId,
         limit: 300,
-        contexts: context === "all" ? undefined : [context as any],
-        statuses: status === "all" ? undefined : [status as any],
-        relationTypes: type === "all" ? undefined : [type as any],
+        ...graphFilters,
       })
       .then((r) => {
         if (alive) {
@@ -98,9 +118,7 @@ export default function App() {
             op: "overview",
             analysisId,
             limit: 300,
-            contexts: context === "all" ? undefined : [context as any],
-            statuses: status === "all" ? undefined : [status as any],
-            relationTypes: type === "all" ? undefined : [type as any],
+            ...graphFilters,
           });
         }
       })
@@ -110,7 +128,7 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [analysisId, context, status, type]);
+  }, [analysisId, graphFilters]);
   useEffect(() => {
     if (!analysisId || !search.trim()) {
       setMatches([]);
@@ -187,7 +205,12 @@ export default function App() {
     };
   }, [analysisId]);
   async function overview() {
-    const q: Query = { op: "overview", analysisId, limit: 300 };
+    const q: Query = {
+      op: "overview",
+      analysisId,
+      limit: 300,
+      ...graphFilters,
+    };
     try {
       setResult(await api.run(q));
       setTraceResult(undefined);
@@ -199,7 +222,13 @@ export default function App() {
   }
   async function explore(op: "dependencies" | "impact", id: string) {
     try {
-      const q: Query = { op, analysisId, nodeId: id, depth: 6, limit: 300 },
+      const q: Query = {
+          op,
+          analysisId,
+          nodeId: id,
+          limit: 300,
+          ...graphFilters,
+        },
         r = await api.run(q);
       setResult(r);
       setDetails(true);
@@ -319,6 +348,11 @@ export default function App() {
               {result?.analysisId === analysisId && (
                 <>
                   <CoverageView coverage={result.coverage} />
+                  <DiagnosticView
+                    key={analysisId}
+                    analysisId={analysisId}
+                    onSelect={(id) => void select(id)}
+                  />
                   {analyses.length > 1 && (
                     <DiffView
                       key={analysisId}
@@ -493,9 +527,56 @@ export default function App() {
                   Export context
                 </button>
               </div>
+              <div className="filterbar secondary-filters">
+                <label>
+                  Group by{" "}
+                  <select
+                    aria-label="Group by"
+                    value={groupBy}
+                    onChange={(e) =>
+                      setGroupBy(e.target.value as "service" | "folder")
+                    }
+                  >
+                    <option value="service">Service</option>
+                    <option value="folder">Folder</option>
+                  </select>
+                </label>
+                <label>
+                  Classes{" "}
+                  <input
+                    aria-label="Object classes"
+                    placeholder="Any class · comma separated"
+                    value={classFilter}
+                    onChange={(e) => setClasses(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Depth{" "}
+                  <select
+                    aria-label="Traversal depth"
+                    value={depth}
+                    onChange={(e) => setDepth(Number(e.target.value))}
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-label="Include saved objects"
+                    checked={includeInstances}
+                    onChange={(e) => setIncludeInstances(e.target.checked)}
+                  />{" "}
+                  Show saved objects
+                </label>
+              </div>
               <GraphView
                 result={result}
-                details={details}
+                details={details || includeInstances}
                 onSelect={(id) => {
                   setEdgeId(undefined);
                   void select(id);
@@ -512,6 +593,7 @@ export default function App() {
                 <TraceControls
                   analysisId={analysisId}
                   nodes={result.nodes}
+                  filters={graphFilters}
                   onClose={() => setTraceOpen(false)}
                   onResult={(r, q) => {
                     setResult(r);

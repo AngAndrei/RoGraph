@@ -8,18 +8,39 @@ import {
 import { join, resolve, basename } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
 const stage = resolve(process.argv[2] ?? ""),
   destination = join(stage, "notices");
 await mkdir(destination, { recursive: true });
-const records: { name: string; version: string; license: string }[] = [];
+const records: {
+  name: string;
+  version: string;
+  license: string;
+  component?: string;
+}[] = [];
+async function licenseTree(dir: string, target: string) {
+  await mkdir(target, { recursive: true });
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isFile())
+      await copyFile(join(dir, entry.name), join(target, entry.name));
+    else if (entry.isDirectory())
+      await licenseTree(join(dir, entry.name), join(target, entry.name));
+  }
+}
 async function licenseFiles(dir: string, target: string) {
   await mkdir(target, { recursive: true });
-  for (const entry of await readdir(dir, { withFileTypes: true }))
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (
       entry.isFile() &&
       /^(license|licence|copying|notice|copyright)(\.|$|-)/i.test(entry.name)
     )
       await copyFile(join(dir, entry.name), join(target, entry.name));
+    else if (
+      entry.isDirectory() &&
+      /^(licenses?|licences?|notices?|copyrights?)$/i.test(entry.name)
+    )
+      await licenseTree(join(dir, entry.name), join(target, entry.name));
+  }
 }
 async function packages(root: string) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -65,37 +86,65 @@ for (const [source, name] of [
 ])
   await copyFile(source, join(destination, name));
 const cargo = process.env.ROGRAPH_CARGO ?? "cargo";
-const metadata = JSON.parse(
-  (
-    await promisify(execFile)(
-      process.env.ROGRAPH_CARGO ?? cargo,
-      [
-        "metadata",
-        "--manifest-path",
-        "native/rbx-import/Cargo.toml",
-        "--locked",
-        "--offline",
-        "--filter-platform",
-        "x86_64-pc-windows-msvc",
-        "--format-version",
-        "1",
-      ],
-      { windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
-    )
-  ).stdout,
-);
-for (const pkg of metadata.packages) {
-  if (!pkg.source) continue;
-  records.push({
-    name: pkg.name,
-    version: pkg.version,
-    license: pkg.license ?? "See crate notices",
-  });
-  await licenseFiles(
-    resolve(pkg.manifest_path, ".."),
-    join(destination, "rust", pkg.name + "-" + pkg.version),
+const rojoLockHash = createHash("sha256")
+  .update(await readFile("vendor/rojo-source/Cargo.lock"))
+  .digest("hex");
+if (
+  rojoLockHash !==
+  "a1d2927ea6f74d9f63d21dce5ff7bf2427fa4121e7e46a594a8f6c3bdaafcde3"
+)
+  throw Error("ROJO_SOURCE_LOCK_MISMATCH");
+for (const [manifest, component] of [
+  ["native/rbx-import/Cargo.toml", "rbx-import"],
+  ["vendor/rojo-source/Cargo.toml", "rojo"],
+]) {
+  const metadata = JSON.parse(
+    (
+      await promisify(execFile)(
+        process.env.ROGRAPH_CARGO ?? cargo,
+        [
+          "metadata",
+          "--manifest-path",
+          manifest,
+          "--locked",
+          "--offline",
+          "--filter-platform",
+          "x86_64-pc-windows-msvc",
+          "--format-version",
+          "1",
+        ],
+        { windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
+      )
+    ).stdout,
   );
+  for (const pkg of metadata.packages) {
+    if (!pkg.source) continue;
+    records.push({
+      name: pkg.name,
+      version: pkg.version,
+      license: pkg.license ?? "See crate notices",
+      component,
+    });
+    await licenseFiles(
+      resolve(pkg.manifest_path, ".."),
+      join(destination, "rust", pkg.name + "-" + pkg.version),
+    );
+  }
 }
+await writeFile(
+  join(destination, "rojo-source-version.json"),
+  JSON.stringify(
+    {
+      version: "7.7.1",
+      commit: "26b6cc6d83ef068d356aac689110ad89f3b05d65",
+      cargoLockSha256: rojoLockHash,
+      source:
+        "https://github.com/rojo-rbx/rojo/tree/26b6cc6d83ef068d356aac689110ad89f3b05d65",
+    },
+    null,
+    2,
+  ),
+);
 await writeFile(
   join(destination, "dependency-inventory.json"),
   JSON.stringify(

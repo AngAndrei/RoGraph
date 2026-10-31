@@ -18,6 +18,7 @@ export function lowerAst(parsed: ParsedSource): Facts {
     diagnostics: parsed.diagnostics.map((d) => ({
       ...d,
       ownerId: parsed.scriptId,
+      sourceId: parsed.sourceId,
     })),
     members: [],
     globalAssignments: [],
@@ -124,16 +125,20 @@ export function lowerAst(parsed: ParsedSource): Facts {
         return {
           ...base,
           kind: "table",
-          entries: (v.items ?? []).map((item: any) => ({
-            key:
-              item.kind === "item"
-                ? ++listIndex
-                : ["string", "number"].includes(typeof item.key?.value)
-                  ? item.key.value
-                  : null,
-            value: expr(item.value, owner, scope, "read"),
-            span: loc(item.key ?? item.value),
-          })),
+          entries: (v.items ?? []).map((item: any) => {
+            if (item.kind !== "item" && item.key)
+              expr(item.key, owner, scope, "read");
+            return {
+              key:
+                item.kind === "item"
+                  ? ++listIndex
+                  : ["string", "number"].includes(typeof item.key?.value)
+                    ? item.key.value
+                    : null,
+              value: expr(item.value, owner, scope, "read"),
+              span: loc(item.key ?? item.value),
+            };
+          }),
         };
       }
       case "AstExprFunction": {
@@ -208,9 +213,13 @@ export function lowerAst(parsed: ParsedSource): Facts {
         break;
       }
       case "AstStatLocal": {
+        const locals = v.vars.map((variable: any) => binding(variable, scope));
+        const values = (v.values ?? []).map((value: any, n: number) =>
+          expr(value, owner, scope, "read", locals[n]?.name),
+        );
         for (let n = 0; n < v.vars.length; n++) {
-          const b = binding(v.vars[n], scope);
-          b.initializer = expr(v.values[n], owner, scope, "read", b.name);
+          const b = locals[n];
+          b.initializer = values[n] ?? expr(undefined, owner, scope);
         }
         break;
       }
@@ -220,7 +229,7 @@ export function lowerAst(parsed: ParsedSource): Facts {
         break;
       }
       case "AstStatFunction": {
-        const target = expr(v.name, owner, scope, "none"),
+        const target = expr(v.name, owner, scope, "write"),
           name =
             target.kind === "index"
               ? String((target.key as Expr).value)
@@ -229,24 +238,25 @@ export function lowerAst(parsed: ParsedSource): Facts {
         break;
       }
       case "AstStatAssign": {
+        const targets = v.vars.map((variable: any) =>
+          expr(variable, owner, scope, "write"),
+        );
+        const values = (v.values ?? []).map((value: any) =>
+          expr(value, owner, scope),
+        );
         for (let n = 0; n < v.vars.length; n++)
-          assign(
-            expr(v.vars[n], owner, scope, "write"),
-            expr(v.values[n], owner, scope),
-            owner,
-          );
+          assign(targets[n], values[n] ?? expr(undefined, owner, scope), owner);
         break;
       }
       case "AstStatCompoundAssign": {
         const target = expr(v.var, owner, scope, "write");
         site("read", target, owner);
         expr(v.value, owner, scope);
-        if (target.kind === "binding")
-          assign(
-            target,
-            { kind: "unknown", span: loc(v), reason: "COMPOUND_REASSIGNMENT" },
-            owner,
-          );
+        assign(
+          target,
+          { kind: "unknown", span: loc(v), reason: "COMPOUND_REASSIGNMENT" },
+          owner,
+        );
         break;
       }
       case "AstStatExpr":
@@ -287,6 +297,15 @@ export function lowerAst(parsed: ParsedSource): Facts {
     }
   };
   stat(parsed.ast, f.scriptId, `${f.scriptId}:scope:0`);
+  const directReturns =
+    (parsed.ast as any).body?.filter((s: any) => s.type === "AstStatReturn") ??
+    [];
+  if (f.exports.length !== 1 || directReturns.length !== 1)
+    f.returnExpr = {
+      kind: "unknown",
+      reason: "ALTERNATIVE_OR_CONDITIONAL_MODULE_RETURN",
+      span: (f.returnExpr as Expr | undefined)?.span ?? fallback,
+    };
   const unique = new Map(f.sites.map((s) => [s.id, s]));
   f.sites = [...unique.values()];
   return f;

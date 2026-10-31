@@ -1,6 +1,6 @@
 import { tmpdir } from "node:os";
-import { readFile, rm } from "node:fs/promises";
-import { resolve, extname, dirname, basename, sep } from "node:path";
+import { readFile, rm, mkdir, writeFile } from "node:fs/promises";
+import { resolve, extname, dirname, basename, sep, join } from "node:path";
 import type { Snapshot } from "../../contracts/src/model.js";
 import {
   captureProject,
@@ -44,16 +44,41 @@ export async function attachRojoProvenance(
       );
       if (candidates.length === 1) {
         const file = candidates[0],
-          text = await readFile(file.capturedPath, "utf8"),
+          bytes = await readFile(file.capturedPath),
+          binary = /\.rbxm$/i.test(file.originalPath),
+          text = binary
+            ? undefined
+            : new TextDecoder("utf8", { fatal: true, ignoreBOM: true }).decode(
+                bytes,
+              ),
           code = /\.(lua|luau)$/.test(file.originalPath),
-          normalized = text.replace(/\r\n/g, "\n"),
+          normalized = text?.replace(/\r\n/g, "\n"),
           matches = code && normalized === source.text;
+        if (hash(bytes) !== file.sha256)
+          throw new Error(
+            "Captured original changed before provenance retention",
+          );
+        let originalBinary;
+        if (binary) {
+          const directory = join(tmpdir(), "rograph-blobs");
+          await mkdir(directory, { recursive: true });
+          const blobPath = join(directory, file.sha256 + ".rbxm");
+          await writeFile(blobPath, bytes);
+          originalBinary = {
+            encoding: "binary" as const,
+            mediaType: "application/x-roblox-model",
+            sha256: file.sha256,
+            byteLength: bytes.length,
+            blobPath,
+          };
+        }
         source.origin = {
           kind: matches ? "file" : "generated",
           path: file.originalPath,
           originalPath: file.originalPath,
           originalSha256: file.sha256,
           originalText: text,
+          ...(originalBinary ? { originalBinary } : {}),
           mapping: matches
             ? text === source.text
               ? "identity"

@@ -4,6 +4,7 @@ import type {
   Expr,
   Instance,
 } from "../../contracts/src/model.js";
+import { apiMember } from "./api-members.js";
 export type Value = {
   kind: string;
   id?: string;
@@ -184,7 +185,10 @@ export class Resolver {
       return i.parentId
         ? { kind: "instance", id: i.parentId }
         : unknown("MISSING_PARENT");
-    if (["GetService", "FindFirstChild", "WaitForChild"].includes(key))
+    if (
+      ["GetService", "FindFirstChild", "WaitForChild"].includes(key) &&
+      apiMember(i.className, key)
+    )
       return { kind: "native", method: key, receiver: i.id };
     if (key === "Name" || key === "ClassName")
       return {
@@ -205,6 +209,11 @@ export class Resolver {
           ? { targetId: i.properties[key].value }
           : {}),
       };
+    const api = apiMember(i.className, key);
+    if (api)
+      return unknown(
+        api === "Property" ? "UNSAVED_API_PROPERTY" : "UNMODELED_API_MEMBER",
+      );
     return this.child(i.id, key);
   }
 }

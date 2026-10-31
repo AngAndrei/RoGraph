@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { parseSource, toolPath } from "../../adapters/src/native.js";
 import { hash, canonical } from "./util.js";
 const features =
-  "comments-on-declaration-off-upstream-defaults-binary-nonfinite-v2";
+  "comments-on-declaration-off-upstream-defaults-binary-nonfinite-diagnostics-v3";
 let binary: Promise<string> | undefined;
 export function createParseCache(
   dir: string,

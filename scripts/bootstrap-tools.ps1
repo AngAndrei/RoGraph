@@ -27,4 +27,13 @@ try{
         Copy-Item -LiteralPath (Join-Path $rustSysroot 'share/doc/rust/COPYRIGHT-library.html') -Destination vendor/rust-COPYRIGHT-library.html
     }
     Write-Output 'Pinned sources, optional Rojo binary, and redistribution notices are ready.'
+    if(-not(Test-Path -LiteralPath vendor/rojo-source/Cargo.toml)){
+        $sourceCommit='26b6cc6d83ef068d356aac689110ad89f3b05d65'
+        Invoke-WebRequest -Uri ('https://github.com/rojo-rbx/rojo/archive/'+$sourceCommit+'.zip') -OutFile build/tools/rojo-source.zip
+        $sourceUnpack=Join-Path $repoPath ('build/tools/rojo-source-'+[guid]::NewGuid().ToString('N'))
+        Expand-Archive -LiteralPath build/tools/rojo-source.zip -DestinationPath $sourceUnpack
+        Copy-Item -LiteralPath (Join-Path $sourceUnpack ('rojo-'+$sourceCommit)) -Destination vendor/rojo-source -Recurse
+    }
+    & cargo metadata --manifest-path vendor/rojo-source/Cargo.toml --locked --filter-platform x86_64-pc-windows-msvc --format-version 1 | Out-Null
+    if($LASTEXITCODE -ne 0){throw 'ROJO_NOTICES_DEPENDENCIES_UNAVAILABLE'}
 }finally{Pop-Location}

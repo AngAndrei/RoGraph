@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Node, Evidence } from "../../../packages/contracts/src/model.js";
 import type {
   Query,
@@ -6,16 +6,109 @@ import type {
 } from "../../../packages/contracts/src/query.js";
 import { api } from "./api.js";
 import { SourceView } from "./SourceView.js";
+type GraphFilters = Pick<
+  Query,
+  | "contexts"
+  | "statuses"
+  | "relationTypes"
+  | "classes"
+  | "depth"
+  | "groupBy"
+  | "includeInstances"
+>;
+function Endpoint({
+  analysisId,
+  nodes,
+  label,
+  value,
+  onChange,
+}: {
+  analysisId: string;
+  nodes: Node[];
+  label: string;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [text, setText] = useState(""),
+    [matches, setMatches] = useState<Node[]>([]),
+    [selected, setSelected] = useState<Node>(),
+    [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    if (!text.trim()) {
+      setMatches([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void api
+        .run({ op: "search", analysisId, text, limit: 100 })
+        .then((r) => {
+          if (alive) setMatches(r.nodes);
+        })
+        .catch((e) => {
+          if (alive) setError(e.message);
+        });
+    }, 180);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [analysisId, text]);
+  const options = [
+    ...new Map(
+      [...nodes, ...matches, ...(selected ? [selected] : [])].map((n) => [
+        n.id,
+        n,
+      ]),
+    ).values(),
+  ];
+  const searchLabel =
+    label === "Trace start" ? "Find starting node" : "Find ending node";
+  return (
+    <div>
+      <label>
+        {searchLabel}
+        <input
+          aria-label={searchLabel}
+          placeholder="Search the whole snapshot…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </label>
+      <label>
+        {label}
+        <select
+          aria-label={label}
+          value={value}
+          onChange={(e) => {
+            const node = options.find((n) => n.id === e.target.value);
+            setSelected(node);
+            onChange(e.target.value);
+          }}
+        >
+          {options.map((n) => (
+            <option key={n.id} value={n.id}>
+              {n.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error && <span role="alert">{error}</span>}
+    </div>
+  );
+}
 export function TraceControls({
   analysisId,
   nodes,
   onResult,
   onClose,
+  filters = {},
 }: {
   analysisId: string;
   nodes: Node[];
   onResult: (r: QueryResult, q: Query) => void;
   onClose: () => void;
+  filters?: GraphFilters;
 }) {
   const [from, setFrom] = useState(
       nodes.find((n) => n.kind === "function")?.id ?? nodes[0]?.id ?? "",
@@ -33,34 +126,20 @@ export function TraceControls({
           ×
         </button>
       </header>
-      <label>
-        From
-        <select
-          aria-label="Trace start"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-        >
-          {nodes.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        To
-        <select
-          aria-label="Trace destination"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-        >
-          {nodes.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Endpoint
+        analysisId={analysisId}
+        nodes={nodes}
+        label="Trace start"
+        value={from}
+        onChange={setFrom}
+      />
+      <Endpoint
+        analysisId={analysisId}
+        nodes={nodes}
+        label="Trace destination"
+        value={to}
+        onChange={setTo}
+      />
       <button
         className="primary"
         disabled={busy || !from || !to}
@@ -73,6 +152,7 @@ export function TraceControls({
             toId: to,
             depth: 6,
             limit: 300,
+            ...filters,
           };
           void api
             .run(q)

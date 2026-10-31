@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
 import { extremityArrow } from "sigma/rendering";
-import {DEFAULT_PRIMITIVES, DEFAULT_STYLES, type PrimitivesDeclaration} from "sigma/types";
+import {
+  DEFAULT_PRIMITIVES,
+  DEFAULT_STYLES,
+  type PrimitivesDeclaration,
+} from "sigma/types";
 import Graph from "graphology";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Node } from "../../../packages/contracts/src/model.js";
@@ -13,9 +17,13 @@ const scripts = ["Script", "LocalScript", "ModuleScript"],
     "BindableEvent",
     "BindableFunction",
   ];
-export function projectGraph(result: QueryResult, details: boolean) {
+export function projectGraph(
+  result: QueryResult,
+  details: boolean,
+  groupId = "all",
+) {
   const all = new Map(result.nodes.map((n) => [n.id, n]));
-  const visible = result.nodes.filter(
+  let visible = result.nodes.filter(
     (n) =>
       details ||
       n.kind === "unresolved" ||
@@ -33,6 +41,24 @@ export function projectGraph(result: QueryResult, details: boolean) {
           ? n?.ownerId
           : undefined;
   };
+  const groups = result.groups
+    .map((group) => ({
+      ...group,
+      nodeIds: [
+        ...new Set(
+          group.nodeIds.map(owner).filter((id): id is string => Boolean(id)),
+        ),
+      ],
+    }))
+    .filter((group) => group.nodeIds.length);
+  if (groupId !== "all") {
+    const selected = groups.find((g) => g.id === groupId);
+    if (selected) {
+      visible = visible.filter((n) => selected.nodeIds.includes(n.id));
+      ids.clear();
+      for (const n of visible) ids.add(n.id);
+    }
+  }
   const edges = result.relations
     .filter(
       (r) => details || !["CONTAINS", "DECLARES", "MEMBER_OF"].includes(r.type),
@@ -44,7 +70,7 @@ export function projectGraph(result: QueryResult, details: boolean) {
       originalId: r.id,
     }))
     .filter((r) => r.source && r.target && r.source !== r.target);
-  return { nodes: visible, edges };
+  return { nodes: visible, edges, groups };
 }
 function color(n: Node) {
   return n.kind === "unresolved"
@@ -76,8 +102,13 @@ export function GraphView({
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
-    [error, setError] = useState("");
-  const view = useMemo(() => projectGraph(result, details), [result, details]);
+    [error, setError] = useState(""),
+    [group, setGroup] = useState("all");
+  const activeGroup = result.groups.some((g) => g.id === group) ? group : "all";
+  const view = useMemo(
+    () => projectGraph(result, details, activeGroup),
+    [result, details, activeGroup],
+  );
   const selectRef = useRef(onSelect),
     edgeRef = useRef(onEdge);
   selectRef.current = onSelect;
@@ -115,10 +146,15 @@ export function GraphView({
       const sigma = new Sigma(g, container.current, {
         primitives: {
           ...DEFAULT_PRIMITIVES,
-          edges: {...DEFAULT_PRIMITIVES.edges, extremities: [extremityArrow()], defaultHead: "arrow" },
+          edges: {
+            ...DEFAULT_PRIMITIVES.edges,
+            extremities: [extremityArrow()],
+            defaultHead: "arrow",
+          },
         } as PrimitivesDeclaration,
         styles: {
-          nodes: { ...DEFAULT_STYLES.nodes,
+          nodes: {
+            ...DEFAULT_STYLES.nodes,
             labelColor: "#526880",
             labelFont: "Segoe UI",
             labelSize: 11,
@@ -153,9 +189,13 @@ export function GraphView({
       worker.postMessage({
         nodes: view.nodes.map((n) => n.id),
         edges: view.edges.map((e) => ({ source: e.source, target: e.target })),
+        groups: view.groups,
       });
     } catch (e) {
-      console.error("Graph rendering failed: " + (e instanceof Error ? e.message : String(e)));
+      console.error(
+        "Graph rendering failed: " +
+          (e instanceof Error ? e.message : String(e)),
+      );
       setError(
         "The graph renderer is unavailable. Browse the same nodes below.",
       );
@@ -168,6 +208,25 @@ export function GraphView({
   }, [view]);
   return (
     <div className="graph-area">
+      {view.groups.length > 0 && (
+        <div className="group-navigator">
+          <label>
+            Visible group{" "}
+            <select
+              aria-label="Visible group"
+              value={activeGroup}
+              onChange={(e) => setGroup(e.target.value)}
+            >
+              <option value="all">All {view.groups.length} groups</option>
+              {view.groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.label} · {g.nodeIds.length}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       <div
         ref={container}
         className="sigma-container"
