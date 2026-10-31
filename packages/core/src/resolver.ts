@@ -5,6 +5,7 @@ import type {
   Instance,
 } from "../../contracts/src/model.js";
 import { apiMember } from "./api-members.js";
+import { platformMember, platformResult } from "./semantics/luau.js";
 export type Value = {
   kind: string;
   id?: string;
@@ -109,6 +110,17 @@ export class Resolver {
     if (!e) return unknown("MISSING_EXPRESSION");
     if (seen.size > 64) return unknown("RESOLUTION_DEPTH_LIMIT");
     switch (e.kind) {
+      case "binary": {
+        const a = this.get(e.left as Expr, f, seen);
+        if (a.kind !== "literal") return unknown("SYMBOLIC_BINARY_VALUE");
+        const truth =
+          a.value !== null && a.value !== false && a.value !== undefined;
+        if (["Or", "or"].includes(String(e.op)))
+          return truth ? a : this.get(e.right as Expr, f, seen);
+        if (["And", "and"].includes(String(e.op)))
+          return truth ? this.get(e.right as Expr, f, seen) : a;
+        return unknown("SYMBOLIC_BINARY_VALUE");
+      }
       case "literal":
         return { kind: "literal", value: e.value };
       case "function":
@@ -134,6 +146,14 @@ export class Resolver {
         if (e.name === "script") return { kind: "instance", id: f.scriptId };
         if (e.name === "game")
           return { kind: "instance", id: this.snapshot.instances[0].id };
+        if (e.name === "workspace") {
+          const saved = this.snapshot.instances.find(
+            (i) => i.className === "Workspace",
+          );
+          return saved
+            ? { kind: "instance", id: saved.id }
+            : unknown("SERVICE_NOT_SAVED");
+        }
         return { kind: "builtin", name: e.name };
       }
       case "index": {
@@ -149,6 +169,7 @@ export class Resolver {
       case "call": {
         const callee = this.get(e.callee as Expr, f, seen);
         const args = e.args as Expr[];
+        if (callee.kind === "intrinsic") return platformResult(callee.path);
         if (callee.kind === "builtin" && callee.name === "require")
           return this.requireTarget(args[0], f, seen);
         if (callee.kind === "native") {
@@ -176,6 +197,10 @@ export class Resolver {
     f: Facts,
     seen: Set<string>,
   ): Value {
+    if (base.kind === "builtin" || base.kind === "intrinsic") {
+      const path = platformMember(base.path ?? base.name, key, f);
+      return path ? { kind: "intrinsic", path } : unknown("UNRESOLVED_MEMBER");
+    }
     if (base.kind !== "instance")
       return base.kind === "unknown" ? base : unknown("UNRESOLVED_MEMBER");
     if (typeof key !== "string")

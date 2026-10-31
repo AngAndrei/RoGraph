@@ -59,7 +59,18 @@ export function resolveCalls(
         callee = resolver.callable(
           resolver.get(site.expression.callee as Expr, f),
         );
-      if (callee.kind === "function") {
+      if (callee.kind === "intrinsic") {
+        result.sites.push({
+          ...site,
+          status: "resolved",
+          reason: undefined,
+          targetIds: [],
+          assumptions: [
+            ...site.assumptions,
+            `Recognized platform operation: ${callee.path}; not a project dependency.`,
+          ],
+        });
+      } else if (callee.kind === "function") {
         const s = mark(result, site, callee);
         if (site.expression.colon)
           s.assumptions.push(

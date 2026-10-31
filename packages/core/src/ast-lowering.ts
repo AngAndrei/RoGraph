@@ -120,6 +120,29 @@ export function lowerAst(parsed: ParsedSource): Facts {
         site("call", e, owner);
         return e;
       }
+      case "AstExprBinary":
+        return {
+          ...base,
+          kind: "binary",
+          op: v.op,
+          left: expr(v.left, owner, scope),
+          right: expr(v.right, owner, scope),
+        };
+      case "AstExprUnary":
+        return {
+          ...base,
+          kind: "unary",
+          op: v.op,
+          value: expr(v.expr, owner, scope),
+        };
+      case "AstExprIfElse":
+        return {
+          ...base,
+          kind: "conditional",
+          condition: expr(v.condition, owner, scope),
+          yes: expr(v.trueexpr, owner, scope),
+          no: expr(v.falseexpr, owner, scope),
+        };
       case "AstExprTable": {
         let listIndex = 0;
         return {
@@ -156,6 +179,10 @@ export function lowerAst(parsed: ParsedSource): Facts {
             .filter(Boolean)
             .map((a: any) => a.name),
           bodyScopeId: childScope,
+          parameterIds: [v.self, ...(v.args ?? [])]
+            .filter(Boolean)
+            .map((a: any) => bid(a)),
+          returns: [] as Expr[],
         };
         f.symbols.push(symbol);
         for (const a of [v.self, ...(v.args ?? [])].filter(Boolean))
@@ -264,6 +291,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
         break;
       case "AstStatReturn": {
         const list = (v.list ?? []).map((x: any) => expr(x, owner, scope));
+        const symbol = f.symbols.find((s) => s.id === owner);
+        if (symbol) (symbol.returns as Expr[]).push(...list);
         if (owner === f.scriptId) {
           f.returnExpr = list[0];
           f.exports.push(
