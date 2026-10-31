@@ -2,6 +2,8 @@
 
 ## 0.2.0 gameplay update
 
+Viewport correction: dragging outermost nodes now keeps the graph's coordinate frame fixed, including after release. Rapid node drags no longer trigger double-click zoom. Background panning, mouse-wheel zoom and explicit Fit graph remain available; new layouts establish fresh bounds. A real-renderer browser regression reproduced the drift before the fix and now checks inward/outward drags at all four margins, a stationary node and camera, manual fit, pan and wheel. All six browser workflows, nine component tests, typecheck and build pass for this correction.
+
 Application checks: 142/142 unit/integration/component tests; typecheck/build; five Edge browser workflows including the authored Chicken/Egg gameplay fixture, cross-view selection, Code source/context, XML/binary imports and snapshot pinning. The portable smoke procedure additionally checks the bundled Gameplay sample, model-to-template trace evidence, support-site omission disclosure and config provenance. Three private inputs were reanalyzed with gameplay overview/context and unchanged-input/reopen checks; see [provided-game-validation.md](provided-game-validation.md).
 
 The update keeps one canonical graph with Gameplay/Code projections. Visible gameplay endpoints must be concrete saved or source-defined objects and retain real names. Template-copy identity and player role paths stay in relationship metadata. Regression checks cover config alternatives, nil versus unknown, library shadowing/mutation, callback/guard growth, native class/receiver safety, actual model-to-template paths, and remote direction compatibility. No model weights or Studio plugin are installed.

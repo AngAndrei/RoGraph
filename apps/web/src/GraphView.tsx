@@ -197,6 +197,12 @@ export function GraphView({
         },
       });
       renderer.current = sigma;
+      sigma.on("downNode", () => {
+        // Keep the coordinate frame stable when an outer node changes the extent.
+        if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
+      });
+      // Rapid successive node drags must not become a double-click camera zoom.
+      sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
       sigma.on("clickNode", (e) => selectRef.current(e.node));
       sigma.on("clickEdge", (e) =>
         edgeRef.current?.(g.getEdgeAttribute(e.edge, "originalId")),
@@ -205,6 +211,7 @@ export function GraphView({
         type: "module",
       });
       worker.onmessage = (e) => {
+        sigma.setCustomBBox(null);
         for (const p of e.data)
           if (g.hasNode(p.id)) g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
         sigma.refresh();
@@ -292,9 +299,11 @@ export function GraphView({
         </button>
         <button
           aria-label="Fit graph"
-          onClick={() =>
-            void renderer.current?.getCamera().reset({ duration: 180 })
-          }
+          onClick={() => {
+            renderer.current?.setCustomBBox(null);
+            renderer.current?.refresh();
+            void renderer.current?.getCamera().reset({ duration: 180 });
+          }}
         >
           ⌖
         </button>
