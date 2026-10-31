@@ -1,5 +1,19 @@
 # Provided-game validation
 
+## Additional games: large-input correction
+
+Three additional saved `.rbxl` games were tested on 2026-10-31 with resolver 9 and native serialization 4. All passed Gameplay overview/context, Code search/inspection/source, modeled trace, bounded context export, database reopening, retained raw-byte and unchanged-original checks. The owned-model/template trace was sampled for BrokenPVP and DemonHunting; Photon had no matching sampled pattern. Game source, input files, detailed reports and CPU profiles remain excluded from Git.
+
+| Game         | Saved objects | Scripts parsed | Observed analysis | Gameplay relationships | Import status                                                                               |
+| ------------ | ------------: | -------------: | ----------------: | ---------------------: | ------------------------------------------------------------------------------------------- |
+| BrokenPVP    |        58,870 |      163 / 163 |            51.0 s |                  2,111 | Partial; numeric-property warnings and opaque-buffer metadata                               |
+| DemonHunting |        32,294 |      120 / 121 |            35.2 s |                  1,500 | Partial; one script with parse errors, numeric-property warnings and opaque-buffer metadata |
+| Photon       |           101 |        13 / 13 |             1.6 s |                     78 | Complete saved-file import; static unresolved/candidate sites remain                        |
+
+The first baseline took about 125 seconds overall; that run overlapped diagnostic profiling, so this is not a controlled speedup comparison. DemonHunting originally failed the 256 MiB native-output limit: repeated `MeshPart.PhysicalConfigData` values alone serialized to roughly 218 MB. Hierarchy lookups now reuse an index and bounded traversal cache, and callback binding reuses execution contexts. The worker deadline and native-output cap were not increased.
+
+Opaque `SharedString` values over 1,024 bytes are represented by BLAKE3 hash, byte length and an explicit `rawInput` retention marker instead of repeated inline physics/geometry buffers. A diagnostic and partial-import status disclose this representation. Exact payload bytes remain in the retained raw place; script source, references and small buffers remain inline. These observations establish the listed saved-file workflows, not complete runtime behavior, universal game compatibility or a clean-PC performance guarantee.
+
 ## Gameplay update (0.2.0)
 
 The same unchanged inputs were reanalyzed with the final gameplay resolver (version 8) on 2026-10-31. These are raw site counts with the same denominators; recognized platform operations and conditional targets are reported separately. Lower unresolved counts do not establish runtime completeness.
