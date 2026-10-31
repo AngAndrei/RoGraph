@@ -2,7 +2,9 @@
 
 Date: 2026-10-31
 
-Status: architecture proposal for user review; product implementation has not started.
+Status: accepted for implementation, with the concrete-node amendment below.
+
+User amendment: visible nodes must refer to actual project files/objects (including named objects defined by creation code). Actions are labeled connections and expandable records. Runtime allocation identity remains internal; project templates retain their actual names. Do not display invented nodes such as “Symbolic spawned egg”. This amendment takes precedence over the earlier action/actor/allocation canvas examples in this document.
 
 Baseline: `cc62f4c` (RoGraph 0.1.0).
 
