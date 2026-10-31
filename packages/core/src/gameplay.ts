@@ -157,7 +157,12 @@ export function resolveGameplay(
       if (site.kind === "call") {
         const callee = resolver.get(e.callee as Expr, f),
           value = resolver.get(e, f);
-        if (callee.kind === "signal-connect") {
+        if (
+          callee.kind === "signal-connect" &&
+          !/^(Remote|UnreliableRemote|Bindable)/.test(
+            String(callee.signal.className),
+          )
+        ) {
           const signal = callee.signal,
             trigger = String(signal.id);
           link(
@@ -253,6 +258,21 @@ export function resolveGameplay(
       }
       if (site.kind === "read") {
         const value = resolver.get(e, f);
+        const subject = entity(f.scriptId);
+        if (
+          subject &&
+          subject !== f.scriptId &&
+          anchorIds(value).some((id) => entity(id) === subject)
+        )
+          link(
+            subject,
+            f.scriptId,
+            "HAS_BEHAVIOR",
+            site,
+            f,
+            "owned-controller",
+            "behavior implemented by",
+          );
         for (const v of alternatives(value)) {
           if (
             (v.kind === "field" || (v.kind === "table" && v.fieldId)) &&

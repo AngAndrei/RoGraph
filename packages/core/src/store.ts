@@ -17,6 +17,7 @@ import type {
 import { indexSource } from "./source-index.js";
 import { RoGraphError } from "./util.js";
 import { migrateDatabase } from "./migrations.js";
+import { gameplayTypes } from "../../contracts/src/gameplay.js";
 export type StoreSelection = {
   analysisId: string;
   limit: number;
@@ -24,6 +25,7 @@ export type StoreSelection = {
   classes?: string[];
   statuses?: string[];
   contexts?: string[];
+  view?: "code" | "gameplay";
 } & (
   | { op: "nodes"; ids: string[] }
   | { op: "members"; ownerIds: string[] }
@@ -107,6 +109,7 @@ export async function openStore(path: string): Promise<GraphStore> {
     return {
       analysisId: id,
       ...h,
+      capabilities: { code: true, gameplay: !!h.versions?.gameplay },
       nodes: [],
       relations: [],
       evidence: [],
@@ -504,10 +507,22 @@ export async function openStore(path: string): Promise<GraphStore> {
           args = [q.analysisId, q.parentId];
           break;
         case "overview":
-          sql = q.includeInstances
-            ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
-            : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
-          args = [q.analysisId];
+          sql =
+            q.view === "gameplay" && !q.includeInstances
+              ? `SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND id IN (SELECT source FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])}) UNION SELECT target FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])})) ORDER BY id`
+              : q.includeInstances
+                ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
+                : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
+          args =
+            q.view === "gameplay" && !q.includeInstances
+              ? [
+                  q.analysisId,
+                  q.analysisId,
+                  ...gameplayTypes,
+                  q.analysisId,
+                  ...gameplayTypes,
+                ]
+              : [q.analysisId];
           break;
         case "search": {
           const tokens = q.text.slice(0, 256).match(/[\p{L}\p{N}_]+/gu);

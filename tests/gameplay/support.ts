@@ -42,12 +42,12 @@ export async function gameplayCase(code: Record<string, string> = {}) {
         name,
         name.endsWith("Config")
           ? "ModuleScript"
-          : name === "HomeButtonScript"
+          : name === "HomeButtonScript" || name.endsWith("Client")
             ? "LocalScript"
             : "Script",
         name === "ChickenController" || name === "PickupScript"
           ? "chicken"
-          : name === "HomeButtonScript"
+          : name === "HomeButtonScript" || name.endsWith("Client")
             ? "gui"
             : name.endsWith("Config")
               ? "replicated"

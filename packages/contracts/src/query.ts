@@ -23,7 +23,13 @@ export interface Query {
     | "overview"
     | "coverage"
     | "diagnostics"
-    | "tree";
+    | "tree"
+    | "explain"
+    | "implementation";
+  view?: "code" | "gameplay";
+  expandedIds?: string[];
+  includeIntrinsics?: boolean;
+  traceGoal?: "flow" | "influence";
   analysisId: string;
   nodeId?: string;
   sourceId?: string;
@@ -62,6 +68,24 @@ export interface PathHop {
   transition: "dependency" | "potential-communication" | "potential-impact";
 }
 export interface QueryResult {
+  capabilities?: { gameplay: boolean; code: true };
+  projection?: {
+    view: "code" | "gameplay";
+    available: boolean;
+    nodeIds: string[];
+    edges: {
+      id: string;
+      source: string;
+      target: string;
+      label: string;
+      relationIds: string[];
+      conditional: boolean;
+    }[];
+    diagnosticsByOwner: Record<
+      string,
+      { unresolved: number; candidate: number }
+    >;
+  };
   analysisId: string;
   nodes: Node[];
   relations: Relation[];

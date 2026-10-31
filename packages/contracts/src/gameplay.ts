@@ -25,4 +25,5 @@ export const gameplayTypes = [
   "TRANSFERS",
   "REPARENTS",
   "LOCATED_USING",
+  "HAS_BEHAVIOR",
 ] as const;
