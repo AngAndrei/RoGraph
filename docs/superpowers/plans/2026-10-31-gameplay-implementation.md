@@ -93,11 +93,11 @@
 
 **Interfaces:** Existing saved-file validation with additional semantic link/proof/naming checks; same-input before/after reason counts distinguish classification from actual resolution.
 
-- [ ] Analyze all three supplied games, verify expected Grow a Chicken flows and inspect proof chains; report remaining gaps and preserve input hashes. Add focused regressions for discovered implementation defects before fixes.
-- [ ] Run full tests, typecheck/build, browser and portable package checks; sample performance against the recorded baseline without claiming unmeasured guarantees.
-- [ ] Commit/push implementation and validation updates to the feature branch.
-- [ ] Dispatch one independent whole-branch reviewer per Native execution; fix important findings in one tested pass and record all rulings/deferred minors.
-- [ ] Build the updated Windows package, push final changes, provide the testing path and GitHub review link. Do not merge or upload private game files.
+- [x] Analyze all three supplied games, verify expected Grow a Chicken flows and inspect proof chains; report remaining gaps and preserve input hashes. Add focused regressions for discovered implementation defects before fixes.
+- [x] Run full tests, typecheck/build, browser and portable package checks; sample performance against the recorded baseline without claiming unmeasured guarantees.
+- [x] Commit/push implementation and validation updates to the feature branch.
+- [x] Dispatch one independent whole-branch reviewer per Native execution; fix important findings in one tested pass and record all rulings/deferred minors.
+- [x] Build the updated Windows package, push final changes, provide the testing path and GitHub review link. Do not merge or upload private game files.
 
 ## Future extensions
 

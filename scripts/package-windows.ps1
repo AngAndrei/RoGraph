@@ -30,6 +30,9 @@ try {
     $env:ROGRAPH_CARGO=$cargoPath
     & node.exe --import tsx scripts/collect-notices.ts $stage
     if($LASTEXITCODE -ne 0){throw 'NOTICES_FAILED'}
+    # Cargo notices can retain 1970 timestamps, outside ZIP's 1980-2107 range.
+    # Normalize only owned staging copies; file bytes and original notices stay exact.
+    foreach($entry in Get-ChildItem -LiteralPath $stage -Recurse -Force){if($entry.LastWriteTime.Year -lt 1980 -or $entry.LastWriteTime.Year -gt 2107){$entry.LastWriteTimeUtc=[datetime]::new(2000,1,1,0,0,0,[DateTimeKind]::Utc)}}
     $files=@(Get-ChildItem -LiteralPath $stage -Recurse -File|ForEach-Object{[ordered]@{path=$_.FullName.Substring($stage.Length+1).Replace('\','/');sha256=(Get-RoGraphHash $_.FullName)}})
     [ordered]@{product='RoGraph';version='0.2.0';platform='windows-x64';files=$files}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $stage 'checksums.json') -Encoding utf8
     $destination=Join-Path $repoPath 'dist/windows-x64'

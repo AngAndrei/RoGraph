@@ -6,6 +6,10 @@ Application checks: 142/142 unit/integration/component tests; typecheck/build; f
 
 The update keeps one canonical graph with Gameplay/Code projections. Visible gameplay endpoints must be concrete saved or source-defined objects and retain real names. Template-copy identity and player role paths stay in relationship metadata. Regression checks cover config alternatives, nil versus unknown, library shadowing/mutation, callback/guard growth, native class/receiver safety, actual model-to-template paths, and remote direction compatibility. No model weights or Studio plugin are installed.
 
+Portable release: **21/21 checks passed** on the development computer with the packaged runtime and dependency-isolation harness. This includes the four Gameplay proof checks above, the existing XML/binary, Code, MCP, pinned Rojo, source/context, reopening, input-immutability and process-cleanup checks. It is not a separate clean-PC test. Notice files with timestamps outside ZIP's supported range are normalized only in staging copies; their contents and hashes are preserved.
+
+The independent review's eight findings were fixed in one tested pass; see [review-and-decisions.md](review-and-decisions.md). The saved Grow a Chicken input also passed an explicit Chicken → Script → Egg trace and config-definition provenance check. Original game files and detailed private reports are excluded from Git.
+
 ## 0.1.0 baseline
 
 Status: **Windows x64 preview validated with synthetic fixtures and three supplied games**. See [provided-game-validation.md](provided-game-validation.md) for the partial-import and parsing limits in those games. A separate clean Windows computer was not available. Saved-file static analysis is the first release; runtime Studio capture is deferred.
