@@ -1,0 +1,58 @@
+import { it, expect } from "vitest";
+import { shopCase } from "./support/cases.js";
+import { resolveInstances } from "../packages/core/src/resolve-instances.js";
+import { resolveCalls } from "../packages/core/src/resolve-calls.js";
+it("resolves exported methods through aliases and preserves each call occurrence", async () => {
+  const c = await shopCase(
+    "ShopServer",
+    'local Service=require(script.Parent.PurchaseService)\nlocal Alias=Service\nlocal function handler() Alias.TryPurchase(nil,"Sword"); Service.TryPurchase(nil,"Sword") end',
+  );
+  const r = resolveCalls(
+    c.snapshot,
+    c.facts,
+    resolveInstances(c.snapshot, c.facts),
+  );
+  const method = r.nodes.find(
+    (n) => n.label === "PurchaseService.TryPurchase",
+  )!;
+  const rel = r.relations.find(
+    (r) => r.type === "CALLS" && r.target === method.id,
+  )!;
+  expect(r.evidence.filter((e) => e.relationId === rel.id)).toHaveLength(2);
+});
+it("does not connect a shadowed method or reassigned alias to the original export", async () => {
+  const c = await shopCase(
+    "ShopServer",
+    "local Service=require(script.Parent.PurchaseService)\ndo local Service={TryPurchase=function()end}; Service.TryPurchase() end\nService={}\nService.TryPurchase()",
+  );
+  const r = resolveCalls(
+    c.snapshot,
+    c.facts,
+    resolveInstances(c.snapshot, c.facts),
+  );
+  const method = r.nodes.find(
+    (n) => n.label === "PurchaseService.TryPurchase",
+  )!;
+  expect(r.relations.some((e) => e.target === method.id)).toBe(false);
+  expect(
+    r.sites.some(
+      (s) => s.status === "unresolved" && s.reason === "REASSIGNED_ALIAS",
+    ),
+  ).toBe(true);
+});
+it("does not declare a configuration value callable", async () => {
+  const c = await shopCase(
+    "ShopServer",
+    'local C=require(game:GetService("ReplicatedStorage").Shop.ShopConfig)\nC.Prices.Sword()',
+  );
+  const r = resolveCalls(
+    c.snapshot,
+    c.facts,
+    resolveInstances(c.snapshot, c.facts),
+  );
+  expect(
+    r.sites.some(
+      (s) => s.reason === "NON_CALLABLE_TARGET" && s.status === "unresolved",
+    ),
+  ).toBe(true);
+});

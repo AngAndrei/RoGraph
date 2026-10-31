@@ -1,0 +1,17 @@
+import { fixturePath } from "./fixtures.js";
+import { importPlace } from "../../packages/core/src/import.js";
+import { extractFacts } from "../../packages/core/src/facts.js";
+import { resolveInstances } from "../../packages/core/src/resolve-instances.js";
+import { resolveCalls } from "../../packages/core/src/resolve-calls.js";
+import { resolveConfig } from "../../packages/core/src/resolve-config.js";
+import { resolveEvents } from "../../packages/core/src/resolve-events.js";
+import { assembleGraph } from "../../packages/core/src/assemble.js";
+export async function resolveFixture(name: string) {
+  const s = await importPlace(fixturePath(name)),
+    f = await extractFacts(s),
+    i = resolveInstances(s, f),
+    c = resolveCalls(s, f, i),
+    config = resolveConfig(s, f, i, c),
+    events = resolveEvents(s, f, i, c);
+  return assembleGraph(s, f, [i, c, config, events]);
+}

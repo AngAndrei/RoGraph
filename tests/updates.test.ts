@@ -1,0 +1,57 @@
+import { it, expect } from "vitest";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { analyze } from "../packages/core/src/pipeline.js";
+import { openStore } from "../packages/core/src/store.js";
+import { diffGraphs } from "../packages/core/src/diff.js";
+import { watchProject } from "../packages/core/src/watch.js";
+import { fixturePath } from "./support/fixtures.js";
+import { withWorkspace } from "./support/workspace.js";
+it("compares logical identities across changed snapshot hashes and removes stale reads", async () =>
+  withWorkspace(async (dir) => {
+    const path = join(dir, "place.rbxlx"),
+      s = await openStore(join(dir, ".rograph", "g.db"));
+    try {
+      const xml = await readFile(fixturePath("shop/place.rbxlx"), "utf8");
+      await writeFile(path, xml);
+      const before = await analyze({ kind: "place", path }, s);
+      await writeFile(
+        path,
+        xml.replace("Config.Prices.Sword", "Config.Prices.Shield"),
+      );
+      const after = await analyze({ kind: "place", path }, s),
+        diff = diffGraphs(before, after);
+      expect(diff.addedRelationIds.length).toBeGreaterThan(0);
+      expect(diff.removedRelationIds.length).toBeGreaterThan(0);
+      expect(diff.ambiguousMatches).toEqual([]);
+      expect(diff.addedRelationIds.length).toBeLessThan(5);
+      const fresh = await analyze({ kind: "place", path }, s);
+      expect(fresh).toEqual(after);
+    } finally {
+      await s.close();
+    }
+  }));
+it("watches content edits and releases its directory watcher on stop", async () =>
+  withWorkspace(async (d) => {
+    const file = join(d, "init.luau"),
+      project = join(d, "default.project.json");
+    await writeFile(file, "return 1");
+    await writeFile(project, "{}");
+    const controller = new AbortController(),
+      seen: string[] = [];
+    const watching = watchProject(
+      project,
+      async () => {
+        seen.push(await readFile(file, "utf8"));
+      },
+      controller.signal,
+    );
+    for (let i = 0; i < 50 && !seen.includes("return 1"); i++)
+      await new Promise((r) => setTimeout(r, 50));
+    await writeFile(file, "return 2");
+    for (let i = 0; i < 60 && !seen.includes("return 2"); i++)
+      await new Promise((r) => setTimeout(r, 50));
+    controller.abort();
+    await watching;
+    expect(seen).toContain("return 2");
+  }));

@@ -1,0 +1,20 @@
+import { test as base, expect } from "@playwright/test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { startServer } from "../../apps/local/src/server.js";
+export const test = base.extend<{
+  app: Awaited<ReturnType<typeof startServer>>;
+}>({
+  app: async ({}, use) => {
+    const dir = await mkdtemp(join(tmpdir(), "rograph-browser-")),
+      app = await startServer({ workspacePath: dir });
+    try {
+      await use(app);
+    } finally {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+});
+export { expect };

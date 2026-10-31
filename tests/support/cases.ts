@@ -1,0 +1,19 @@
+import { importPlace } from "../../packages/core/src/import.js";
+import { extractFacts } from "../../packages/core/src/facts.js";
+import { hash } from "../../packages/core/src/util.js";
+import { fixturePath } from "./fixtures.js";
+export async function shopCase(
+  scriptName?: string,
+  text?: string,
+  fixture = "shop/place.rbxlx",
+) {
+  const snapshot = await importPlace(fixturePath(fixture));
+  if (scriptName && text !== undefined) {
+    const i = snapshot.instances.find((i) => i.name === scriptName)!;
+    const s = snapshot.sources.find((s) => s.scriptId === i.id)!;
+    s.text = text;
+    s.sha256 = hash(text);
+  }
+  const facts = await extractFacts(snapshot);
+  return { snapshot, facts };
+}

@@ -1,0 +1,15 @@
+{
+  "rbx_dom_weak": "4.2.0",
+  "npm": "11.17.0",
+  "node": "24.19.0",
+  "rbx_xml": "3.0.1",
+  "rust": "1.90.0",
+  "rbx_types": "3.1.0",
+  "luauCommit": "a4818b6678822bb726a0eb2299cae751d3017a6a",
+  "schema": 1,
+  "rojo": "7.7.1",
+  "rojoWindowsX64Sha256": "e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3",
+  "nlohmannJson": "3.12.0",
+  "jsonHeaderSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+  "nativeSerialization": 2
+}

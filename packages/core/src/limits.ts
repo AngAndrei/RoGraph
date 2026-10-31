@@ -1,0 +1,16 @@
+export const defaultLimits = {
+  inputBytes: 512 * 1024 * 1024,
+  instances: 200000,
+  scriptBytes: 16 * 1024 * 1024,
+  totalSourceBytes: 256 * 1024 * 1024,
+  xmlDepth: 256,
+  queryDepth: 3,
+  maxDepth: 6,
+  maxNodes: 1000,
+  maxEvidence: 5000,
+  maxPaths: 5,
+  overviewNodes: 300,
+  estimatedTokenBudget: 2000,
+  maxContextBytes: 32000,
+  cancelBatchRecords: 1000,
+};

@@ -1,0 +1,18 @@
+import { it, expect } from "vitest";
+import { resolveFixture } from "./support/resolve.js";
+import { validateGraph } from "../packages/contracts/src/model.js";
+it("assembles every saved object and occurrence into a valid evidence graph", async () => {
+  const g = await resolveFixture("shop/place.rbxlx");
+  expect(() => validateGraph(g)).not.toThrow();
+  expect(g.nodes.some((n) => n.label === "ShopConfig.Prices.Sword")).toBe(true);
+  expect(g.relations.some((r) => r.type === "SENDS_VIA")).toBe(true);
+  expect(g.relations.some((r) => r.type === "HANDLES")).toBe(true);
+  expect(g.coverage.parsedScripts).toBe(4);
+});
+it("keeps unresolved dynamic references addressable and counts their limitations", async () => {
+  const g = await resolveFixture("adversarial/dynamic.rbxlx");
+  expect(g.nodes.some((n) => n.kind === "unresolved")).toBe(true);
+  expect(g.sites.some((s) => s.reason === "DYNAMIC_CONFIG_KEY")).toBe(true);
+  expect(g.coverage.unresolvedSites).toBeGreaterThan(0);
+  expect(() => validateGraph(g)).not.toThrow();
+});

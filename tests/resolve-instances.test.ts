@@ -1,0 +1,90 @@
+import { it, expect } from "vitest";
+import { shopCase } from "./support/cases.js";
+import { resolveInstances } from "../packages/core/src/resolve-instances.js";
+import { resolveContexts } from "../packages/core/src/execution-context.js";
+it("connects actual ModuleScripts and never selects duplicate children arbitrarily", async () => {
+  const { snapshot, facts } = await shopCase();
+  const r = resolveInstances(snapshot, facts);
+  expect(
+    r.relations
+      .filter((r) => r.type === "REQUIRES")
+      .map((r) => snapshot.instances.find((i) => i.id === r.target)!.name)
+      .sort(),
+  ).toEqual(["PurchaseService", "ShopConfig"]);
+  const d = await shopCase(
+    undefined,
+    undefined,
+    "adversarial/duplicates.rbxlx",
+  );
+  const site = resolveInstances(d.snapshot, d.facts).sites.find(
+    (s) => s.reason === "DUPLICATE_CHILD_NAME",
+  )!;
+  expect(site.status).toBe("candidate");
+  expect(site.targetIds).toHaveLength(2);
+});
+it.each([
+  "./PurchaseService",
+  "@game/ServerScriptService/PurchaseService",
+  "../ServerScriptService/PurchaseService",
+])("resolves literal require path %s", async (path) => {
+  const c = await shopCase("ShopServer", `local Service=require("${path}")`);
+  const r = resolveInstances(c.snapshot, c.facts);
+  expect(
+    r.relations.some(
+      (r) =>
+        r.type === "REQUIRES" &&
+        r.target ===
+          c.snapshot.instances.find((i) => i.name === "PurchaseService")!.id,
+    ),
+  ).toBe(true);
+});
+it("respects shadowed require and records external dependencies", async () => {
+  const c = await shopCase(
+    "ShopServer",
+    "local require = function(x) return x end\nrequire(12345)",
+  );
+  expect(
+    resolveInstances(c.snapshot, c.facts).nodes.some(
+      (n) => n.kind === "external",
+    ),
+  ).toBe(false);
+  const d = await shopCase("ShopServer", "local Module = require(12345)");
+  expect(
+    resolveInstances(d.snapshot, d.facts).nodes.some(
+      (n) => n.kind === "external",
+    ),
+  ).toBe(true);
+});
+it("does not recurse forever through reassigned globals", async () => {
+  const c = await shopCase(
+    "ShopServer",
+    "game = game\nlocal x = require(game.Missing)",
+  );
+  expect(() => resolveInstances(c.snapshot, c.facts)).not.toThrow();
+});
+it("terminates cyclic requires and retains both callers of a shared module", async () => {
+  const cycle = await shopCase(
+    undefined,
+    undefined,
+    "adversarial/cycles.rbxlx",
+  );
+  expect(
+    resolveInstances(cycle.snapshot, cycle.facts).relations.filter(
+      (r) => r.type === "REQUIRES",
+    ),
+  ).toHaveLength(2);
+  const c = await shopCase(
+    "ShopClient",
+    'local C = require(game:GetService("ReplicatedStorage").Shop.ShopConfig)',
+  );
+  const contexts = resolveContexts(
+    c.snapshot,
+    c.facts,
+    resolveInstances(c.snapshot, c.facts),
+  );
+  expect(
+    contexts
+      .get(c.snapshot.instances.find((i) => i.name === "ShopConfig")!.id)
+      ?.sort(),
+  ).toEqual(["client", "server"]);
+});

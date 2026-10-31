@@ -1,0 +1,29 @@
+mod decode;
+mod inventory;
+use serde_json::{json, Value};
+use std::io::{self, BufRead};
+fn main() {
+    for line in io::stdin().lock().lines() {
+        let result = (|| -> Result<Value, String> {
+            let line = line.map_err(|e| e.to_string())?;
+            let r: Value = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+            if r["protocolVersion"] != 1 {
+                return Err("Unsupported protocol".into());
+            }
+            let xml = if let Some(v) = r["xml"].as_str() {
+                v.to_owned()
+            } else {
+                let path = r["path"].as_str().ok_or("Missing path")?;
+                if std::fs::metadata(path).map_err(|e| e.to_string())?.len() > 512 * 1024 * 1024 {
+                    return Err("INPUT_SIZE_LIMIT".into());
+                }
+                std::fs::read_to_string(path).map_err(|e| e.to_string())?
+            };
+            decode::decode(&xml)
+        })();
+        match result {
+            Ok(v) => println!("{}", v),
+            Err(e) => println!("{}", json!({"error":e})),
+        }
+    }
+}

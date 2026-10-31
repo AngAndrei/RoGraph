@@ -1,0 +1,67 @@
+import { it, expect } from "vitest";
+import { join } from "node:path";
+import { readFile, unlink } from "node:fs/promises";
+import { openStore } from "../packages/core/src/store.js";
+import { resolveFixture } from "./support/resolve.js";
+import { withWorkspace } from "./support/workspace.js";
+it("persists evidence, sources and indexed search across reopen", async () =>
+  withWorkspace(async (dir) => {
+    const g = await resolveFixture("shop/place.rbxlx");
+    let s = await openStore(join(dir, "graph.db"));
+    await s.save(g);
+    await s.publish(g.analysisId);
+    await s.close();
+    s = await openStore(join(dir, "graph.db"));
+    try {
+      expect(await s.readGraph(g.analysisId)).toEqual(g);
+      expect(
+        (
+          await s.select({
+            op: "search",
+            analysisId: g.analysisId,
+            text: "Sword",
+            limit: 10,
+          })
+        ).nodes.map((n) => n.label),
+      ).toContain("ShopConfig.Prices.Sword");
+      expect(await s.current()).toBe(g.analysisId);
+      const owned = join(
+        dir,
+        "blobs",
+        String((g.importManifest.inventory as any).rawInput.sha256) + ".rbxlx",
+      );
+      expect((await readFile(owned)).length).toBeGreaterThan(100);
+      await expect(s.readGraph("stale")).rejects.toMatchObject({
+        code: "ANALYSIS_NOT_FOUND",
+      });
+    } finally {
+      await s.close();
+    }
+  }));
+it("never publishes partial or canceled work over the last complete snapshot", async () =>
+  withWorkspace(async (dir) => {
+    const g = await resolveFixture("shop/place.rbxlx"),
+      s = await openStore(join(dir, "graph.db"));
+    try {
+      await s.save(g);
+      await s.publish(g.analysisId);
+      const partial = {
+        ...g,
+        analysisId: "partial",
+        coverage: { ...g.coverage, partialImport: true },
+      };
+      await s.save(partial);
+      await expect(s.publish("partial")).rejects.toMatchObject({
+        code: "PARTIAL_ANALYSIS",
+      });
+      const c = new AbortController();
+      c.abort();
+      await expect(
+        s.save({ ...g, analysisId: "canceled" }, c.signal),
+      ).rejects.toBeDefined();
+      expect(await s.current()).toBe(g.analysisId);
+      expect((await s.listAnalyses(10)).items).toHaveLength(2);
+    } finally {
+      await s.close();
+    }
+  }));

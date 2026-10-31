@@ -1,0 +1,21 @@
+<roblox version="4"><Item class="ReplicatedStorage" referent="rs"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="shop"><Properties><string name="Name">Shop</string></Properties><Item class="RemoteEvent" referent="remote_shop"><Properties><string name="Name">Purchase</string></Properties></Item><Item class="ModuleScript" referent="config"><Properties><string name="Name">ShopConfig</string><ProtectedString name="Source"><![CDATA[return { Prices = { Sword = 100, Shield = 150 }, Enabled = true }
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="sss"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="server"><Properties><string name="Name">ShopServer</string><ProtectedString name="Source"><![CDATA[local Purchase = game:GetService("ReplicatedStorage").Shop.Purchase
+local Service = require(script.Parent.PurchaseService)
+local function onPurchase(player, itemId)
+    Service.TryPurchase(player, itemId)
+end
+Purchase.OnServerEvent:Connect(onPurchase)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="service"><Properties><string name="Name">PurchaseService</string><ProtectedString name="Source"><![CDATA[local Config = require(game:GetService("ReplicatedStorage").Shop.ShopConfig)
+local PurchaseService = {}
+function PurchaseService.TryPurchase(player, itemId)
+    local price = Config.Prices.Sword
+    return price > 0
+end
+return PurchaseService
+]]></ProtectedString></Properties></Item></Item><Item class="StarterPlayer" referent="sp"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="sps"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="client"><Properties><string name="Name">ShopClient</string><ProtectedString name="Source"><![CDATA[local RS = game:GetService("ReplicatedStorage")
+local Purchase = RS.Shop.Purchase
+local ShopClient = {}
+function ShopClient.BuySword()
+    Purchase:FireServer("Sword")
+end
+]]></ProtectedString></Properties></Item></Item></Item></roblox>

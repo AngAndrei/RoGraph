@@ -1,0 +1,12 @@
+[package]
+name = "rograph-rbx-import"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+
+[dependencies]
+rbx_xml = "=3.0.1"
+rbx_dom_weak = "=4.2.0"
+rbx_types = {version="=3.1.0", features=["serde"]}
+roxmltree = "=0.21.1"
+serde_json = "=1.0.149"
