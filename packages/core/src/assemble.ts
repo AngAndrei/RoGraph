@@ -13,11 +13,13 @@ import {
 } from "../../contracts/src/model.js";
 import { hash, canonical } from "./util.js";
 import { resolveContexts } from "./execution-context.js";
+import { resolveGameplay } from "./gameplay.js";
 export function assembleGraph(
   snapshot: Snapshot,
   facts: Facts[],
   resolutions: Resolution[],
 ): Graph {
+  resolutions = [...resolutions, resolveGameplay(snapshot, facts, resolutions)];
   const merged: Resolution = {
     sites: [],
     nodes: [],
@@ -227,7 +229,9 @@ export function assembleGraph(
     parser: String(facts[0]?.parserVersion ?? "none"),
     features: String(facts[0]?.featureHash ?? "none"),
     engine: "0.1.0",
-    resolver: "3",
+    resolver: "4",
+    gameplay: "1",
+    projection: "1",
     apiMetadata: apiMetadataHash,
   };
   for (const source of snapshot.sources)

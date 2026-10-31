@@ -446,6 +446,7 @@ export class FlowResolver extends ModuleResolver {
         : result;
     }
     if (base.kind === "runtime") {
+      if(methods.has(String(key)))return {kind:'native',method:key,receiver:base.id,receiverValue:base};
       if (key === "Parent") return unknown("RUNTIME_PARENT_UNAVAILABLE");
       return {
         ...base,
