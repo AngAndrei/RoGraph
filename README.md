@@ -15,7 +15,7 @@ Extract the portable package into a writable folder and open **RoGraph.exe**. Yo
 - Export a bounded JSON/Markdown context pack, or connect an agent through read-only MCP.
 - Use **Stop app** to stop the service and its owned workers. Closing a browser tab alone leaves the local app running.
 
-This is static saved-file analysis. It does not execute game code or prove runtime behavior. Binary `.rbxl` import and Studio capture are deferred. Rojo imports cover their configured project; Studio-only objects are outside that input.
+This is static saved-file analysis. It does not execute game code or prove runtime behavior. Studio runtime capture is deferred. Rojo imports cover their configured project; Studio-only objects are outside that input.
 
 See the [user guide](docs/user-guide.md), [agent setup](docs/agent-setup.md), [troubleshooting](docs/troubleshooting.md), and [measured performance](docs/performance.md). The preview has been tested with synthetic fixtures and three supplied games; see [provided-game validation](docs/provided-game-validation.md) for partial-import and parsing limits. A separate clean PC remains untested.
 

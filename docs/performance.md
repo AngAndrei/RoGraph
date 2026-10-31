@@ -2,19 +2,19 @@
 
 RoGraph 0.1 has synthetic-fixture and provided-game validation. This benchmark is a synthetic workload, not a promise about every game with the same object count.
 
-The recorded Windows run used an Intel i7-1165G7 (8 logical processors), about 16 GB RAM, Node 24.19.0, 50,000 saved Instances, 1,000 unique script texts, 100,000 source lines, and 100,899 source relationship occurrences. Geometry has minimal saved properties. The scripts repeatedly read a shared configuration; this does not represent 100,000 unique call edges or large mesh/binary properties.
+The final 2026-10-31 Windows run used an Intel i7-1165G7 (8 logical processors), about 16 GB RAM, Node 24.19.0, 50,000 saved Instances, 1,000 unique script texts, 100,000 source lines, and 100,899 source relationship occurrences. Geometry has minimal saved properties. The scripts repeatedly read a shared configuration; this does not represent 100,000 unique call edges or large mesh/binary properties.
 
-| Measurement                               | Observed                   | Target           |
-| ----------------------------------------- | -------------------------- | ---------------- |
-| Three independent cold analyses           | 31.3 / 56.0 / 94.2 seconds | under 60 seconds |
-| Cold median                               | 56.0 seconds               | under 60 seconds |
-| Warm search median / slowest              | 1.1 / 9.6 ms               | under 500 ms     |
-| Warm config impact median / slowest       | 478.5 / 546.5 ms           | under 500 ms     |
-| Warm overview median / slowest            | 327.5 / 352.9 ms           | under 500 ms     |
-| First browser overview with worker layout | 1.86 seconds               | under 3 seconds  |
-| Sampled aggregate working set             | 1.91 GiB                   | under 2 GiB      |
+| Measurement                               | Observed                     | Target           |
+| ----------------------------------------- | ---------------------------- | ---------------- |
+| Three independent cold analyses           | 77.7 / 107.0 / 116.6 seconds | under 60 seconds |
+| Cold median                               | 107.0 seconds                | under 60 seconds |
+| Warm search median / slowest              | 0.7 / 15.4 ms                | under 500 ms     |
+| Warm config impact median / slowest       | 444.5 / 1,245.1 ms           | under 500 ms     |
+| Warm overview median / slowest            | 630.4 / 1,491.9 ms           | under 500 ms     |
+| First browser overview with worker layout | 3.75 seconds                 | under 3 seconds  |
+| Sampled aggregate working set             | 1.78 GiB                     | under 2 GiB      |
 
-**The cold-time target was not met consistently.** Saving the third snapshot took about 65 seconds. Large imports can take over a minute, and queries may wait during synchronous database publication. The hard import limits below are guards, not supported-capacity or response-time guarantees. Allow for slower disks, background load, richer saved properties, and different graph shapes. Three supplied games passed the documented workflows with partial-import warnings; see provided-game-validation.md.
+**Cold-import, warm-overview, and first-render targets were not met in the final run.** Some cold analyses overlapped regression checks, and desktop activity was not controlled. Large imports can take over a minute, and queries may wait during synchronous database publication. The hard import limits below are guards, not supported-capacity or response-time guarantees. Allow for slower disks, background load, richer saved properties, and different graph shapes. Three supplied games passed the documented workflows with partial-import warnings; see provided-game-validation.md.
 
 Memory is sampled across the process tree, including the Node service and its worker threads, native helpers, and the test browser. Worker threads share the Node process working set and are not double-counted. Short-lived helper peaks may fall between 200 ms samples; shared DLL pages can be counted in multiple processes. The Node process high-water reading is recorded separately. These are measured working sets, not a strict memory bound.
 

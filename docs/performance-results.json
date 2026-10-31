@@ -1,7 +1,7 @@
 {
   "profile": "release",
   "runs": 3,
-  "createdAt": "2026-10-30T18:42:28.336Z",
+  "createdAt": "2026-10-31T11:21:50.246Z",
   "hardware": {
     "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
     "logicalProcessors": 8,
@@ -20,13 +20,13 @@
   },
   "cold": [
     {
-      "durationMs": 31265.9158,
+      "durationMs": 77747.24,
       "stages": {
-        "import": 0.2578000000000884,
-        "parse": 1744.5744,
-        "resolve": 13837.509600000001,
-        "persist": 19923.597700000002,
-        "complete": 31265.0513
+        "import": 0.81899999999996,
+        "parse": 5381.4777,
+        "resolve": 32962.6919,
+        "persist": 48246.6777,
+        "complete": 77746.1882
       },
       "parserMisses": 1000,
       "parserHits": 0,
@@ -49,13 +49,13 @@
       }
     },
     {
-      "durationMs": 55979.2847,
+      "durationMs": 107014.1666,
       "stages": {
-        "import": 0.14329999999608845,
-        "parse": 1899.7332999999999,
-        "resolve": 23508.248699999996,
-        "persist": 29402.4977,
-        "complete": 55978.623199999995
+        "import": 0.08079999999608845,
+        "parse": 3302.541699999987,
+        "resolve": 25448.373999999996,
+        "persist": 47158.1207,
+        "complete": 107013.0728
       },
       "parserMisses": 1000,
       "parserHits": 0,
@@ -78,13 +78,13 @@
       }
     },
     {
-      "durationMs": 94197.6439,
+      "durationMs": 116595.4075,
       "stages": {
-        "import": 0.03449999999429565,
-        "parse": 1663.9449000000022,
-        "resolve": 22272.324999999997,
-        "persist": 29207.780899999998,
-        "complete": 94196.3626
+        "import": 0.050900000002002344,
+        "parse": 3516.8459999999905,
+        "resolve": 42437.571200000006,
+        "persist": 58785.65220000001,
+        "complete": 116594.15239999999
       },
       "parserMisses": 1000,
       "parserHits": 0,
@@ -115,16 +115,12 @@
       "omittedCounts": {}
     },
     "search": {
-      "medianMs": 1.1283999999868684,
-      "maxMs": 9.56930000000284,
+      "medianMs": 0.6598000000230968,
+      "maxMs": 15.428399999975227,
       "samplesMs": [
-        9.56930000000284,
-        1.4923999999882653,
-        1.1120999999984633,
-        1.08719999997993,
-        1.1037000000069384,
-        1.146199999988312,
-        1.1283999999868684
+        15.428399999975227, 1.0058999999891967, 0.74910000001546,
+        0.6598000000230968, 0.6328000000212342, 0.623699999996461,
+        0.6272999999928288
       ]
     },
     "impactResult": {
@@ -139,16 +135,12 @@
       }
     },
     "impact": {
-      "medianMs": 478.49910000001546,
-      "maxMs": 546.5031999999774,
+      "medianMs": 444.5056999999797,
+      "maxMs": 1245.0630999999703,
       "samplesMs": [
-        482.7774999999965,
-        530.3591000000015,
-        478.49910000001546,
-        396.28349999999045,
-        546.5031999999774,
-        271.30549999998766,
-        293.9481000000087
+        1245.0630999999703, 368.7537000000011, 344.4245000000228,
+        401.99259999999776, 444.5056999999797, 462.2004999999772,
+        457.3155000000261
       ]
     },
     "overviewResult": {
@@ -163,21 +155,17 @@
       }
     },
     "overview": {
-      "medianMs": 327.50700000001234,
-      "maxMs": 352.88099999999395,
+      "medianMs": 630.3584000000264,
+      "maxMs": 1491.8751000000047,
       "samplesMs": [
-        352.88099999999395,
-        332.1921999999904,
-        315.50400000001537,
-        316.77679999999236,
-        349.78270000001066,
-        324.56690000000526,
-        327.50700000001234
+        1491.8751000000047, 630.3584000000264, 835.3570999999647,
+        681.0517000000109, 576.3269999999902, 527.1123999999836,
+        526.3773999999976
       ]
     }
   },
   "overview": {
-    "firstRenderedMs": 1860.1543999999994,
+    "firstRenderedMs": 3748.6419999999925,
     "initialQueries": [
       {
         "op": "tree",
@@ -186,6 +174,10 @@
       {
         "op": "overview",
         "limit": 300
+      },
+      {
+        "op": "diagnostics",
+        "limit": 100
       }
     ],
     "neighborhoodQueries": [
@@ -198,8 +190,106 @@
   "memory": {
     "method": "Sampled sum of process-tree working sets; Node workers share the parent process; sampler excluded",
     "sampleIntervalMs": 200,
-    "peakAggregateBytes": 2051694592,
-    "samples": 476,
+    "peakAggregateBytes": 1911472128,
+    "samples": 591,
+    "observedProcesses": {
+      "2164": {
+        "name": "esbuild",
+        "peakWorkingSetBytes": 15622144
+      },
+      "5820": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 15351808
+      },
+      "6788": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7901184
+      },
+      "7892": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 26312704
+      },
+      "11848": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7897088
+      },
+      "12132": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7905280
+      },
+      "14708": {
+        "name": "identity_helper",
+        "peakWorkingSetBytes": 31563776
+      },
+      "15840": {
+        "name": "luau-parser",
+        "peakWorkingSetBytes": 6045696
+      },
+      "17552": {
+        "name": "rbx-import",
+        "peakWorkingSetBytes": 323104768
+      },
+      "18364": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 24662016
+      },
+      "20176": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 150691840
+      },
+      "23748": {
+        "name": "rbx-import",
+        "peakWorkingSetBytes": 323772416
+      },
+      "24356": {
+        "name": "node",
+        "peakWorkingSetBytes": 1909043200
+      },
+      "27432": {
+        "name": "rbx-import",
+        "peakWorkingSetBytes": 244899840
+      },
+      "28348": {
+        "name": "luau-parser",
+        "peakWorkingSetBytes": 6049792
+      },
+      "29708": {
+        "name": "luau-parser",
+        "peakWorkingSetBytes": 5263360
+      },
+      "30300": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7909376
+      },
+      "30876": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 42770432
+      },
+      "31420": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 174473216
+      },
+      "32064": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 178024448
+      },
+      "32240": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7897088
+      },
+      "32508": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 49995776
+      },
+      "32720": {
+        "name": "conhost",
+        "peakWorkingSetBytes": 7897088
+      },
+      "33788": {
+        "name": "msedge",
+        "peakWorkingSetBytes": 24236032
+      }
+    },
     "limitation": "Short-lived helper peaks can fall between samples; shared DLL pages may be counted across processes."
   },
   "artifacts": {
@@ -211,27 +301,33 @@
       "rust": "1.90.0",
       "rbx_types": "3.1.0",
       "luauCommit": "a4818b6678822bb726a0eb2299cae751d3017a6a",
-      "schema": 1
+      "schema": 1,
+      "rojo": "7.7.1",
+      "rojoWindowsX64Sha256": "e73e956676b8b27ff43f2c5d80e040121e49c2f9e8cc69fd65123799473cf6d3",
+      "nlohmannJson": "3.12.0",
+      "jsonHeaderSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "nativeSerialization": 3,
+      "rbx_binary": "3.0.1",
+      "rojoSourceCommit": "26b6cc6d83ef068d356aac689110ad89f3b05d65",
+      "rojoSourceCargoLockSha256": "a1d2927ea6f74d9f63d21dce5ff7bf2427fa4121e7e46a594a8f6c3bdaafcde3",
+      "robloxApiVersion": "version-d0e8cfcd943d4ae2",
+      "robloxApiSha256": "02276f872886a6bc29e2e05a2e551a8c92c0e1745276520f4203d52a15679856"
     },
-    "importerSha256": "dc6b7ce4754158d822782a697a45e778aeae570ae643eae51659746040d42600",
-    "parserSha256": "a78866a30660dc196b0ec42aa61e6b57aef56a95bce232c9ba4b20d5a22294da",
-    "cliSha256": "b0ea6760df6f3890ee3f7f32edc23fd34a18fc4015859d82ff5c592c974682ef",
-    "workerSha256": "24c856997a7adc530dc82fe71071e68e309d8ae776c16486915c328203344d57"
+    "importerSha256": "56b8820f080286fe52f5a532abb42f760f3a5c42672a9f96ba74c41c061d0054",
+    "parserSha256": "8d0260a2421ede50f9544ea6e8690cf3137aacb6eb585273d8d2f00d4fffd8e5",
+    "cliSha256": "4538d3d8b93a99fb0887b9c16eed37e9ad99df4d6debfd8627ca76f68b8bacad",
+    "workerSha256": "f0c9ba49925ba88d1ffd28cb59e0dbf7a42338eacb785c60244cba0c4892564a"
   },
-  "nodeHighWaterKiB": 2047048,
+  "nodeHighWaterKiB": 1864300,
   "coldSummary": {
-    "medianMs": 55979.2847,
-    "maxMs": 94197.6439,
-    "samplesMs": [
-      31265.9158,
-      55979.2847,
-      94197.6439
-    ]
+    "medianMs": 107014.1666,
+    "maxMs": 116595.4075,
+    "samplesMs": [77747.24, 107014.1666, 116595.4075]
   },
   "targets": {
     "coldUnder60s": false,
-    "warmQueriesUnder500ms": true,
-    "firstOverviewUnder3s": true,
+    "warmQueriesUnder500ms": false,
+    "firstOverviewUnder3s": false,
     "sampledAggregateUnder2GB": true
   }
 }
