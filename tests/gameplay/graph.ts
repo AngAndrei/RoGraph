@@ -4,9 +4,15 @@ import { resolveInstances } from "../../packages/core/src/resolve-instances.js";
 import { resolveCalls } from "../../packages/core/src/resolve-calls.js";
 import { resolveConfig } from "../../packages/core/src/resolve-config.js";
 import { resolveEvents } from "../../packages/core/src/resolve-events.js";
-export async function gameplayGraph(code: Record<string, string>) {
-  const c = await gameplayCase(code),
-    i = resolveInstances(c.snapshot, c.facts),
+export async function gameplayGraph(
+  code: Record<string, string>,
+  edit?: (
+    snapshot: import("../../packages/contracts/src/model.js").Snapshot,
+  ) => void,
+) {
+  const c = await gameplayCase(code);
+  edit?.(c.snapshot);
+  const i = resolveInstances(c.snapshot, c.facts),
     calls = resolveCalls(c.snapshot, c.facts, i);
   return assembleGraph(c.snapshot, c.facts, [
     i,

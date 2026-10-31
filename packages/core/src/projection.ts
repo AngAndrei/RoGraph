@@ -42,7 +42,13 @@ export function projectResult(
     }
   >();
   for (const r of kept) {
-    const key = [r.source, r.target, r.gameplay?.label ?? r.type].join("|");
+    const key = [
+      r.source,
+      r.target,
+      r.gameplay?.label ?? r.type,
+      r.gameplay?.ownerId ?? "",
+      r.gameplay?.handlerId ?? "",
+    ].join("|");
     const item = edgeMap.get(key) ?? {
       id: "projection:" + hash(key),
       source: r.source,

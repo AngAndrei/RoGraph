@@ -13,6 +13,7 @@ import type { Value } from "./resolver.js";
 import type { GameplayRelation } from "../../contracts/src/gameplay.js";
 import { emptyResolution, emit, addNode } from "./resolution.js";
 import { hash } from "./util.js";
+import { gameplayScopes } from "./gameplay-scopes.js";
 const effects: Record<string, RelationType> = {
   Clone: "SPAWNS",
   Destroy: "DESTROYS",
@@ -30,6 +31,8 @@ export function resolveGameplay(
     resolver = new FlowResolver(snapshot, facts);
   const siteMap = new Map(facts.flatMap((f) => f.sites).map((s) => [s.id, s]));
   const relationIds = new Set<string>();
+  const scopes = gameplayScopes(facts, resolutions, resolver);
+  const factsBySource = new Map(facts.map((f) => [f.sourceId, f]));
   const scriptOf = (id: string) => resolver.owners.get(id) ?? id;
   const entity = (id: string): string | undefined => {
     let current = resolver.objects.get(id),
@@ -97,9 +100,66 @@ export function resolveGameplay(
       !resolver.objects.has(target)
     )
       return;
-    const support = [raw.id, ...witness(raw.expression, f)].filter((id) =>
-      siteMap.has(id),
-    );
+    const support = [
+      raw.id,
+      ...witness(raw.expression, f),
+      ...(value?.payloadSiteIds ?? []),
+    ].filter((id) => siteMap.has(id));
+    const configInputs = new Map<
+      string,
+      NonNullable<GameplayRelation["configInputs"]>[number]
+    >();
+    const selectedScript =
+      value?.configScriptId ??
+      (value?.kind === "field" ? value.scriptId : undefined);
+    const selectedRow = (
+      value?.configPath ?? (value?.kind === "field" ? value.path : undefined)
+    )?.slice(0, -1) as (string | number)[] | undefined;
+    const addConfig = (v: Value) => {
+      if (
+        !["field", "table"].includes(v.kind) ||
+        !v.scriptId ||
+        v.scriptId === f.scriptId ||
+        !v.sourceId ||
+        !Array.isArray(v.path)
+      )
+        return;
+      if (selectedScript && v.scriptId !== selectedScript) return;
+      if (
+        selectedRow?.length &&
+        selectedRow.some((key, index) => v.path[index] !== key)
+      )
+        return;
+      const span = v.fieldSpan ?? v.span,
+        id = v.fieldId ?? v.id;
+      if (!span || !id) return;
+      configInputs.set(id, {
+        fieldId: id,
+        sourceId: v.sourceId,
+        span,
+        path:
+          (resolver.objects.get(v.scriptId)?.name ?? "Config") +
+          "." +
+          v.path.join("."),
+      });
+    };
+    if (value?.configFieldId && value.configSourceId && value.configSpan)
+      configInputs.set(value.configFieldId, {
+        fieldId: value.configFieldId,
+        sourceId: value.configSourceId,
+        span: value.configSpan,
+        path:
+          (resolver.objects.get(value.configScriptId)?.name ?? "Config") +
+          "." +
+          value.configPath.join("."),
+      });
+    for (const id of support) {
+      const s = siteMap.get(id)!,
+        owner = factsBySource.get(s.sourceId);
+      if (owner && s.kind === "read")
+        for (const v of alternatives(resolver.get(s.expression, owner)))
+          addConfig(v);
+    }
     const guards = ((raw.expression.guards as Expr[]) ?? []).map(
       (g) =>
         `${f.sourceId}:${g.span.startByte}-${g.span.endByte}:${g.negated ? "false" : "true"}`,
@@ -145,6 +205,14 @@ export function resolveGameplay(
         label,
         method,
         sourceScriptId: f.scriptId,
+        ownerId: raw.ownerId,
+        ownerLabel:
+          f.symbols.find((s) => s.id === raw.ownerId)?.name ??
+          resolver.objects.get(f.scriptId)?.name,
+        configInputs: [...configInputs.values()],
+        configPaths: [
+          ...new Set([...configInputs.values()].map((i) => i.path)),
+        ],
         supportSiteIds: [...new Set(support)],
         guards,
         conditional,
@@ -164,6 +232,77 @@ export function resolveGameplay(
       if (site.kind === "call") {
         const callee = resolver.get(e.callee as Expr, f),
           value = resolver.get(e, f);
+        if (callee.kind === "intrinsic" && callee.path === "Instance.new")
+          for (const v of alternatives(value))
+            if (v.kind === "allocation" && v.created) {
+              link(
+                f.scriptId,
+                v.id!,
+                "SPAWNS",
+                site,
+                f,
+                "Instance.new",
+                "creates " + resolver.objects.get(v.id!)?.name,
+                v,
+              );
+              if (v.parentId)
+                link(
+                  f.scriptId,
+                  v.id!,
+                  "REPARENTS",
+                  site,
+                  f,
+                  "Instance.new parent",
+                  "created in " + resolver.objects.get(v.parentId)?.name,
+                  v,
+                  { destinationId: v.parentId },
+                );
+            }
+        const unsupported = alternatives(callee).filter(
+          (c) =>
+            c.kind === "native" &&
+            c.unsupportedEffect &&
+            !effects[c.method] &&
+            ![
+              "FireServer",
+              "FireClient",
+              "FireAllClients",
+              "InvokeServer",
+              "InvokeClient",
+              "Fire",
+              "Invoke",
+              "GetPropertyChangedSignal",
+            ].includes(c.method),
+        );
+        if (unsupported.length) {
+          const message =
+            "API member recognized, but its return-object and gameplay behavior are not modeled: " +
+            [...new Set(unsupported.map((c) => c.method))].join(", ") +
+            ".";
+          result.diagnostics.push({
+            code: "UNMODELED_PLATFORM_BEHAVIOR",
+            severity: "info",
+            message,
+            siteId: site.id,
+            ownerId: f.scriptId,
+            sourceId: f.sourceId,
+            span: (e.callee as Expr).span,
+          });
+          for (const c of unsupported)
+            for (const id of anchorIds(
+              c.receiverValue ?? { kind: "instance", id: c.receiver },
+            ))
+              link(
+                f.scriptId,
+                id,
+                "USES_OBJECT",
+                site,
+                f,
+                c.method,
+                "API behavior not modeled",
+                c.receiverValue,
+              );
+        }
         if (
           e.colon &&
           callee.kind === "signal-connect" &&
@@ -173,6 +312,15 @@ export function resolveGameplay(
         ) {
           const signal = callee.signal,
             trigger = String(signal.id);
+          const callback = resolver.get((e.args as Expr[])[0], f);
+          const handler =
+            callback.kind === "function"
+              ? {
+                  handlerId: callback.id,
+                  reachableOwnerIds: scopes(callback.id!).ownerIds,
+                  scopeIncomplete: scopes(callback.id!).truncated,
+                }
+              : {};
           link(
             trigger,
             f.scriptId,
@@ -181,6 +329,8 @@ export function resolveGameplay(
             f,
             String(signal.signal),
             String(signal.signal) + " → handler",
+            undefined,
+            handler,
           );
           const players = snapshot.instances.find(
             (i) => i.className === "Players",
@@ -214,15 +364,43 @@ export function resolveGameplay(
               f,
               String(signal.signal),
               "interaction handled by",
+              undefined,
+              handler,
             );
         }
+        if (unsupported.length)
+          result.sites.push({
+            ...site,
+            status: "candidate",
+            targetIds: [
+              ...new Set(
+                unsupported.flatMap((c) =>
+                  anchorIds(
+                    c.receiverValue ?? { kind: "instance", id: c.receiver },
+                  ),
+                ),
+              ),
+            ],
+            reason: "UNMODELED_PLATFORM_BEHAVIOR",
+            assumptions: [
+              ...site.assumptions,
+              "Platform member recognition does not establish return-object or effect semantics.",
+            ],
+          });
         for (const c of alternatives(callee))
           if (e.colon && c.kind === "native" && effects[c.method]) {
             const receiver = c.receiverValue ?? {
               kind: "instance",
               id: c.receiver,
             };
-            for (const id of anchorIds(receiver))
+            for (const id of anchorIds(receiver)) {
+              const copy =
+                c.method === "Clone"
+                  ? alternatives(value).find(
+                      (v) => v.kind === "allocation" && v.templateId === id,
+                    )
+                  : undefined;
+              if (c.method === "Clone" && !copy) continue;
               link(
                 f.scriptId,
                 id,
@@ -233,13 +411,12 @@ export function resolveGameplay(
                 c.method === "Clone" ? "clones" : c.method,
                 c.method === "Clone"
                   ? {
-                      ...(alternatives(value).find(
-                        (v) => v.kind === "allocation" && v.templateId === id,
-                      ) ?? receiver),
+                      ...copy,
                       open: !!value.open || !!callee.open || !!receiver.open,
                     }
                   : { ...receiver, open: !!callee.open || !!receiver.open },
               );
+            }
           }
         if (
           alternatives(callee).every((c) =>
@@ -333,6 +510,12 @@ export function resolveGameplay(
             f,
             "owned-controller",
             "behavior implemented by",
+            undefined,
+            {
+              handlerId: f.scriptId,
+              reachableOwnerIds: scopes(f.scriptId).ownerIds,
+              scopeIncomplete: scopes(f.scriptId).truncated,
+            },
           );
         for (const v of alternatives(value)) {
           if (
@@ -399,51 +582,55 @@ export function resolveGameplay(
             "Text",
           ].includes(String(key))
         )
-          for (const id of anchorIds(base)) {
-            const member = (f.members as any[]).find(
-              (m) =>
-                m.target.span.startByte === site.span.startByte &&
-                m.target.span.endByte === site.span.endByte,
-            );
-            const destination =
-              key === "Parent" && member
-                ? resolver.get(member.value, f)
+          for (const variant of alternatives(base))
+            for (const id of anchorIds(variant)) {
+              const member = (f.members as any[]).find(
+                (m) =>
+                  m.target.span.startByte === site.span.startByte &&
+                  m.target.span.endByte === site.span.endByte,
+              );
+              const destination =
+                key === "Parent" && member
+                  ? resolver.get(member.value, f)
+                  : undefined;
+              const playerDestination = destination
+                ? alternatives(destination).find(
+                    (v) =>
+                      v.kind === "runtime" &&
+                      String(v.rolePath).endsWith(".Backpack"),
+                  )
                 : undefined;
-            const playerDestination = destination
-              ? alternatives(destination).find(
-                  (v) =>
-                    v.kind === "runtime" &&
-                    String(v.rolePath).endsWith(".Backpack"),
-                )
-              : undefined;
-            const toPlayer = !!playerDestination;
-            link(
-              f.scriptId,
-              id,
-              key === "Parent"
-                ? toPlayer
-                  ? "TRANSFERS"
-                  : "REPARENTS"
-                : ["CFrame", "Position", "Size", "PrimaryPart"].includes(
-                      String(key),
-                    )
-                  ? "TRANSFORMS"
-                  : "MODIFIES",
-              site,
-              f,
-              "write " + key,
-              toPlayer ? "gives to Backpack" : "sets " + key,
-              { ...base, open: !!base.open || !!destination?.open },
-              destination
-                ? {
-                    destinationId:
-                      playerDestination?.id ?? anchorIds(destination)[0],
-                    destinationRole:
-                      playerDestination?.rolePath ?? destination.rolePath,
-                  }
-                : undefined,
-            );
-          }
+              const toPlayer = !!playerDestination;
+              link(
+                f.scriptId,
+                id,
+                key === "Parent"
+                  ? toPlayer
+                    ? "TRANSFERS"
+                    : "REPARENTS"
+                  : ["CFrame", "Position", "Size", "PrimaryPart"].includes(
+                        String(key),
+                      )
+                    ? "TRANSFORMS"
+                    : "MODIFIES",
+                site,
+                f,
+                "write " + key,
+                toPlayer ? "gives to Backpack" : "sets " + key,
+                {
+                  ...variant,
+                  open: !!base.open || !!variant.open || !!destination?.open,
+                },
+                destination
+                  ? {
+                      destinationId:
+                        playerDestination?.id ?? anchorIds(destination)[0],
+                      destinationRole:
+                        playerDestination?.rolePath ?? destination.rolePath,
+                    }
+                  : undefined,
+              );
+            }
       }
     }
   // Identity-matched channels carry their existing context/argument semantics.
@@ -475,6 +662,12 @@ export function resolveGameplay(
           f,
           ev?.mechanism ?? "handler",
           "handled by",
+          undefined,
+          {
+            handlerId: relation.source,
+            reachableOwnerIds: scopes(relation.source).ownerIds,
+            scopeIncomplete: scopes(relation.source).truncated,
+          },
         );
     }
   for (const object of resolver.created.values()) {

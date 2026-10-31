@@ -1,6 +1,6 @@
 # Linked Gameplay and Code Views Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Explain game structure and gameplay with evidence-backed connections between real project objects/files, while retaining Code inspection and improving common reference resolution.
 
@@ -33,11 +33,11 @@
 
 **Interfaces:** `Resolver.get(e: Expr | undefined, facts: Facts, seen?: Set<string>): Value` remains compatible. Lowered expressions retain operators; sites retain guards/scheduling metadata through the existing expression record. Recognized native/intrinsic results distinguish project dependencies from platform operations.
 
-- [ ] Write tests for math/task/CFrame, workspace identity, literal truthiness/fallback and shadowed libraries; assert no missing-package relationships for intrinsic calls.
-- [ ] Run `npm test -- tests/gameplay/platform.test.ts`; observe the new assertions fail.
-- [ ] Preserve unary/binary/conditional expressions, function return/parameter metadata, control guards and callback sites; add a versioned semantics catalogue and concrete Workspace binding.
-- [ ] Run the focused tests plus `tests/facts.test.ts`, `resolve-calls.test.ts`, `review-resolution.test.ts`; expect all passing.
-- [ ] Commit `feat: preserve Luau flow and recognize platform operations`.
+- [x] Write tests for math/task/CFrame, workspace identity, literal truthiness/fallback and shadowed libraries; assert no missing-package relationships for intrinsic calls.
+- [x] Run `npm test -- tests/gameplay/platform.test.ts`; observe the new assertions fail.
+- [x] Preserve unary/binary/conditional expressions, function return/parameter metadata, control guards and callback sites; add a versioned semantics catalogue and concrete Workspace binding.
+- [x] Run the focused tests plus `tests/facts.test.ts`, `resolve-calls.test.ts`, `review-resolution.test.ts`; expect all passing.
+- [x] Commit `feat: preserve Luau flow and recognize platform operations`.
 
 ## Task 2: Shared bounded configuration and object flow
 
@@ -45,11 +45,11 @@
 
 **Interfaces:** `FlowResolver extends ModuleResolver` provides `get`, `member`, `alternatives(value: Value): Value[]`, and `anchorIds(value: Value): string[]`. Values carry template/allocation/source/config provenance and unknown remainders; existing passes consume the same semantics rather than a second gameplay-only parser.
 
-- [ ] Write a newly authored snapshot/script fixture for the egg loop, variants, callbacks, named constructors and clone/part branches. Assert template anchors/config source and separate allocation identity; missing/unknown attributes cannot silently select Standard.
-- [ ] Run `npm test -- tests/gameplay/flow.test.ts`; confirm failures for the missing chain.
-- [ ] Implement bounded alternatives, short-circuit/config key propagation, callback argument/capture summaries, class/property/clone/constructor results and mutation invalidation. Preserve conservative unknowns for unsupported dispatch and exhausted bounds.
-- [ ] Verify focused flow tests and existing config/instance/event/adversarial tests; expect all passing.
-- [ ] Commit `feat: resolve configuration-driven object and callback flow`.
+- [x] Write a newly authored snapshot/script fixture for the egg loop, variants, callbacks, named constructors and clone/part branches. Assert template anchors/config source and separate allocation identity; missing/unknown attributes cannot silently select Standard.
+- [x] Run `npm test -- tests/gameplay/flow.test.ts`; confirm failures for the missing chain.
+- [x] Implement bounded alternatives, short-circuit/config key propagation, callback argument/capture summaries, class/property/clone/constructor results and mutation invalidation. Preserve conservative unknowns for unsupported dispatch and exhausted bounds.
+- [x] Verify focused flow tests and existing config/instance/event/adversarial tests; expect all passing.
+- [x] Commit `feat: resolve configuration-driven object and callback flow`.
 
 ## Task 3: Gameplay relations, proof, concrete anchors and persistence
 
@@ -57,11 +57,11 @@
 
 **Interfaces:** `resolveGameplay(snapshot: Snapshot, facts: Facts[], resolutions: Resolution[]): Resolution` adds typed object/file relations and revision-pinned proof. `GameplayAction` records carry trigger/handler/subject/config/effect IDs, guards and witness IDs. Relation metadata carries derivation support; `validateGraph` validates support in the same analysis.
 
-- [ ] Write expected/forbidden link tests for egg laying, chicken/egg pickup, GUI-to-remote-to-effect, shared config and same-named objects. Assert every visible anchor has concrete object/source provenance and real project naming.
-- [ ] Run the new semantics/persistence tests; confirm failing expectations.
-- [ ] Generate semantic effects/configuration/trigger relations using shared flow values; preserve candidates/guards and direct proof locators. Integrate the worker and assembler; persist versioned semantic records transactionally and preserve old Code analyses.
-- [ ] Verify source/derivation IDs, save/reopen parity, old-analysis capability reporting and scoped unknown diagnostics; run contracts/store/pipeline suites.
-- [ ] Commit `feat: persist gameplay relationships between concrete project objects`.
+- [x] Write expected/forbidden link tests for egg laying, chicken/egg pickup, GUI-to-remote-to-effect, shared config and same-named objects. Assert every visible anchor has concrete object/source provenance and real project naming.
+- [x] Run the new semantics/persistence tests; confirm failing expectations.
+- [x] Generate semantic effects/configuration/trigger relations using shared flow values; preserve candidates/guards and direct proof locators. Integrate the worker and assembler; persist versioned semantic records transactionally and preserve old Code analyses.
+- [x] Verify source/derivation IDs, save/reopen parity, old-analysis capability reporting and scoped unknown diagnostics; run contracts/store/pipeline suites.
+- [x] Commit `feat: persist gameplay relationships between concrete project objects`.
 
 ## Task 4: Shared projections, flow queries and agent context
 
@@ -69,11 +69,11 @@
 
 **Interfaces:** `Query.view?: 'code' | 'gameplay'`, `expandedIds?: string[]`, `includeIntrinsics?: boolean`; `projectResult(result: QueryResult, view: 'code' | 'gameplay'): QueryResult` retains backing proof and actual anchors. QueryResult includes capability/view/action/proof metadata. Existing operations stay supported; explain/implementation use the same query schema.
 
-- [ ] Write tests for object/config flows, utility-hub exclusion, cross-view anchor parity, old-snapshot availability and truncation retaining critical unknowns.
-- [ ] Run the new query/context tests; confirm failures.
-- [ ] Add indexed semantic overview/adjacency, policy-based traversal and code/gameplay filters; keep model grouping separate from canonical identity. Supply action/witness bundles through HTTP/CLI/MCP and context exports.
-- [ ] Verify query/filter/trace/evidence-budget/context/MCP regressions and new tests; expect all passing.
-- [ ] Commit `feat: expose linked gameplay and code queries to humans and agents`.
+- [x] Write tests for object/config flows, utility-hub exclusion, cross-view anchor parity, old-snapshot availability and truncation retaining critical unknowns.
+- [x] Run the new query/context tests; confirm failures.
+- [x] Add indexed semantic overview/adjacency, policy-based traversal and code/gameplay filters; keep model grouping separate from canonical identity. Supply action/witness bundles through HTTP/CLI/MCP and context exports.
+- [x] Verify query/filter/trace/evidence-budget/context/MCP regressions and new tests; expect all passing.
+- [x] Commit `feat: expose linked gameplay and code queries to humans and agents`.
 
 ## Task 5: Concrete-node viewer and precise diagnostics
 
@@ -81,11 +81,11 @@
 
 **Interfaces:** UI sends explicit `view`, preserves canonical selection across switches, and uses shared projection output. Edge inspector shows action/effect/config/guard evidence; no abstract action or allocation becomes a visible node.
 
-- [ ] Write component/browser tests for default Gameplay, Code switch, actual template labels, implementation drilldown, scoped unknowns and narrow unresolved source highlighting.
-- [ ] Run focused tests; confirm failures.
-- [ ] Replace details-only navigation with linked views and selection-local expansion; retain Code details, hierarchy/search and shared filters. Label source text separately from relationship resolution.
-- [ ] Verify focused and existing UI/browser tests, typecheck and build.
-- [ ] Commit `feat: add concrete-object gameplay exploration and evidence drilldown`.
+- [x] Write component/browser tests for default Gameplay, Code switch, actual template labels, implementation drilldown, scoped unknowns and narrow unresolved source highlighting.
+- [x] Run focused tests; confirm failures.
+- [x] Replace details-only navigation with linked views and selection-local expansion; retain Code details, hierarchy/search and shared filters. Label source text separately from relationship resolution.
+- [x] Verify focused and existing UI/browser tests, typecheck and build.
+- [x] Commit `feat: add concrete-object gameplay exploration and evidence drilldown`.
 
 ## Task 6: Private-game validation, documentation, packaging and final review
 

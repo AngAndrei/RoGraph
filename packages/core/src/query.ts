@@ -355,10 +355,45 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
         mergeMeta(sites);
       }
       if (q.op !== "source") {
+        if (r.relations.some((rel) => rel.gameplay?.scopeIncomplete)) {
+          r.meta.truncated = true;
+          r.meta.omittedCounts.handlerReachabilityAtLeast = 1;
+        }
+        const support = [
+          ...new Set(
+            r.relations.flatMap((rel) => rel.gameplay?.supportSiteIds ?? []),
+          ),
+        ];
+        if (support.length) {
+          const selected = await store.select({
+            op: "sitesByIds",
+            analysisId: q.analysisId,
+            ids: support.slice(0, 1000),
+            limit: 1000,
+          });
+          r.sites = [
+            ...new Map(
+              [...selected.sites, ...r.sites].map((s) => [s.id, s]),
+            ).values(),
+          ].slice(0, 1000);
+          const missing = support.filter(
+            (id) => !r.sites.some((s) => s.id === id),
+          ).length;
+          if (missing) {
+            r.meta.truncated = true;
+            r.meta.omittedCounts.supportSites = missing;
+          }
+        }
         const citations = [
           ...r.evidence,
           ...r.sites.filter(
             (s) => s.status === "unresolved" || s.status === "candidate",
+          ),
+          ...r.relations.flatMap((rel) =>
+            (rel.gameplay?.configInputs ?? []).map((input) => ({
+              sourceId: input.sourceId,
+              span: input.span,
+            })),
           ),
         ];
         const ids = [

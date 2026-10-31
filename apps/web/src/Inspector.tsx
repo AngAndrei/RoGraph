@@ -177,6 +177,7 @@ export function Inspector({
             {rel.gameplay && (
               <p className="muted">
                 {rel.gameplay.method} ·{" "}
+                {rel.gameplay.ownerLabel ? rel.gameplay.ownerLabel + " · " : ""}
                 {rel.gameplay.conditional
                   ? "Conditional potential behavior"
                   : "Potential static behavior"}
@@ -188,6 +189,26 @@ export function Inspector({
                   : ""}
               </p>
             )}
+            {rel.gameplay?.configInputs?.map((input) => (
+              <button
+                key={input.fieldId}
+                className="config-source"
+                onClick={() =>
+                  setSource({
+                    id: "config:" + input.fieldId,
+                    relationId: rel.id,
+                    sourceId: input.sourceId,
+                    span: input.span,
+                    rule: "config-field-definition",
+                    status: "saved",
+                    assumptions: [],
+                    contexts: node.contexts,
+                  })
+                }
+              >
+                Config · {input.path}
+              </button>
+            ))}
             {(expanded === rel.id ||
               edgeId === rel.id ||
               r.projection?.edges

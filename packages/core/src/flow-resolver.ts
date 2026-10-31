@@ -1,4 +1,5 @@
-import type { Expr, Facts, Instance } from "../../contracts/src/model.js";
+import type { Expr, Facts, Instance, Site } from "../../contracts/src/model.js";
+import { resolveContexts } from "./execution-context.js";
 import { ModuleResolver } from "./module-values.js";
 import { unknown, type Value } from "./resolver.js";
 import { apiMember } from "./api-members.js";
@@ -49,6 +50,10 @@ export class FlowResolver extends ModuleResolver {
     { owner: Facts; expression: Expr; direct: boolean; callback: boolean }[]
   >;
   private allocationParents?: { parent: string; value: Value }[];
+  private payloadSends?: Map<
+    string,
+    { owner: Facts; site: Site; method: string; args: Expr[] }[]
+  >;
   readonly alternatives = alternatives;
   readonly anchorIds = anchorIds;
   override get(e: Expr | undefined, f: Facts, seen = new Set<string>()): Value {
@@ -169,11 +174,12 @@ export class FlowResolver extends ModuleResolver {
           if (binding?.initializer?.span.startByte === e.span.startByte)
             name = m.value.value;
         }
+        const parent = args[1] ? this.get(args[1], f, seen) : undefined;
         const object: Instance = {
           id,
           name,
           className: type.value,
-          parentId: null,
+          parentId: parent ? (anchorIds(parent)[0] ?? null) : null,
           siblingOrdinal: 0,
           properties: {},
           synthetic: true,
@@ -188,6 +194,7 @@ export class FlowResolver extends ModuleResolver {
           span: e.span,
           className: type.value,
           created: true,
+          parentId: object.parentId,
         };
       }
       if (
@@ -241,12 +248,20 @@ export class FlowResolver extends ModuleResolver {
         span: e.span,
         className: object?.className,
         open: !!base.open,
+        configFieldId: base.configFieldId,
+        configScriptId: base.configScriptId,
+        configPath: base.configPath,
+        configSourceId: base.configSourceId,
+        configSpan: base.configSpan,
+        payloadSiteIds: base.payloadSiteIds,
       };
     }
     if (["GetChildren", "GetDescendants"].includes(c.method)) {
       return {
         kind: "collection",
-        values: this.objectSet(id, c.method === "GetDescendants"),
+        values: this.objectSet(id, c.method === "GetDescendants").map((v) =>
+          this.inAllocation(base, v),
+        ),
         open: true,
       };
     }
@@ -285,7 +300,9 @@ export class FlowResolver extends ModuleResolver {
             );
             return list.length
               ? joinValues(
-                  list.map((o) => ({ kind: "instance", id: o.id })),
+                  list.map((o) =>
+                    this.inAllocation(base, { kind: "instance", id: o.id }),
+                  ),
                   list.length > 1,
                 )
               : unknown("MISSING_SAVED_CHILD");
@@ -304,15 +321,20 @@ export class FlowResolver extends ModuleResolver {
             }
             return unknown("MISSING_SAVED_ANCESTOR");
           }
-          const target = id
-            ? this.child(id, p.value)
-            : unknown("RUNTIME_PARENT_UNAVAILABLE");
+          const target = this.inAllocation(
+            base,
+            id
+              ? this.child(id, p.value)
+              : unknown("RUNTIME_PARENT_UNAVAILABLE"),
+          );
           return k.kind === "field"
             ? {
                 ...target,
                 configFieldId: k.id,
                 configScriptId: k.scriptId,
                 configPath: k.path,
+                configSourceId: k.sourceId,
+                configSpan: k.span,
               }
             : target;
         }),
@@ -407,10 +429,30 @@ export class FlowResolver extends ModuleResolver {
         if (args[index]) values.push(this.get(args[index], owner, seen));
       }
       const callee = callback
-        ? this.get(e.callee as Expr, owner, seen)
+        ? e.kind === "handler-assignment"
+          ? {
+              kind: "signal-connect",
+              signal: {
+                id: anchorIds(
+                  this.get((e.callee as Expr).base as Expr, owner, seen),
+                )[0],
+                signal: ((e.callee as Expr).key as Expr).value,
+              },
+            }
+          : this.get(e.callee as Expr, owner, seen)
         : undefined;
+      if (
+        callback &&
+        callee?.kind === "intrinsic" &&
+        ["task.spawn", "task.defer", "task.delay"].includes(callee.path)
+      ) {
+        const offset = callee.path === "task.delay" ? 2 : 1,
+          argument = (e.args as Expr[])[offset + index];
+        if (argument) values.push(this.get(argument, owner, seen));
+      }
       if (callback && callee?.kind === "signal-connect") {
         const signal = callee.signal;
+        values.push(...this.payloadValues(signal, index, owner, seen));
         if (
           ["Triggered", "MouseClick", "PlayerAdded", "OnServerEvent"].includes(
             signal.signal,
@@ -469,8 +511,162 @@ export class FlowResolver extends ModuleResolver {
           ))
             add(id, { owner, expression: e, direct: false, callback: true });
         }
+      for (const owner of this.facts)
+        for (const member of owner.members as any[]) {
+          if (
+            !["OnServerInvoke", "OnClientInvoke", "OnInvoke"].includes(
+              member.target?.key?.value,
+            )
+          )
+            continue;
+          const id = this.lexicalFunction(member.value, owner);
+          if (id)
+            add(id, {
+              owner,
+              expression: {
+                kind: "handler-assignment",
+                span: member.target.span,
+                callee: member.target,
+                args: [],
+              },
+              direct: false,
+              callback: true,
+            });
+        }
     }
     return this.callerIndex.get(symbolId) ?? [];
+  }
+  private payloadValues(
+    signal: Value,
+    index: number,
+    handler: Facts,
+    seen: Set<string>,
+  ): Value[] {
+    const mapping: Record<string, string[]> = {
+      OnServerEvent: ["FireServer"],
+      OnClientEvent: ["FireClient", "FireAllClients"],
+      Event: ["Fire"],
+      OnServerInvoke: ["InvokeServer"],
+      OnClientInvoke: ["InvokeClient"],
+      OnInvoke: ["Invoke"],
+    };
+    const allowed = mapping[signal.signal];
+    if (!allowed || !signal.id) return [];
+    const server = ["OnServerEvent", "OnServerInvoke"].includes(signal.signal);
+    if (server && index === 0) return [this.playerRole("Player")];
+    if (!this.payloadSends) {
+      this.payloadSends = new Map();
+      const methods = new Set(Object.values(mapping).flat());
+      for (const owner of this.facts)
+        for (const site of owner.sites) {
+          const e = site.expression,
+            c = e.callee as Expr | undefined;
+          if (
+            site.kind !== "call" ||
+            !e.colon ||
+            c?.kind !== "index" ||
+            !methods.has(String((c.key as Expr).value))
+          )
+            continue;
+          for (const receiver of alternatives(
+            this.get(c.base as Expr, owner, seen),
+          )) {
+            const object = this.objects.get(receiver.id!);
+            if (
+              !object ||
+              ![
+                "RemoteEvent",
+                "UnreliableRemoteEvent",
+                "RemoteFunction",
+                "BindableEvent",
+                "BindableFunction",
+              ].includes(object.className)
+            )
+              continue;
+            const list = this.payloadSends.get(object.id) ?? [];
+            list.push({
+              owner,
+              site,
+              method: String((c.key as Expr).value),
+              args: e.args as Expr[],
+            });
+            this.payloadSends.set(object.id, list);
+          }
+        }
+    }
+    const contexts = resolveContexts(this.snapshot, this.facts, {
+      sites: [],
+      nodes: [],
+      relations: [],
+      evidence: [],
+      diagnostics: [],
+    });
+    const handlerContexts = contexts.get(handler.scriptId) ?? ["unknown"];
+    if (server && handlerContexts.every((c) => c === "client")) return [];
+    if (
+      signal.signal.startsWith("OnClient") &&
+      handlerContexts.every((c) => c === "server")
+    )
+      return [];
+    const values: Value[] = [];
+    for (const send of (this.payloadSends.get(signal.id) ?? [])
+      .filter((s) => allowed.includes(s.method))
+      .slice(0, 4)) {
+      const ctx = contexts.get(send.owner.scriptId) ?? ["unknown"];
+      if (
+        ["FireServer", "InvokeServer"].includes(send.method) &&
+        ctx.every((c) => c === "server")
+      )
+        continue;
+      if (
+        ["FireClient", "FireAllClients", "InvokeClient"].includes(
+          send.method,
+        ) &&
+        ctx.every((c) => c === "client")
+      )
+        continue;
+      if (
+        ["Event", "OnInvoke"].includes(signal.signal) &&
+        !ctx.includes("unknown") &&
+        !handlerContexts.includes("unknown") &&
+        !ctx.some((c) => handlerContexts.includes(c))
+      )
+        continue;
+      const offset = ["FireClient", "InvokeClient"].includes(send.method)
+        ? 1
+        : 0;
+      const argument = send.args[index - (server ? 1 : 0) + offset];
+      if (argument)
+        for (const v of alternatives(this.get(argument, send.owner, seen)))
+          values.push({
+            ...v,
+            open: true,
+            payloadSiteIds: [...(v.payloadSiteIds ?? []), send.site.id],
+          });
+    }
+    return values;
+  }
+  private inAllocation(base: Value, value: Value): Value {
+    if (base.kind !== "allocation") return value;
+    if (value.kind === "alternatives")
+      return joinValues(
+        alternatives(value).map((v) => this.inAllocation(base, v)),
+        !!value.open,
+      );
+    if (value.kind === "instance")
+      return {
+        ...base,
+        kind: "allocation",
+        id: base.id + ":child:" + value.id,
+        templateId: value.id,
+        className: this.objects.get(value.id!)?.className,
+        created: false,
+        allocationPath: [...(base.allocationPath ?? []), value.id],
+      };
+    if (value.kind === "native") return { ...value, receiverValue: base };
+    if (value.kind === "property")
+      return { ...value, runtime: true, allocationId: base.id };
+    return value;
   }
   private descendantOf(id: string, root: string): boolean {
     const seen = new Set<string>();
@@ -590,11 +786,13 @@ export class FlowResolver extends ModuleResolver {
     )
       return { kind: "signal-connect", signal: base };
     if (base.kind === "allocation") {
+      if (key === "Parent")
+        return base.parentId
+          ? { kind: "instance", id: base.parentId }
+          : unknown("RUNTIME_ALLOCATION_PARENT");
       const id = base.templateId ?? base.id;
       const result = this.member({ kind: "instance", id }, key, f, seen);
-      return result.kind === "native"
-        ? { ...result, receiverValue: base }
-        : result;
+      return this.inAllocation(base, result);
     }
     if (base.kind === "runtime") {
       if (

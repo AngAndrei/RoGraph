@@ -11,4 +11,5 @@ export const gameplayTypes = [
   "LOCATED_USING",
   "HAS_BEHAVIOR",
   "MODIFIES",
+  "USES_OBJECT",
 ] as const;

@@ -57,6 +57,7 @@ export async function traverse(
     path: PathHop[];
     pending?: Evidence[];
     potential: boolean;
+    scope?: string[];
   };
   let frontier: State[] = roots.map((id) => ({
     id,
@@ -169,8 +170,33 @@ export async function traverse(
           const direction = directions[batch].direction,
             isOut = direction === "out";
           if ((isOut ? r.source : r.target) !== state.id) continue;
+          if (q.view === "gameplay" && r.gameplay?.scopeIncomplete) {
+            result.meta.truncated = true;
+            result.meta.omittedCounts.handlerReachabilityAtLeast = 1;
+          }
           const id = isOut ? r.target : r.source,
             occ = evMap.get(r.id) ?? [];
+          if (q.view === "gameplay" && r.type === "USES_OBJECT") continue;
+          if (
+            q.view === "gameplay" &&
+            isOut &&
+            state.scope &&
+            r.gameplay?.sourceScriptId === state.id &&
+            !state.scope.includes(
+              r.gameplay.ownerId ?? r.gameplay.sourceScriptId,
+            )
+          )
+            continue;
+          if (
+            q.view === "gameplay" &&
+            !isOut &&
+            state.scope &&
+            r.gameplay?.handlerId &&
+            !(r.gameplay.reachableOwnerIds ?? [r.gameplay.handlerId]).some(
+              (owner) => state.scope!.includes(owner),
+            )
+          )
+            continue;
           if (!occ.length || !available.has(id)) continue;
           const channelHop = impact
             ? r.type === "SENDS_VIA" ||
@@ -244,6 +270,16 @@ export async function traverse(
           )
             ? occ
             : undefined;
+          const scope =
+            q.view !== "gameplay"
+              ? undefined
+              : isOut
+                ? r.gameplay?.handlerId
+                  ? (r.gameplay.reachableOwnerIds ?? [r.gameplay.handlerId])
+                  : state.scope
+                : r.gameplay?.sourceScriptId === id
+                  ? [r.gameplay.ownerId ?? id]
+                  : state.scope;
           const key =
             id +
             "|" +
@@ -252,10 +288,12 @@ export async function traverse(
               .sort()
               .join(",") ?? "") +
             "|" +
-            potential;
+            potential +
+            "|" +
+            (scope?.join(",") ?? "");
           if (!visited.has(key)) {
             visited.add(key);
-            next.push({ id, path, pending, potential });
+            next.push({ id, path, pending, potential, scope });
           }
         }
     frontier = next;

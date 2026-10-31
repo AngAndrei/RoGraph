@@ -5,8 +5,13 @@ import userEvent from "@testing-library/user-event";
 const mock = vi.hoisted(() => ({ run: vi.fn(), workspace: vi.fn() }));
 vi.mock("../../apps/web/src/api.js", () => ({ api: mock }));
 vi.mock("../../apps/web/src/GraphView.js", () => ({
-  GraphView: ({ onSelect }: any) => (
-    <button onClick={() => onSelect("chicken")}>Select Chicken</button>
+  GraphView: ({ onSelect, onEdge }: any) => (
+    <>
+      <button onClick={() => onSelect("chicken")}>Select Chicken</button>
+      <button onClick={() => onEdge?.("projected-edge")}>
+        Select gameplay edge
+      </button>
+    </>
   ),
 }));
 vi.mock("../../apps/web/src/Hierarchy.js", () => ({
@@ -17,6 +22,118 @@ import App from "../../apps/web/src/App.js";
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+it("clears the gameplay edge focus when showing its Code implementation", async () => {
+  const script = {
+      id: "controller",
+      kind: "instance",
+      label: "Controller",
+      contexts: ["server"],
+      attributes: { className: "Script" },
+    },
+    chicken = {
+      ...script,
+      id: "chicken",
+      label: "Chicken",
+      attributes: { className: "Model" },
+    },
+    fn = { ...script, id: "fn", kind: "function", label: "Controller.handler" };
+  const common = {
+    analysisId: "a",
+    capabilities: { code: true, gameplay: true },
+    evidence: [],
+    sites: [],
+    sources: [],
+    paths: [],
+    groups: [],
+    diagnostics: [],
+    coverage: {
+      importedInstances: 2,
+      discoveredScripts: 1,
+      parsedScripts: 1,
+      discoveredSites: 0,
+      resolvedSites: 0,
+      candidateSites: 0,
+      unresolvedSites: 0,
+      partialImport: false,
+      limitations: [],
+    },
+    meta: { truncated: false, omittedCounts: {}, limits: { nodes: 300 } },
+  };
+  mock.workspace.mockResolvedValue({
+    current: "a",
+    analyses: [
+      {
+        analysisId: "a",
+        snapshotId: "s",
+        inputKind: "place",
+        complete: true,
+        createdAt: "2026-10-31",
+      },
+    ],
+  });
+  mock.run.mockImplementation(async (q: any) =>
+    q.view === "code"
+      ? {
+          ...common,
+          nodes: [script, fn],
+          relations: [
+            {
+              id: "code-edge",
+              source: "controller",
+              target: "fn",
+              type: "DECLARES",
+            },
+          ],
+          projection: {
+            view: "code",
+            available: true,
+            nodeIds: ["controller", "fn"],
+            edges: [],
+            diagnosticsByOwner: {},
+          },
+        }
+      : {
+          ...common,
+          nodes: [script, chicken],
+          relations: [
+            {
+              id: "game-edge",
+              source: "controller",
+              target: "chicken",
+              type: "SPAWNS",
+              gameplay: {
+                label: "clones",
+                sourceScriptId: "controller",
+                guards: [],
+              },
+            },
+          ],
+          projection: {
+            view: "gameplay",
+            available: true,
+            nodeIds: ["controller", "chicken"],
+            edges: [
+              {
+                id: "projected-edge",
+                source: "controller",
+                target: "chicken",
+                relationIds: ["game-edge"],
+              },
+            ],
+            diagnosticsByOwner: {},
+          },
+        },
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("button", { name: "Select gameplay edge" });
+  await user.click(
+    screen.getByRole("button", { name: "Select gameplay edge" }),
+  );
+  await screen.findByRole("heading", { name: "Controller" });
+  await user.click(screen.getByRole("button", { name: "Show implementation" }));
+  await screen.findByRole("button", { name: /^DECLARES/ });
 });
 it("defaults to Gameplay and keeps the actual selected object when switching to Code", async () => {
   const base = {

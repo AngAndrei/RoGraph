@@ -25,6 +25,13 @@ test("shows real objects in Gameplay and follows the Chicken controller into Cod
     list.getByRole("button", { name: "Egg", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/symbolic spawned egg/i)).toHaveCount(0);
+  await list.getByRole("button", { name: "Egg", exact: true }).click();
+  await expect(
+    page
+      .locator(".inspector")
+      .getByRole("button", { name: /Config · .*EggTemplateName/ })
+      .first(),
+  ).toBeVisible();
   await list.getByRole("button", { name: "Chicken", exact: true }).click();
   await expect(
     page

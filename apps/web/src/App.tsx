@@ -112,6 +112,7 @@ export default function App() {
     let alive = true;
     const changed = previousAnalysis.current !== analysisId;
     const changedView = previousView.current !== view;
+    if (changedView) setEdgeId(undefined);
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
@@ -706,6 +707,7 @@ export default function App() {
                 onExplore={(op, id) => void explore(op, id)}
                 edgeId={edgeId}
                 onShowImplementation={() => {
+                  setEdgeId(undefined);
                   setView("code");
                   setDetails(true);
                   setType("all");

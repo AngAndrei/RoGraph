@@ -37,6 +37,7 @@ export type StoreSelection = {
     }
   | { op: "search"; text: string }
   | { op: "sites"; ownerIds: string[] }
+  | { op: "sitesByIds"; ids: string[] }
   | { op: "evidence"; relationIds: string[] }
   | {
       op: "sources";
@@ -496,6 +497,10 @@ export async function openStore(path: string): Promise<GraphStore> {
         case "sites":
           key = "sites";
           ids("sites", "owner", q.ownerIds);
+          break;
+        case "sitesByIds":
+          key = "sites";
+          ids("sites", "id", q.ids);
           break;
         case "sources":
           key = "sources";
