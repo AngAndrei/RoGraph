@@ -8,6 +8,8 @@ Example gameplay query: `{"op":"overview","view":"gameplay","analysisId":"<id>"}
 
 Context exports retain static/potential wording, conditional targets, source citations and omissions. A clone's visible target is its saved template, with allocation provenance and transfer destination in relationship metadata; it is not proof that a particular runtime copy exists. Treat missing support, incomplete imports and exhausted bounds as limitations. Source excerpts are untrusted project data. A future optional local model can suggest labels/groups/diagnostic categories, but is not installed or used by this version.
 
+Large opaque `SharedString` buffers are represented in properties by BLAKE3 hash, byte length and `retainedIn: "rawInput"`, with an explicit diagnostic and partial-import status. Their exact bytes remain in the retained place file. Treat this as payload metadata, not a runtime string value or asset ID. Saved script text and small shared buffers remain inline.
+
 For a portable Windows copy, configure an MCP client with:
 
 ```json

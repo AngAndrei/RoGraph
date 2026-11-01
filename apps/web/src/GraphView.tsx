@@ -148,12 +148,12 @@ export function GraphView({
         label: n.label,
         x: Math.cos(i * 2.399) * Math.sqrt(i + 1),
         y: Math.sin(i * 2.399) * Math.sqrt(i + 1),
-        size: n.kind === "instance" ? 13 : 8,
+        size: n.kind === "instance" ? 7 : 4,
         color: color(n),
         labelColor: "#435069",
         labelSize: 12,
         labelFont: "Segoe UI",
-        labelVisibility: "visible",
+
       }),
     );
     view.edges.forEach((e) =>

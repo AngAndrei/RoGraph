@@ -50,6 +50,13 @@ export class FlowResolver extends ModuleResolver {
     { owner: Facts; expression: Expr; direct: boolean; callback: boolean }[]
   >;
   private allocationParents?: { parent: string; value: Value }[];
+  private hierarchy?: {
+    size: number;
+    children: Map<string, Instance[]>;
+    order: Map<string, number>;
+  };
+  private readonly descendantSets = new Map<string, Instance[]>();
+  private protocolContexts?: ReturnType<typeof resolveContexts>;
   private payloadSends?: Map<
     string,
     { owner: Facts; site: Site; method: string; args: Expr[] }[]
@@ -184,6 +191,10 @@ export class FlowResolver extends ModuleResolver {
           properties: {},
           synthetic: true,
         };
+        if (this.objects.get(id)?.parentId !== object.parentId) {
+          this.hierarchy = undefined;
+          this.descendantSets.clear();
+        }
         this.objects.set(id, object);
         this.created.set(id, object);
         return {
@@ -291,12 +302,11 @@ export class FlowResolver extends ModuleResolver {
             c.method === "FindFirstChildWhichIsA" ||
             c.method === "FindFirstChildOfClass"
           ) {
-            const list = [...this.objects.values()].filter(
+            const list = this.directChildren(id).filter(
               (o) =>
-                o.parentId === id &&
-                (o.className === p.value ||
-                  (p.value === "BasePart" &&
-                    apiMember(o.className, "Position") === "Property")),
+                o.className === p.value ||
+                (p.value === "BasePart" &&
+                  apiMember(o.className, "Position") === "Property"),
             );
             return list.length
               ? joinValues(
@@ -594,13 +604,17 @@ export class FlowResolver extends ModuleResolver {
           }
         }
     }
-    const contexts = resolveContexts(this.snapshot, this.facts, {
-      sites: [],
-      nodes: [],
-      relations: [],
-      evidence: [],
-      diagnostics: [],
-    });
+    const contexts = (this.protocolContexts ??= resolveContexts(
+      this.snapshot,
+      this.facts,
+      {
+        sites: [],
+        nodes: [],
+        relations: [],
+        evidence: [],
+        diagnostics: [],
+      },
+    ));
     const handlerContexts = contexts.get(handler.scriptId) ?? ["unknown"];
     if (server && handlerContexts.every((c) => c === "client")) return [];
     if (
@@ -696,11 +710,10 @@ export class FlowResolver extends ModuleResolver {
         }
     }
     return [
-      ...[...this.objects.values()]
-        .filter((o) =>
-          recursive ? this.descendantOf(o.id, root) : o.parentId === root,
-        )
-        .map((o) => ({ kind: "instance", id: o.id })),
+      ...this.savedObjects(root, recursive).map((o) => ({
+        kind: "instance",
+        id: o.id,
+      })),
       ...this.allocationParents
         .filter(
           (a) =>
@@ -709,6 +722,57 @@ export class FlowResolver extends ModuleResolver {
         )
         .map((a) => a.value),
     ];
+  }
+  private directChildren(root: string): Instance[] {
+    if (!this.hierarchy || this.hierarchy.size !== this.objects.size) {
+      const children = new Map<string, Instance[]>(),
+        order = new Map<string, number>();
+      for (const object of this.objects.values()) {
+        order.set(object.id, order.size);
+        if (object.parentId) {
+          const list = children.get(object.parentId) ?? [];
+          list.push(object);
+          children.set(object.parentId, list);
+        }
+      }
+      this.hierarchy = { size: this.objects.size, children, order };
+      this.descendantSets.clear();
+    }
+    return this.hierarchy.children.get(root) ?? [];
+  }
+  private savedObjects(root: string, recursive: boolean): Instance[] {
+    const children = this.directChildren(root);
+    if (!recursive) return children;
+    const cached = this.descendantSets.get(root);
+    if (cached) return cached;
+    const found: Instance[] = [],
+      queue = [...children],
+      seen = new Set([root]);
+    for (let i = 0; i < queue.length; i++) {
+      const object = queue[i];
+      if (seen.has(object.id)) continue;
+      seen.add(object.id);
+      found.push(object);
+      for (const child of this.directChildren(object.id)) queue.push(child);
+    }
+    // Preserve source inventory order and thus the existing bounded alternatives.
+    found.sort(
+      (a, b) =>
+        this.hierarchy!.order.get(a.id)! - this.hierarchy!.order.get(b.id)!,
+    );
+    // Bound retained traversal results even when many overlapping roots are queried.
+    let entries = found.length;
+    for (const cached of this.descendantSets.values()) entries += cached.length;
+    while (
+      this.descendantSets.size &&
+      (this.descendantSets.size >= 64 || entries > 200000)
+    ) {
+      const oldest = this.descendantSets.keys().next().value!;
+      entries -= this.descendantSets.get(oldest)!.length;
+      this.descendantSets.delete(oldest);
+    }
+    if (found.length <= 200000) this.descendantSets.set(root, found);
+    return found;
   }
   private lexicalFunction(
     e: Expr | undefined,
