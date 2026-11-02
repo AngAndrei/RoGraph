@@ -8,6 +8,77 @@ fn has_null(value: &Value) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod payload_tests {
+    use super::*;
+    use rbx_dom_weak::{InstanceBuilder, WeakDom};
+    #[test]
+    fn small_shared_buffers_and_script_text_remain_inline() {
+        let text = "-- authored source\n".repeat(1000);
+        let small = rbx_types::SharedString::new(vec![42; 8]);
+        let expected = serde_json::to_value(&small).unwrap();
+        let dom = WeakDom::new(
+            InstanceBuilder::new("DataModel")
+                .with_child(
+                    InstanceBuilder::new("ModuleScript").with_property("Source", text.clone()),
+                )
+                .with_child(
+                    InstanceBuilder::new("MeshPart").with_property("PhysicalConfigData", small),
+                ),
+        );
+        let mut bytes = Vec::new();
+        rbx_binary::to_writer(&mut bytes, &dom, dom.root().children()).unwrap();
+        let result = decode(&bytes).unwrap();
+        assert_eq!(
+            result["instances"][1]["properties"]["Source"]["value"],
+            text
+        );
+        assert_eq!(
+            result["instances"][2]["properties"]["PhysicalConfigData"]["value"],
+            expected
+        );
+        assert!(!result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "OPAQUE_SHARED_PAYLOAD"));
+    }
+    #[test]
+    fn repeated_mesh_payloads_have_bounded_metadata_and_explicit_retention() {
+        let payload = rbx_types::SharedString::new(vec![42; 4096]);
+        let mut root = InstanceBuilder::new("DataModel");
+        for _ in 0..100 {
+            root = root.with_child(
+                InstanceBuilder::new("MeshPart")
+                    .with_property("PhysicalConfigData", payload.clone()),
+            );
+        }
+        let dom = WeakDom::new(root);
+        let mut bytes = Vec::new();
+        rbx_binary::to_writer(&mut bytes, &dom, dom.root().children()).unwrap();
+        let result = decode(&bytes).unwrap();
+        assert_eq!(result["instances"].as_array().unwrap().len(), 101);
+        assert!(
+            serde_json::to_vec(&result).unwrap().len() < 100_000,
+            "opaque payloads must not expand once per mesh"
+        );
+        let part = &result["instances"][1]["properties"]["PhysicalConfigData"];
+        assert_eq!(part["type"], "SharedString");
+        assert_eq!(part["value"]["byteLength"], 4096);
+        assert_eq!(part["value"]["blake3"], payload.hash().to_string());
+        assert_eq!(part["value"]["retainedIn"], "rawInput");
+        assert_eq!(
+            result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|d| d["code"] == "OPAQUE_SHARED_PAYLOAD")
+                .count(),
+            1
+        );
+    }
+}
 fn numeric_null(value: &Value) -> bool {
     match value {
         Value::Array(a) => a.iter().any(numeric_null),
@@ -109,12 +180,24 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
     let mut instances = Vec::new();
     let mut stack = vec![(dom.root_ref(), None::<String>)];
     let mut index = 0;
+    let mut opaque_payloads = 0usize;
     while let Some((id, parent)) = stack.pop() {
         let i = dom.get_by_ref(id).ok_or("Invalid DOM reference")?;
         let synthetic = parent.is_none();
         let mut properties = Map::new();
         for (key, value) in &i.properties {
-            let v = if let rbx_types::Variant::Ref(target) = value {
+            let opaque = match value {
+                rbx_types::Variant::SharedString(payload) if payload.data().len() > 1024 => {
+                    Some(payload)
+                }
+                _ => None,
+            };
+            let v = if let Some(payload) = opaque {
+                // Geometry/physics buffers are shared in the place format. Expanding
+                // them per object can dwarf the input; exact bytes stay in raw input.
+                opaque_payloads += 1;
+                json!({"type":"SharedString","value":{"byteLength":payload.data().len(),"blake3":payload.hash().to_string(),"retainedIn":"rawInput"},"unsupported":true})
+            } else if let rbx_types::Variant::Ref(target) = value {
                 json!({"type":"Ref","value":if target.is_some(){Some(target.to_string())}else{None}})
             } else if let rbx_types::Variant::Float64(number) = value {
                 json!({"type":"Float64","value":if number.is_finite(){json!(number)}else{json!({"nonFinite":if number.is_nan(){"NaN"}else if *number<0.0{"-Infinity"}else{"Infinity"}})}})
@@ -190,7 +273,10 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
         diagnostics.push(json!({"code":"INVENTORY_MISMATCH","severity":"error","message":"Decoded object count differs from raw inventory"}));
     }
     diagnostics.extend(crate::warnings::take());
+    if opaque_payloads > 0 {
+        diagnostics.push(json!({"code":"OPAQUE_SHARED_PAYLOAD","severity":"info","message":format!("{} opaque SharedString properties over 1024 bytes are represented by BLAKE3 hash and byte length. Exact payloads remain in the retained raw input, not inline in the analysis.",opaque_payloads)}));
+    }
     Ok(
-        json!({"instances":instances,"inventory":{"items":items,"format":if binary{"rbxl"}else{"rbxlx"}},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":3}),
+        json!({"instances":instances,"inventory":{"items":items,"format":if binary{"rbxl"}else{"rbxlx"}},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":4}),
     )
 }

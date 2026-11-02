@@ -229,7 +229,7 @@ export function assembleGraph(
     parser: String(facts[0]?.parserVersion ?? "none"),
     features: String(facts[0]?.featureHash ?? "none"),
     engine: "0.2.0",
-    resolver: "8",
+    resolver: "9",
     lowerer: "2",
     platformSemantics: "1",
     gameplay: "1",
