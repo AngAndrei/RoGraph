@@ -9,6 +9,13 @@ import {
 import Graph from "graphology";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Node } from "../../../packages/contracts/src/model.js";
+type Arrangement = {
+  positions: Map<string, { x: number; y: number }>;
+  camera: ReturnType<ReturnType<Sigma["getCamera"]>["getState"]>;
+  bbox: ReturnType<Sigma["getCustomBBox"]>;
+};
+// View state belongs to the browser session, separate from saved analysis facts.
+const arrangements = new Map<string, Arrangement>();
 const scripts = ["Script", "LocalScript", "ModuleScript"],
   channels = [
     "RemoteEvent",
@@ -196,6 +203,14 @@ export function GraphView({
     if (!container.current) return;
     container.current.setAttribute("data-layout-ready", "false");
     setError("");
+    const arrangementKey = JSON.stringify([
+      result.analysisId,
+      result.projection?.view ?? "code",
+      details,
+      activeGroup,
+    ]);
+    const saved = arrangements.get(arrangementKey);
+    let ready = false;
     const g = new Graph({ type: "directed" });
     view.nodes.forEach((n, i) =>
       g.addNode(n.id, {
@@ -317,14 +332,24 @@ export function GraphView({
         type: "module",
       });
       worker.onmessage = (e) => {
+        if (disposed) return;
         sigma.setCustomBBox(null);
         for (const p of e.data)
-          if (g.hasNode(p.id)) g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
+          if (g.hasNode(p.id))
+            g.mergeNodeAttributes(
+              p.id,
+              saved?.positions.get(p.id) ?? { x: p.x, y: p.y },
+            );
         sigma.refresh();
+        if (saved) {
+          sigma.setCustomBBox(saved.bbox);
+          sigma.getCamera().setState(saved.camera);
+        }
         requestAnimationFrame(() => {
           if (disposed) return;
           measureClearance();
           sigma.refresh();
+          ready = true;
           container.current?.setAttribute("data-layout-ready", "true");
         });
       };
@@ -344,6 +369,27 @@ export function GraphView({
     }
     return () => {
       disposed = true;
+      if (ready && renderer.current) {
+        const sigma = renderer.current;
+        arrangements.delete(arrangementKey);
+        arrangements.set(arrangementKey, {
+          positions: new Map(
+            g
+              .nodes()
+              .map((id) => [
+                id,
+                {
+                  x: g.getNodeAttribute(id, "x"),
+                  y: g.getNodeAttribute(id, "y"),
+                },
+              ]),
+          ),
+          camera: { ...sigma.getCamera().getState() },
+          bbox: sigma.getCustomBBox(),
+        });
+        if (arrangements.size > 32)
+          arrangements.delete(arrangements.keys().next().value!);
+      }
       worker?.terminate();
       renderer.current?.kill();
       renderer.current = null;

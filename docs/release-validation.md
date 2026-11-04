@@ -1,5 +1,9 @@
 # RoGraph validation
 
+## View arrangement retention (2026-11-04)
+
+Switching between Gameplay and Code preserves their separate node coordinates, camera and fixed drag bounds for each snapshot/detail/group view in the browser session. A bounded cache retains the latest 32 arrangements; refreshing the browser starts a new session. Only completed layouts enter the cache, so an interrupted worker cannot overwrite a saved arrangement. The real-renderer regression reproduces lost manual coordinates before the fix and checks repeated switches, independent Code edits, camera restoration and isolation from another snapshot. Canonical analysis data is unchanged.
+
 ## Single-line connections and compactness correction (2026-11-04)
 
 Verification: **159/159 TypeScript tests**, typecheck/build, **7/7 Edge workflows** and **21 portable checks**. The real renderer checks one selectable line retaining multiple forward/reverse action IDs, plus stable dragging and dense-view sizing during zoom/resize. Both private game overviews were visually inspected; the sampled Bangla bundle retains all six action/evidence records.
