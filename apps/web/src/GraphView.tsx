@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
-import { extremityArrow, pathCurved } from "sigma/rendering";
+import { extremityArrow } from "sigma/rendering";
 import {
   DEFAULT_PRIMITIVES,
   DEFAULT_STYLES,
@@ -17,6 +17,59 @@ const scripts = ["Script", "LocalScript", "ModuleScript"],
     "BindableEvent",
     "BindableFunction",
   ];
+function bundleEdges(
+  edges: {
+    id: string;
+    source?: string;
+    target?: string;
+    label: string;
+    type: string;
+    originalId: string;
+    relationIds?: string[];
+  }[],
+) {
+  const bundles = new Map<
+    string,
+    {
+      id: string;
+      source: string;
+      target: string;
+      label: string;
+      type: string;
+      originalId: string;
+      relationIds: string[];
+      bidirectional: boolean;
+    }
+  >();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target || edge.source === edge.target) continue;
+    const key = JSON.stringify([edge.source, edge.target].sort());
+    const bundle = bundles.get(key);
+    if (bundle) {
+      bundle.relationIds = [
+        ...new Set([
+          ...bundle.relationIds,
+          ...(edge.relationIds ?? [edge.originalId]),
+        ]),
+      ];
+      bundle.bidirectional ||= bundle.source !== edge.source;
+    } else
+      bundles.set(key, {
+        ...edge,
+        source: edge.source,
+        target: edge.target,
+        relationIds: [...(edge.relationIds ?? [edge.originalId])],
+        bidirectional: false,
+      });
+  }
+  return [...bundles.values()].map((e) => ({
+    ...e,
+    label:
+      e.relationIds.length > 1
+        ? `${e.relationIds.length} relationships`
+        : e.label,
+  }));
+}
 export function projectGraph(
   result: QueryResult,
   details: boolean,
@@ -46,7 +99,7 @@ export function projectGraph(
           "REFERENCES",
         originalId: e.id,
       }));
-    return { nodes, edges, groups };
+    return { nodes, edges: bundleEdges(edges), groups };
   }
   const all = new Map(result.nodes.map((n) => [n.id, n]));
   let visible = result.nodes.filter(
@@ -96,7 +149,7 @@ export function projectGraph(
       label: r.type,
     }))
     .filter((r) => r.source && r.target && r.source !== r.target);
-  return { nodes: visible, edges, groups };
+  return { nodes: visible, edges: bundleEdges(edges), groups };
 }
 function color(n: Node) {
   return n.kind === "unresolved"
@@ -124,7 +177,7 @@ export function GraphView({
   result: QueryResult;
   details: boolean;
   onSelect: (id: string) => void;
-  onEdge?: (id: string) => void;
+  onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
@@ -143,7 +196,7 @@ export function GraphView({
     if (!container.current) return;
     container.current.setAttribute("data-layout-ready", "false");
     setError("");
-    const g = new Graph({ multi: true, type: "directed" });
+    const g = new Graph({ type: "directed" });
     view.nodes.forEach((n, i) =>
       g.addNode(n.id, {
         label: n.label,
@@ -164,7 +217,9 @@ export function GraphView({
           ? "#bea46c"
           : "#bbc8d8",
         head: "arrow",
+        tail: e.bidirectional ? "arrow" : "none",
         originalId: e.originalId,
+        relationIds: e.relationIds,
       }),
     );
     let worker: Worker | undefined;
@@ -175,7 +230,6 @@ export function GraphView({
           ...DEFAULT_PRIMITIVES,
           edges: {
             ...DEFAULT_PRIMITIVES.edges,
-            paths: [...(DEFAULT_PRIMITIVES.edges.paths ?? []), pathCurved()],
             extremities: [extremityArrow()],
             defaultHead: "arrow",
           },
@@ -190,8 +244,6 @@ export function GraphView({
           edges: {
             ...DEFAULT_STYLES.edges,
             head: "arrow",
-            parallelPath: "curved",
-            parallelSpread: 0.18,
           },
         },
         settings: {
@@ -255,7 +307,11 @@ export function GraphView({
       sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
       sigma.on("clickNode", (e) => selectRef.current(e.node));
       sigma.on("clickEdge", (e) =>
-        edgeRef.current?.(g.getEdgeAttribute(e.edge, "originalId")),
+        edgeRef.current?.(
+          g.getEdgeAttribute(e.edge, "originalId"),
+          g.getEdgeAttribute(e.edge, "relationIds"),
+          g.source(e.edge),
+        ),
       );
       worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
         type: "module",
@@ -331,7 +387,7 @@ export function GraphView({
         <p>
           {view.nodes.length} nodes · {view.edges.length} links
           <br />
-          Select a node to see how it connects.
+          Select a node or connection to see its actions and evidence.
         </p>
       </div>
       <div className="graph-controls">

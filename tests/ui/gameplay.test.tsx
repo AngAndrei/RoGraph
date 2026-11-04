@@ -8,7 +8,15 @@ vi.mock("../../apps/web/src/GraphView.js", () => ({
   GraphView: ({ onSelect, onEdge }: any) => (
     <>
       <button onClick={() => onSelect("chicken")}>Select Chicken</button>
-      <button onClick={() => onEdge?.("projected-edge")}>
+      <button
+        onClick={() =>
+          onEdge?.(
+            "projected-edge",
+            ["game-edge", "game-write", "game-reverse"],
+            "controller",
+          )
+        }
+      >
         Select gameplay edge
       </button>
     </>
@@ -108,6 +116,18 @@ it("clears the gameplay edge focus when showing its Code implementation", async 
                 guards: [],
               },
             },
+            {
+              id: "game-write",
+              source: "controller",
+              target: "chicken",
+              type: "MODIFIES",
+            },
+            {
+              id: "game-reverse",
+              source: "chicken",
+              target: "controller",
+              type: "TRIGGERS",
+            },
           ],
           projection: {
             view: "gameplay",
@@ -132,6 +152,8 @@ it("clears the gameplay edge focus when showing its Code implementation", async 
     screen.getByRole("button", { name: "Select gameplay edge" }),
   );
   await screen.findByRole("heading", { name: "Controller" });
+  await screen.findByRole("button", { name: /MODIFIES/ });
+  await screen.findByRole("button", { name: /TRIGGERS/ });
   await user.click(screen.getByRole("button", { name: "Show implementation" }));
   await screen.findByRole("button", { name: /^DECLARES/ });
 });

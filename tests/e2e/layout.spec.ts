@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { build } from "esbuild";
 
-test("arranges hubs, bridges and leaves clearly and separates parallel relationships", async ({
+test("arranges hubs and leaves compactly with one inspectable line per pair", async ({
   page,
 }) => {
   const pairs = [
@@ -43,7 +43,7 @@ test("arranges hubs, bridges and leaves clearly and separates parallel relations
   };
   const bundle = await build({
     stdin: {
-      contents: `import React from'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showGraph=result=>root.render(React.createElement(GraphView,{result,details:true,onSelect:()=>{}}));window.showGraph(${JSON.stringify(result)});`,
+      contents: `import React from'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showGraph=result=>root.render(React.createElement(GraphView,{result,details:true,onSelect:()=>{},onEdge:(...args)=>window.clickedConnection=args}));window.showGraph(${JSON.stringify(result)});`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -110,33 +110,57 @@ test("arranges hubs, bridges and leaves clearly and separates parallel relations
         ),
       ).toBeGreaterThan(22);
   await page.screenshot({ path: "build/previews/topology-layout.png" });
-  // Multiple real relationships between the same endpoints must remain individually visible.
-  await page.evaluate(() => {
-    const s = (window as any).layoutRenderer,
-      g = s.getGraph();
-    g.addDirectedEdgeWithKey("parallel", "Animate", "Humanoid", {
-      label: "modifies",
-      size: 1.5,
-      color: "#bbc8d8",
-      head: "arrow",
-    });
-    g.addDirectedEdgeWithKey("reverse", "Humanoid", "Animate", {
-      label: "uses",
-      size: 1.5,
-      color: "#bbc8d8",
-      head: "arrow",
-    });
-    s.refresh();
-  });
-  const curves = await page.evaluate(() =>
-    ["e0", "parallel", "reverse"].map(
-      (id) => (window as any).layoutRenderer.getEdgeDisplayData(id).curvature,
-    ),
+  // Distinct actions and reverse directions share one actual rendered line.
+  const bundled = {
+    ...result,
+    relations: [
+      ...result.relations,
+      { ...result.relations[0], id: "parallel", type: "MODIFIES" },
+      {
+        ...result.relations[0],
+        id: "reverse",
+        source: "Humanoid",
+        target: "Animate",
+        type: "TRIGGERS",
+      },
+    ],
+  };
+  await page.evaluate((r) => (window as any).showGraph(r), bundled);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).layoutRenderer
+            .getGraph()
+            .getEdgeAttribute("e0", "relationIds").length,
+      ),
+    )
+    .toBe(3);
+  await expect(page.locator(".sigma-container")).toHaveAttribute(
+    "data-layout-ready",
+    "true",
   );
-  expect(
-    curves.filter((n) => typeof n === "number" && Math.abs(n) > 0.01).length,
-  ).toBeGreaterThanOrEqual(2);
-  await page.screenshot({ path: "build/previews/topology-parallel.png" });
+  const connection = await page.evaluate(() => {
+    const s = (window as any).layoutRenderer,
+      g = s.getGraph(),
+      a = s.graphToViewport(g.getNodeAttributes("Animate")),
+      b = s.graphToViewport(g.getNodeAttributes("Humanoid"));
+    return {
+      edges: g.size,
+      attributes: g.getEdgeAttributes("e0"),
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    };
+  });
+  expect(connection.edges).toBe(16);
+  expect(connection.attributes.tail).toBe("arrow");
+  expect(connection.attributes.label).toBe("3 relationships");
+  const box = (await page.locator(".sigma-container").boundingBox())!;
+  await page.mouse.click(box.x + connection.x, box.y + connection.y);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).clickedConnection?.[1]))
+    .toEqual(["e0", "parallel", "reverse"]);
+  await page.screenshot({ path: "build/previews/compact-connections.png" });
   const densePairs = Array.from({ length: 40 }, (_, i) => [
     [`h${i}`, `h${(i + 1) % 40}`],
     ...Array.from({ length: 5 }, (_, j) => [`h${i}`, `l${i}-${j}`]),

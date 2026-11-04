@@ -1,10 +1,16 @@
 # RoGraph validation
 
-## Topology layout and additional inputs (2026-11-04)
+## Single-line connections and compactness correction (2026-11-04)
+
+Verification: **159/159 TypeScript tests**, typecheck/build, **7/7 Edge workflows** and **21 portable checks**. The real renderer checks one selectable line retaining multiple forward/reverse action IDs, plus stable dragging and dense-view sizing during zoom/resize. Both private game overviews were visually inspected; the sampled Bangla bundle retains all six action/evidence records.
+
+The corrected UI groups forward/reverse actions into one line per visible pair in Gameplay and Code, opens their individual actions/evidence on selection, and discloses missing details if inspection is bounded. Narrow placement sectors use local fan spacing, with cycle room allocated according to actual branch occupancy. Regression checks include empty, sparse and dense cycles, and outgoing function calls collapsed to their owning script. An independent review found the sparse-cycle and Code-direction cases; both were fixed with failing-then-passing regressions. The previous private inputs remain unchanged.
+
+## Initial topology layout and additional inputs (2026-11-04)
 
 Verification: **152/152 TypeScript tests**, typecheck/build, **7/7 Edge browser workflows**, and **21/21 portable checks**. One earlier concurrent run timed out in the existing `evidence-budget.test.ts` 30-second limit; the complete suite passed when rerun without the competing browser job. Browser assertions use rendered pixel radii at fit, zoom and a smaller container size.
 
-Initial positions now use connected cyclic cores and outward pendant-tree sectors, with collision spacing and bounded crossing/obstruction refinement. Trees use weighted radial branches. Parallel and reverse relationships use separate curved paths while retaining their original identities and evidence. Dense initial views scale node radii to the nearest screen clearance and recover ordinary sizes as the user zooms in. Layout tests include small and 300-node hub/leaf cycles, branching trees, and a planar core requiring an interior vertex. The independent review found a narrow-cone overlap issue, now covered by the 300-node regression; its two smaller findings were addressed by adaptive screen sizing and a lower swap-search cutoff. SaveHer and Bangla passed the saved-file and Windows-executable workflows; see [provided-game-validation.md](provided-game-validation.md) for coverage and measured layout changes.
+Initial positions now use connected cyclic cores and outward pendant-tree sectors, with collision spacing and bounded crossing/obstruction refinement. Trees use weighted radial branches. The initial separate curved paths have been superseded by one line per unordered pair; each line retains all underlying relationship identities and evidence. Dense initial views scale node radii to the nearest screen clearance and recover ordinary sizes as the user zooms in. Layout tests include small and 300-node hub/leaf cycles, branching trees, and a planar core requiring an interior vertex. The independent review found a narrow-cone overlap issue, now covered by the 300-node regression; its two smaller findings were addressed by adaptive screen sizing and a lower swap-search cutoff. SaveHer and Bangla passed the saved-file and Windows-executable workflows; see [provided-game-validation.md](provided-game-validation.md) for coverage and measured layout changes.
 
 ## 0.2.0 gameplay update
 

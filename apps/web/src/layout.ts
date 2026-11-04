@@ -182,10 +182,56 @@ function layoutCore(
       (ids.length * GAP) / TAU,
       ...ids.map((id) => (weights.get(id) ?? 1) * 12 + 20),
     );
+    // Reserve local room for a fan instead of sending its leaves thousands of
+    // units down a narrow cone. Adjacent fan disks remain separated on cycles.
+    const cone = (TAU / ids.length) * 0.9;
+    const crowded = ids.some(
+      (id) =>
+        adjacency.get(id)!.size > 2 &&
+        ((weights.get(id) ?? 1) * GAP) / cone >
+          Math.max(180, Math.sqrt(weights.get(id) ?? 1) * GAP),
+    );
+    const active = order
+      .map((id, i) => ({
+        i,
+        radius: Math.max(180, Math.sqrt(weights.get(id) ?? 1) * GAP),
+      }))
+      .filter((p) => adjacency.get(order[p.i])!.size > 2);
+    const spacing = order.map(() => GAP);
+    if (crowded && active.length > 1)
+      for (let i = 0; i < active.length; i++) {
+        const a = active[i],
+          b = active[(i + 1) % active.length],
+          count = (b.i - a.i + order.length) % order.length;
+        const required = Math.max(GAP, (a.radius + b.radius + GAP) / count);
+        for (let j = 0; j < count; j++)
+          spacing[(a.i + j) % order.length] = required;
+      }
+    const perimeter = spacing.reduce((sum, n) => sum + n, 0),
+      angles = [0];
+    for (let i = 1; i < order.length; i++)
+      angles.push(angles[i - 1] + (spacing[i - 1] / perimeter) * TAU);
+    let reservedRadius = radius;
+    if (crowded && active.length > 1) {
+      for (let i = 0; i < order.length; i++)
+        reservedRadius = Math.max(
+          reservedRadius,
+          spacing[i] / (2 * Math.sin((spacing[i] / perimeter) * Math.PI)),
+        );
+      for (let i = 0; i < active.length; i++) {
+        const a = active[i],
+          b = active[(i + 1) % active.length];
+        const angle = (angles[b.i] - angles[a.i] + TAU) % TAU;
+        reservedRadius = Math.max(
+          reservedRadius,
+          (a.radius + b.radius + GAP) / (2 * Math.sin(angle / 2)),
+        );
+      }
+    }
     return order.map((id, i) => ({
       id,
-      x: Math.cos((i * TAU) / order.length) * radius,
-      y: Math.sin((i * TAU) / order.length) * radius,
+      x: Math.cos(angles[i]) * reservedRadius,
+      y: Math.sin(angles[i]) * reservedRadius,
     }));
   }
   const graph = new Graph({ type: "undirected" }),
@@ -336,7 +382,17 @@ function componentLayout(ids: string[], adjacency: Adjacency): Point[] {
       width = (normalCone > 0.000001 ? normalCone : Math.PI / 12) * 0.9;
       start += (gap - width) / 2;
     }
-    const step = Math.max(120, (weights.get(root)! * GAP) / width);
+    let step = Math.max(120, (weights.get(root)! * GAP) / width);
+    const localRadius = Math.max(180, Math.sqrt(weights.get(root)!) * GAP);
+    if (angles.length && width < Math.PI * 0.85 && step > localRadius) {
+      const center = start + width / 2;
+      width = Math.min(
+        Math.PI * 0.85,
+        (weights.get(root)! * GAP) / localRadius,
+      );
+      start = center - width / 2;
+      step = localRadius;
+    }
     const pending = [{ id: root, start, width, depth: 0 }];
     for (let i = 0; i < pending.length; i++) {
       const item = pending[i];

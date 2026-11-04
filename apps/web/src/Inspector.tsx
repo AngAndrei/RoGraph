@@ -10,6 +10,7 @@ export function Inspector({
   onSelect,
   onExplore,
   edgeId,
+  connectionRelationIds,
   onShowImplementation,
 }: {
   result: QueryResult;
@@ -17,6 +18,7 @@ export function Inspector({
   onSelect: (id: string) => void;
   onExplore: (op: "dependencies" | "impact", id: string) => void;
   edgeId?: string;
+  connectionRelationIds?: string[];
   onShowImplementation?: () => void;
 }) {
   const [page, setPage] = useState<QueryResult>(),
@@ -28,15 +30,30 @@ export function Inspector({
     [expanded, setExpanded] = useState<string>();
   const node = r.nodes.find((n) => n.id === selectedId);
   if (!node) return null;
+  const fromSelected = (sourceId: string) => {
+    const seen = new Set<string>();
+    let current: string | undefined = sourceId;
+    while (current && !seen.has(current)) {
+      if (current === selectedId) return true;
+      if (r.projection?.view === "gameplay") return false;
+      seen.add(current);
+      const owner = r.nodes.find((n) => n.id === current);
+      current =
+        (owner?.attributes.scriptId as string | undefined) ?? owner?.ownerId;
+    }
+    return false;
+  };
+  const focusedIds =
+    connectionRelationIds ??
+    (edgeId
+      ? (r.projection?.edges.find((p) => p.id === edgeId)?.relationIds ?? [
+          edgeId,
+        ])
+      : undefined);
   const members = r.nodes.filter((n) => n.ownerId === selectedId),
     rels = r.relations.filter((e) =>
       edgeId
-        ? e.id === edgeId ||
-          Boolean(
-            r.projection?.edges
-              .find((p) => p.id === edgeId)
-              ?.relationIds.includes(e.id),
-          )
+        ? Boolean(focusedIds?.includes(e.id))
         : e.source === selectedId || e.target === selectedId,
     ),
     names = new Map(r.nodes.map((n) => [n.id, n.label]));
@@ -145,6 +162,12 @@ export function Inspector({
       <h3>
         Relationships <small>{rels.length}</small>
       </h3>
+      {edgeId && focusedIds && rels.length < focusedIds.length && (
+        <p className="source-notice">
+          {rels.length} of {focusedIds.length} connection relationships loaded
+          on this page. Use the evidence pages to inspect remaining details.
+        </p>
+      )}
       {rels.length === 0 && (
         <p className="muted">
           No modeled relationships in this view. Check coverage and unresolved
@@ -153,7 +176,8 @@ export function Inspector({
       )}
       {rels.map((rel) => {
         const ev = r.evidence.filter((e) => e.relationId === rel.id),
-          other = rel.source === selectedId ? rel.target : rel.source;
+          outgoing = fromSelected(rel.source),
+          other = outgoing ? rel.target : rel.source;
         return (
           <div className="relation-card" key={rel.id}>
             <button
@@ -165,8 +189,8 @@ export function Inspector({
               <span>
                 {rel.gameplay?.label ?? rel.type.replaceAll("_", " ")}
                 <small>
-                  {rel.source === selectedId ? "Outgoing" : "Incoming"} ·{" "}
-                  {ev.length} retained occurrence{ev.length === 1 ? "" : "s"}
+                  {outgoing ? "Outgoing" : "Incoming"} · {ev.length} retained
+                  occurrence{ev.length === 1 ? "" : "s"}
                 </small>
               </span>
               <span>⌄</span>
@@ -210,10 +234,7 @@ export function Inspector({
               </button>
             ))}
             {(expanded === rel.id ||
-              edgeId === rel.id ||
-              r.projection?.edges
-                .find((p) => p.id === edgeId)
-                ?.relationIds.includes(rel.id)) &&
+              (edgeId && focusedIds?.includes(rel.id))) &&
               ev.map((e) => (
                 <div className="occurrence" key={e.id}>
                   <strong>{e.mechanism ?? e.rule}</strong>

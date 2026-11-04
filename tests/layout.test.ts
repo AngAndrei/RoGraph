@@ -184,3 +184,55 @@ it("preserves narrow outward cones above the untangling size cutoff", () => {
   const points = arrangeGraph(nodes, edges);
   expect(crossings(points, edges)).toBe(0);
 });
+
+it("keeps leaves near an almost straight core instead of creating an empty chasm", () => {
+  const edges = Array.from({ length: 9 }, (_, i) => [
+    { source: "a", target: `b${i}` },
+    { source: "z", target: `b${i}` },
+  ]).flat();
+  for (let i = 0; i < 3; i++) edges.push({ source: "b1", target: `leaf${i}` });
+  const nodes = [...new Set(edges.flatMap((e) => [e.source, e.target]))],
+    points = arrangeGraph(nodes, edges),
+    p = new Map(points.map((n) => [n.id, n]));
+  for (const e of edges.filter((e) => e.target.startsWith("leaf")))
+    expect(
+      Math.hypot(
+        p.get(e.source)!.x - p.get(e.target)!.x,
+        p.get(e.source)!.y - p.get(e.target)!.y,
+      ),
+    ).toBeLessThan(500);
+});
+
+it("keeps a bare cycle compact without reserving space for nonexistent branches", () => {
+  const nodes = Array.from({ length: 50 }, (_, i) => `n${i}`),
+    edges = nodes.map((id, i) => ({ source: id, target: nodes[(i + 1) % 50] }));
+  const p = new Map(arrangeGraph(nodes, edges).map((n) => [n.id, n]));
+  for (const e of edges)
+    expect(
+      Math.hypot(
+        p.get(e.source)!.x - p.get(e.target)!.x,
+        p.get(e.source)!.y - p.get(e.target)!.y,
+      ),
+    ).toBeLessThan(120);
+});
+
+it("adds local branch room without inflating a sparsely occupied cycle", () => {
+  const nodes = Array.from({ length: 50 }, (_, i) => `n${i}`),
+    edges = nodes.map((id, i) => ({ source: id, target: nodes[(i + 1) % 50] }));
+  for (const count of [1, 2]) {
+    const extra = Array.from({ length: count }, (_, i) => ({
+      source: nodes[i],
+      target: `leaf${i}`,
+    }));
+    const p = arrangeGraph(
+      [...nodes, ...extra.map((e) => e.target)],
+      [...edges, ...extra],
+    );
+    expect(
+      Math.max(...p.map((n) => n.x)) - Math.min(...p.map((n) => n.x)),
+    ).toBeLessThan(2100);
+    expect(
+      Math.max(...p.map((n) => n.y)) - Math.min(...p.map((n) => n.y)),
+    ).toBeLessThan(2100);
+  }
+});
