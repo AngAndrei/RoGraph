@@ -43,7 +43,7 @@ test("dragging boundary nodes preserves the viewport; pan and wheel still work",
         path === "/fixture.js"
           ? bundle.outputFiles[0].text
           : path === "/layout.worker.ts"
-            ? `onmessage=()=>postMessage([{id:'left',x:-100,y:0},{id:'right',x:100,y:0},{id:'top',x:0,y:100},{id:'bottom',x:0,y:-100},{id:'center',x:0,y:0}]);`
+            ? `onmessage=e=>postMessage({requestId:e.data.requestId,positions:[{id:'left',x:-100,y:0},{id:'right',x:100,y:0},{id:'top',x:0,y:100},{id:'bottom',x:0,y:-100},{id:'center',x:0,y:0}],engine:'fixture',milliseconds:1,warnings:[]});`
             : `<style>.sigma-container{width:1000px;height:700px}</style><div id="root"></div><script type="module" src="/fixture.js"></script>`,
     });
   });

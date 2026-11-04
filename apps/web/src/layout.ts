@@ -1,8 +1,19 @@
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 
-type Point = { id: string; x: number; y: number };
-type Link = { source: string; target: string };
+export type Point = { id: string; x: number; y: number };
+export type Link = { source: string; target: string };
+export type LayoutOptions = {
+  aspectRatio?: number;
+  polish?: boolean;
+  order?: "degree" | "natural";
+  coreLayout?: (
+    ids: string[],
+    links: Link[],
+    weights: Map<string, number>,
+    initial: Point[],
+  ) => Point[];
+};
 type Adjacency = Map<string, Set<string>>;
 const GAP = 72;
 const TAU = Math.PI * 2;
@@ -18,6 +29,20 @@ function distanceToEdge(p: Point, a: Point, b: Point) {
     ),
   );
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+function nearEdge(p: Point, a: Point, b: Point, clearance: number) {
+  const dx = b.x - a.x,
+    dy = b.y - a.y;
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1),
+    ),
+  );
+  const x = p.x - a.x - t * dx,
+    y = p.y - a.y - t * dy;
+  return x * x + y * y < clearance * clearance;
 }
 function crosses(a: Point, b: Point, c: Point, d: Point) {
   const side = (p: Point, q: Point, r: Point) =>
@@ -58,9 +83,14 @@ function separate(points: Point[]) {
 
 // Coordinate descent can move a vertex inside a cycle (swaps alone cannot).
 // Score only geometry affected by that vertex; keep the worker's cost bounded.
-function untangle(points: Point[], links: Link[]) {
-  if (points.length > 150 || links.length > 220) return;
+function untangle(points: Point[], links: Link[], extended = false) {
+  if (
+    points.length > (extended ? 800 : 150) ||
+    links.length > (extended ? 1200 : 220)
+  )
+    return;
   const byId = new Map(points.map((p) => [p.id, p]));
+  const edgeClearance = extended ? 40 : 28;
   const segments = links.map((e) => ({
     a: byId.get(e.source)!,
     b: byId.get(e.target)!,
@@ -77,7 +107,16 @@ function untangle(points: Point[], links: Link[]) {
       dy: (p.y - parent.y) / d,
     });
   }
-  for (let pass = 0; pass < 4; pass++) {
+  const passes = extended
+    ? Math.max(
+        1,
+        Math.min(
+          8,
+          Math.floor(300000 / Math.max(1, points.length * links.length)),
+        ),
+      )
+    : 4;
+  for (let pass = 0; pass < passes; pass++) {
     let improved = false;
     for (const p of points) {
       const incident = segments.filter((e) => e.a === p || e.b === p),
@@ -98,10 +137,10 @@ function untangle(points: Point[], links: Link[]) {
             if (d < GAP - 0.1) cost += 1000 + (GAP - d) * 100;
           }
         for (const e of other)
-          if (distanceToEdge(p, e.a, e.b) < 28) cost += 100;
+          if (nearEdge(p, e.a, e.b, edgeClearance)) cost += 100;
         for (const e of incident) {
           for (const n of points)
-            if (n !== e.a && n !== e.b && distanceToEdge(n, e.a, e.b) < 28)
+            if (n !== e.a && n !== e.b && nearEdge(n, e.a, e.b, edgeClearance))
               cost += 100;
           for (const f of other)
             if (
@@ -125,11 +164,23 @@ function untangle(points: Point[], links: Link[]) {
           y: neighbors.reduce((s, n) => s + n.y, 0) / neighbors.length,
         },
       ];
+      if (extended)
+        for (const e of other) {
+          if (!nearEdge(p, e.a, e.b, 32)) continue;
+          const dx = e.b.x - e.a.x,
+            dy = e.b.y - e.a.y,
+            length = Math.hypot(dx, dy) || 1;
+          for (const side of [-1, 1])
+            candidates.push({
+              x: origin.x - ((side * dy) / length) * GAP,
+              y: origin.y + ((side * dx) / length) * GAP,
+            });
+        }
       for (const radius of [GAP / 2, GAP, GAP * 2])
-        for (let i = 0; i < 12; i++)
+        for (let i = 0; i < (extended ? 8 : 12); i++)
           candidates.push({
-            x: origin.x + Math.cos((i * TAU) / 12) * radius,
-            y: origin.y + Math.sin((i * TAU) / 12) * radius,
+            x: origin.x + Math.cos((i * TAU) / (extended ? 8 : 12)) * radius,
+            y: origin.y + Math.sin((i * TAU) / (extended ? 8 : 12)) * radius,
           });
       let chosen = origin;
       for (const candidate of candidates) {
@@ -154,6 +205,7 @@ function layoutCore(
   ids: string[],
   adjacency: Adjacency,
   weights: Map<string, number>,
+  options: LayoutOptions,
 ): Point[] {
   if (ids.length === 1) return [{ id: ids[0], x: 0, y: 0 }];
   const allowed = new Set(ids),
@@ -255,11 +307,13 @@ function layoutCore(
       slowDown: 5,
     },
   });
-  const points = ids.map((id) => ({
+  let points = ids.map((id) => ({
     id,
     x: graph.getNodeAttribute(id, "x") as number,
     y: graph.getNodeAttribute(id, "y") as number,
   }));
+  if (options.coreLayout)
+    points = options.coreLayout(ids, links, weights, points);
   separate(points);
   // Swaps change the embedding without deleting or rerouting real relationships.
   // Bound this expensive polish; larger cores retain the force-directed placement.
@@ -314,7 +368,11 @@ function layoutCore(
   return points;
 }
 
-function componentLayout(ids: string[], adjacency: Adjacency): Point[] {
+function componentLayout(
+  ids: string[],
+  adjacency: Adjacency,
+  options: LayoutOptions,
+): Point[] {
   // Peel pendant trees to expose the cyclic core. For a tree, the final peeled
   // vertex is a center, keeping long branches balanced without recursive calls.
   const degree = new Map(ids.map((id) => [id, adjacency.get(id)!.size]));
@@ -352,7 +410,7 @@ function componentLayout(ids: string[], adjacency: Adjacency): Point[] {
         children.get(id)!.reduce((sum, n) => sum + weights.get(n)!, 0),
       ),
     );
-  const points = layoutCore(roots, adjacency, weights),
+  const points = layoutCore(roots, adjacency, weights, options),
     byId = new Map(points.map((p) => [p.id, p]));
   for (const root of roots) {
     const origin = byId.get(root)!,
@@ -418,11 +476,21 @@ function componentLayout(ids: string[], adjacency: Adjacency): Point[] {
   for (const id of ids)
     for (const next of adjacency.get(id)!)
       if (id < next) links.push({ source: id, target: next });
-  untangle(points, links);
+  untangle(points, links, options.polish);
   return points;
 }
 
-export function arrangeGraph(nodes: string[], edges: Link[]): Point[] {
+export function arrangeGraph(
+  nodes: string[],
+  edges: Link[],
+  options: LayoutOptions = {},
+): Point[] {
+  nodes = [...new Set(nodes)].sort();
+  edges = edges.toSorted((a, b) => {
+    const ak = [a.source, a.target].sort().join("\0"),
+      bk = [b.source, b.target].sort().join("\0");
+    return ak < bk ? -1 : ak > bk ? 1 : 0;
+  });
   const adjacency: Adjacency = new Map(
     nodes.map((id) => [id, new Set<string>()]),
   );
@@ -435,9 +503,33 @@ export function arrangeGraph(nodes: string[], edges: Link[]): Point[] {
       adjacency.get(e.source)!.add(e.target);
       adjacency.get(e.target)!.add(e.source);
     }
+  if (options.order === "degree") {
+    nodes.sort(
+      (a, b) =>
+        adjacency.get(b)!.size - adjacency.get(a)!.size || (a < b ? -1 : 1),
+    );
+    for (const id of nodes)
+      adjacency.set(
+        id,
+        new Set(
+          [...adjacency.get(id)!].sort(
+            (a, b) =>
+              adjacency.get(b)!.size - adjacency.get(a)!.size ||
+              (a < b ? -1 : 1),
+          ),
+        ),
+      );
+  }
+  if (options.order === "natural") {
+    const natural = (a: string, b: string) =>
+      a.localeCompare(b, "en", { numeric: true });
+    nodes.sort(natural);
+    for (const id of nodes)
+      adjacency.set(id, new Set([...adjacency.get(id)!].sort(natural)));
+  }
   const seen = new Set<string>(),
     components: string[][] = [];
-  for (const id of adjacency.keys()) {
+  for (const id of nodes) {
     if (seen.has(id)) continue;
     const component = [id];
     seen.add(id);
@@ -451,7 +543,7 @@ export function arrangeGraph(nodes: string[], edges: Link[]): Point[] {
   }
   const boxes = components
     .map((ids) => {
-      const p = componentLayout(ids, adjacency);
+      const p = componentLayout(ids, adjacency, options);
       const minX = Math.min(...p.map((n) => n.x)),
         minY = Math.min(...p.map((n) => n.y));
       p.forEach((n) => {
@@ -464,10 +556,17 @@ export function arrangeGraph(nodes: string[], edges: Link[]): Point[] {
         height: Math.max(...p.map((n) => n.y)) + 120,
       };
     })
-    .sort((a, b) => b.points.length - a.points.length);
+    .sort(
+      (a, b) =>
+        b.points.length - a.points.length ||
+        (a.points[0].id < b.points[0].id ? -1 : 1),
+    );
   const rowWidth = Math.max(
-    500,
-    Math.sqrt(boxes.reduce((sum, b) => sum + b.width * b.height, 0)) * 1.4,
+    120,
+    Math.sqrt(
+      boxes.reduce((sum, b) => sum + b.width * b.height, 0) *
+        Math.max(0.2, Math.min(5, options.aspectRatio ?? 1.96)),
+    ),
   );
   let x = 0,
     y = 0,

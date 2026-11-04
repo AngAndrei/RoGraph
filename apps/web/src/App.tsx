@@ -627,6 +627,7 @@ export default function App() {
                 )}
               <GraphView
                 result={result}
+                selectedId={selectedId}
                 details={details || includeInstances}
                 onSelect={(id) => {
                   setEdgeId(undefined);

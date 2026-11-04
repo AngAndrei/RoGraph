@@ -1,6 +1,6 @@
 # Third-party notices
 
-RoGraph uses Node.js, React, Sigma, Graphology, Zod, jsonc-parser, the official Model Context Protocol SDK, Roblox DOM/XML Rust libraries and their dependencies, Luau, nlohmann/json, and the optional Rojo command-line tool. Their original notices are included in the portable package's `notices/` directory, with exact dependency versions in its inventory and the repository lockfiles.
+RoGraph uses Node.js, React, Sigma, Graphology, Cytoscape.js/fCoSE, ELK.js, Zod, jsonc-parser, the official Model Context Protocol SDK, Roblox DOM/XML Rust libraries and their dependencies, Luau, nlohmann/json, and the optional Rojo command-line tool. Their original notices are included in the portable package's `notices/` directory, with exact dependency versions in its inventory and the repository lockfiles. Cytoscape.js and fCoSE use MIT; ELK.js is provided under EPL-2.0 (its distribution also offers GPL-3.0-or-later).
 
 The Node notice includes the notices for components bundled into the Node runtime. Luau and nlohmann/json are used under MIT. Rojo 7.7.1 is distributed unmodified under MPL-2.0; its license and corresponding-source location are included. Windows system DLLs are supplied by Windows and are not included in the package.
 

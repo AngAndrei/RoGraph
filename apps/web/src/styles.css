@@ -516,7 +516,7 @@ small {
 }
 .graph-guide {
   position: absolute;
-  top: 25px;
+  top: 70px;
   left: 28px;
   pointer-events: none;
 }
@@ -1532,12 +1532,7 @@ small {
   max-width: 200px;
 }
 .group-navigator {
-  position: absolute;
-  z-index: 2;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 52%;
+  max-width: 100%;
   padding: 6px 10px;
   border-radius: 8px;
   background: #ffffffed;
@@ -1546,6 +1541,33 @@ small {
 }
 .group-navigator select {
   max-width: 240px;
+}
+.graph-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+.graph-toolbar > * { pointer-events: auto; }
+.graph-exploration { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #ffffffed; border: 1px solid #e2e7e9; border-radius: 8px; font-size: 12px; flex-wrap: wrap; }
+.graph-exploration button, .graph-exploration select { padding: 5px 7px; color: #435d72; border: 1px solid #dce4ea; border-radius: 5px; background: white; font: inherit; }
+.graph-exploration button:disabled { color: #8b99a6; cursor: default; }
+.graph-layout-status { position: absolute; bottom: 88px; left: 28px; padding: 8px 12px; border-radius: 6px; background: #ffffffed; color: #435d72; font-size: 12px; }
+@media (max-width: 600px) {
+  .graph-toolbar { left: 8px; right: 8px; justify-content: flex-start; }
+  .group-navigator { padding: 4px; }
+  .group-navigator select { max-width: 180px; }
+  .graph-exploration { gap: 4px; padding: 4px; font-size: 11px; }
+  .graph-exploration button, .graph-exploration select { min-height: 36px; }
+  .graph-guide { top: 115px; left: 12px; }
+  .graph-legend { left: 12px; gap: 7px; }
+  .graph-controls button { width: 38px; height: 38px; }
 }
 .diagnostic-report {
   padding: 12px 16px;

@@ -12,6 +12,25 @@ const npcEdges = [
   ["Modon", "Health"],
 ].map(([source, target]) => ({ source, target }));
 type P = { x: number; y: number };
+
+it("keeps identical topology stable when query node/edge order changes", () => {
+  const nodes = [...new Set(npcEdges.flatMap((e) => [e.source, e.target]))];
+  const canonical = (p: ReturnType<typeof arrangeGraph>) =>
+    p.toSorted((a, b) => a.id.localeCompare(b.id));
+  expect(
+    canonical(arrangeGraph(nodes.toReversed(), npcEdges.toReversed())),
+  ).toEqual(canonical(arrangeGraph(nodes, npcEdges)));
+});
+
+it("packs disconnected components for the available viewport shape", () => {
+  const nodes = Array.from({ length: 20 }, (_, i) => `isolate-${i}`);
+  const wide = arrangeGraph(nodes, [], { aspectRatio: 3 });
+  const tall = arrangeGraph(nodes, [], { aspectRatio: 0.4 });
+  const ratio = (p: typeof wide) =>
+    (Math.max(...p.map((n) => n.x)) + 120) /
+    (Math.max(...p.map((n) => n.y)) + 120);
+  expect(ratio(wide)).toBeGreaterThan(ratio(tall) * 2);
+});
 const turn = (a: P, b: P, c: P) =>
   (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 function crossings(
