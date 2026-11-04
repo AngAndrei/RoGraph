@@ -1,5 +1,11 @@
 # RoGraph validation
 
+## Topology layout and additional inputs (2026-11-04)
+
+Verification: **152/152 TypeScript tests**, typecheck/build, **7/7 Edge browser workflows**, and **21/21 portable checks**. One earlier concurrent run timed out in the existing `evidence-budget.test.ts` 30-second limit; the complete suite passed when rerun without the competing browser job. Browser assertions use rendered pixel radii at fit, zoom and a smaller container size.
+
+Initial positions now use connected cyclic cores and outward pendant-tree sectors, with collision spacing and bounded crossing/obstruction refinement. Trees use weighted radial branches. Parallel and reverse relationships use separate curved paths while retaining their original identities and evidence. Dense initial views scale node radii to the nearest screen clearance and recover ordinary sizes as the user zooms in. Layout tests include small and 300-node hub/leaf cycles, branching trees, and a planar core requiring an interior vertex. The independent review found a narrow-cone overlap issue, now covered by the 300-node regression; its two smaller findings were addressed by adaptive screen sizing and a lower swap-search cutoff. SaveHer and Bangla passed the saved-file and Windows-executable workflows; see [provided-game-validation.md](provided-game-validation.md) for coverage and measured layout changes.
+
 ## 0.2.0 gameplay update
 
 Latest correction checks: **145/145 TypeScript tests**, **2/2 native importer tests**, typecheck/build and **6/6 Edge browser workflows** passed. A focused independent review of the large-input fix found no actionable issues. The new lookup tests count object visits/context reads rather than relying on timing thresholds.

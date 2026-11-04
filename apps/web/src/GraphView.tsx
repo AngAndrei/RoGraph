@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
-import { extremityArrow } from "sigma/rendering";
+import { extremityArrow, pathCurved } from "sigma/rendering";
 import {
   DEFAULT_PRIMITIVES,
   DEFAULT_STYLES,
@@ -141,6 +141,7 @@ export function GraphView({
   edgeRef.current = onEdge;
   useEffect(() => {
     if (!container.current) return;
+    container.current.setAttribute("data-layout-ready", "false");
     setError("");
     const g = new Graph({ multi: true, type: "directed" });
     view.nodes.forEach((n, i) =>
@@ -153,7 +154,6 @@ export function GraphView({
         labelColor: "#435069",
         labelSize: 12,
         labelFont: "Segoe UI",
-
       }),
     );
     view.edges.forEach((e) =>
@@ -168,12 +168,14 @@ export function GraphView({
       }),
     );
     let worker: Worker | undefined;
+    let disposed = false;
     try {
       const sigma = new Sigma(g, container.current, {
         primitives: {
           ...DEFAULT_PRIMITIVES,
           edges: {
             ...DEFAULT_PRIMITIVES.edges,
+            paths: [...(DEFAULT_PRIMITIVES.edges.paths ?? []), pathCurved()],
             extremities: [extremityArrow()],
             defaultHead: "arrow",
           },
@@ -185,7 +187,12 @@ export function GraphView({
             labelFont: "Segoe UI",
             labelSize: 11,
           },
-          edges: { ...DEFAULT_STYLES.edges, head: "arrow" },
+          edges: {
+            ...DEFAULT_STYLES.edges,
+            head: "arrow",
+            parallelPath: "curved",
+            parallelSpread: 0.18,
+          },
         },
         settings: {
           itemSizesReference: "screen",
@@ -197,6 +204,49 @@ export function GraphView({
         },
       });
       renderer.current = sigma;
+      const clearance = new Map<string, number>();
+      const resizeNodes = () => {
+        const ratio = sigma.getCamera().getState().ratio;
+        for (const n of view.nodes) {
+          const base = n.kind === "instance" ? 7 : 4;
+          const size = Math.min(
+            base,
+            (((clearance.get(n.id) ?? Infinity) / ratio) * 0.36) /
+              sigma.scaleSize(1),
+          );
+          if (Math.abs(g.getNodeAttribute(n.id, "size") - size) > 0.01)
+            g.setNodeAttribute(n.id, "size", size);
+        }
+      };
+      const measureClearance = () => {
+        const ratio = sigma.getCamera().getState().ratio;
+        const positions = g.nodes().map((id) => ({
+          id,
+          ...sigma.graphToViewport({
+            x: g.getNodeAttribute(id, "x"),
+            y: g.getNodeAttribute(id, "y"),
+          }),
+        }));
+        for (const p of positions) {
+          let nearest = Infinity;
+          for (const other of positions)
+            if (p !== other)
+              nearest = Math.min(
+                nearest,
+                Math.hypot(p.x - other.x, p.y - other.y),
+              );
+          clearance.set(p.id, nearest * ratio);
+        }
+        resizeNodes();
+      };
+      // Preserve screen separation at fit, then restore ordinary sizes as the
+      // user zooms in. Sizing does not change positions or move the camera.
+      sigma.getCamera().on("updated", resizeNodes);
+      sigma.on("resize", () =>
+        requestAnimationFrame(() => {
+          if (!disposed && clearance.size) measureClearance();
+        }),
+      );
       sigma.on("downNode", () => {
         // Keep the coordinate frame stable when an outer node changes the extent.
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
@@ -215,9 +265,12 @@ export function GraphView({
         for (const p of e.data)
           if (g.hasNode(p.id)) g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
         sigma.refresh();
-        requestAnimationFrame(() =>
-          container.current?.setAttribute("data-layout-ready", "true"),
-        );
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          measureClearance();
+          sigma.refresh();
+          container.current?.setAttribute("data-layout-ready", "true");
+        });
       };
       worker.postMessage({
         nodes: view.nodes.map((n) => n.id),
@@ -234,6 +287,7 @@ export function GraphView({
       );
     }
     return () => {
+      disposed = true;
       worker?.terminate();
       renderer.current?.kill();
       renderer.current = null;
