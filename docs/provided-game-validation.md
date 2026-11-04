@@ -1,5 +1,26 @@
 # Provided-game validation
 
+## Connection and compactness correction (2026-11-04)
+
+Gameplay and Code now render one line per unordered visible node pair. Directional actions, method/configuration details and evidence remain separate canonical records in the connection inspector and AI queries. Bangla's sampled overview renders 140 lines instead of 268; all six `StickMoves`–`TextButton` relationships and their six evidence records were verified inspectable through that one connection. This bundling is visual only and works on existing snapshots.
+
+The narrow-sector spacing regression was reproduced and corrected with local fan radii and space allocated between occupied cycle branches. Bangla's longest visible relationship decreased from approximately **2,505 to 505 layout units**. Sparse-cycle compactness, dense-cycle spacing and collapsed Code direction labels have regression coverage. Private inputs and detailed graphs remain excluded from Git.
+
+## SaveHer and Bangla (2026-11-04)
+
+Both additional originals passed analysis through the Windows executable, followed by Gameplay and Code overview queries, without worker timeouts. Independent saved-file workflow checks passed search, inspection, dependencies/impact, source retrieval, evidence-backed direct trace, bounded context, database reopening, exact raw-input retention and unchanged-input hashes. All saved scripts parsed.
+
+| Game                 | Saved objects | Parsed scripts | Windows executable analysis | Gameplay relationships | Import status                                                                                                      |
+| -------------------- | ------------: | -------------: | --------------------------: | ---------------------: | ------------------------------------------------------------------------------------------------------------------ |
+| SaveHer              |         1,818 |          4 / 4 |                       1.1 s |                     22 | Complete saved-file import; 65 unresolved and 26 candidate code sites                                              |
+| Bangla Battlegrounds |         1,096 |        27 / 27 |                       2.5 s |                    491 | Partial; six numeric-property warnings and opaque shared-buffer metadata; 1,237 unresolved and 320 candidate sites |
+
+Timings are observations on this computer, not guarantees. Bangla also passed a sampled owned-controller → reachable spawn trace. SaveHer had no matching sampled pattern. The validation sampler now respects controller reachability: a spawn inside `onEquipped` cannot be assumed to run at script startup. The application correctly rejected that original invalid sample; traversal semantics were not changed.
+
+The topology layout was measured on the same Gameplay overview results before and after this change. Bangla's 147 visible nodes / 140 unique undirected links went from **180 to 14 crossings**, and **106 to 0 edge-to-unrelated-node approaches under 22 layout units**. SaveHer's 13 nodes / 9 unique links remained at zero for both measures. These counts use straight segments between positions, exclude links sharing endpoints, and deduplicate parallel/reverse relationships; the browser checks one rendered line with all action IDs available on selection. Dense or nonplanar graphs can still have crossings. Private reports, source and game files remain excluded from Git.
+
+Layout regression fixtures cover the requested two-hub/two-bridge example, neighboring leaf fans on 10-hub and 50-hub cycles, a planar core requiring an interior vertex, branching trees, disconnected components, isolates and duplicate/invalid edges. The real-renderer browser check also verifies screen spacing (including a 240-node view with adaptive radii), radius recovery on zoom and one selectable line containing forward/reverse actions. Drag/camera behavior remains covered by the existing browser regression.
+
 ## Additional games: large-input correction
 
 Three additional saved `.rbxl` games were tested on 2026-10-31 with resolver 9 and native serialization 4. All passed Gameplay overview/context, Code search/inspection/source, modeled trace, bounded context export, database reopening, retained raw-byte and unchanged-original checks. The owned-model/template trace was sampled for BrokenPVP and DemonHunting; Photon had no matching sampled pattern. Game source, input files, detailed reports and CPU profiles remain excluded from Git.

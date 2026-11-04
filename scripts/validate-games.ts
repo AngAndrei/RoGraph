@@ -47,15 +47,22 @@ for (const name of inputs) {
     if (gameplay.nodes.some((n) => n.kind !== "instance"))
       throw Error("ABSTRACT_GAMEPLAY_NODE");
     let gameplayTraceChecked = false;
+    // An owned controller does not make every event callback startup-reachable.
+    const reachableSpawn = (
+      behavior: (typeof semantic)[number],
+      spawn: (typeof semantic)[number],
+    ) =>
+      spawn.type === "SPAWNS" &&
+      spawn.source === behavior.target &&
+      (behavior.gameplay?.reachableOwnerIds ?? [behavior.target]).includes(
+        spawn.gameplay?.ownerId ?? spawn.source,
+      );
     const behavior = semantic.find(
       (r) =>
-        r.type === "HAS_BEHAVIOR" &&
-        semantic.some((s) => s.type === "SPAWNS" && s.source === r.target),
+        r.type === "HAS_BEHAVIOR" && semantic.some((s) => reachableSpawn(r, s)),
     );
     if (behavior) {
-      const spawn = semantic.find(
-        (r) => r.type === "SPAWNS" && r.source === behavior.target,
-      )!;
+      const spawn = semantic.find((r) => reachableSpawn(behavior, r))!;
       const traced = await store.query({
         op: "trace",
         view: "gameplay",

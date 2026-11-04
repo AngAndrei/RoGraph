@@ -9,6 +9,13 @@ import {
 import Graph from "graphology";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Node } from "../../../packages/contracts/src/model.js";
+type Arrangement = {
+  positions: Map<string, { x: number; y: number }>;
+  camera: ReturnType<ReturnType<Sigma["getCamera"]>["getState"]>;
+  bbox: ReturnType<Sigma["getCustomBBox"]>;
+};
+// View state belongs to the browser session, separate from saved analysis facts.
+const arrangements = new Map<string, Arrangement>();
 const scripts = ["Script", "LocalScript", "ModuleScript"],
   channels = [
     "RemoteEvent",
@@ -17,6 +24,59 @@ const scripts = ["Script", "LocalScript", "ModuleScript"],
     "BindableEvent",
     "BindableFunction",
   ];
+function bundleEdges(
+  edges: {
+    id: string;
+    source?: string;
+    target?: string;
+    label: string;
+    type: string;
+    originalId: string;
+    relationIds?: string[];
+  }[],
+) {
+  const bundles = new Map<
+    string,
+    {
+      id: string;
+      source: string;
+      target: string;
+      label: string;
+      type: string;
+      originalId: string;
+      relationIds: string[];
+      bidirectional: boolean;
+    }
+  >();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target || edge.source === edge.target) continue;
+    const key = JSON.stringify([edge.source, edge.target].sort());
+    const bundle = bundles.get(key);
+    if (bundle) {
+      bundle.relationIds = [
+        ...new Set([
+          ...bundle.relationIds,
+          ...(edge.relationIds ?? [edge.originalId]),
+        ]),
+      ];
+      bundle.bidirectional ||= bundle.source !== edge.source;
+    } else
+      bundles.set(key, {
+        ...edge,
+        source: edge.source,
+        target: edge.target,
+        relationIds: [...(edge.relationIds ?? [edge.originalId])],
+        bidirectional: false,
+      });
+  }
+  return [...bundles.values()].map((e) => ({
+    ...e,
+    label:
+      e.relationIds.length > 1
+        ? `${e.relationIds.length} relationships`
+        : e.label,
+  }));
+}
 export function projectGraph(
   result: QueryResult,
   details: boolean,
@@ -46,7 +106,7 @@ export function projectGraph(
           "REFERENCES",
         originalId: e.id,
       }));
-    return { nodes, edges, groups };
+    return { nodes, edges: bundleEdges(edges), groups };
   }
   const all = new Map(result.nodes.map((n) => [n.id, n]));
   let visible = result.nodes.filter(
@@ -96,7 +156,7 @@ export function projectGraph(
       label: r.type,
     }))
     .filter((r) => r.source && r.target && r.source !== r.target);
-  return { nodes: visible, edges, groups };
+  return { nodes: visible, edges: bundleEdges(edges), groups };
 }
 function color(n: Node) {
   return n.kind === "unresolved"
@@ -124,7 +184,7 @@ export function GraphView({
   result: QueryResult;
   details: boolean;
   onSelect: (id: string) => void;
-  onEdge?: (id: string) => void;
+  onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
@@ -141,8 +201,17 @@ export function GraphView({
   edgeRef.current = onEdge;
   useEffect(() => {
     if (!container.current) return;
+    container.current.setAttribute("data-layout-ready", "false");
     setError("");
-    const g = new Graph({ multi: true, type: "directed" });
+    const arrangementKey = JSON.stringify([
+      result.analysisId,
+      result.projection?.view ?? "code",
+      details,
+      activeGroup,
+    ]);
+    const saved = arrangements.get(arrangementKey);
+    let ready = false;
+    const g = new Graph({ type: "directed" });
     view.nodes.forEach((n, i) =>
       g.addNode(n.id, {
         label: n.label,
@@ -153,7 +222,6 @@ export function GraphView({
         labelColor: "#435069",
         labelSize: 12,
         labelFont: "Segoe UI",
-
       }),
     );
     view.edges.forEach((e) =>
@@ -164,10 +232,13 @@ export function GraphView({
           ? "#bea46c"
           : "#bbc8d8",
         head: "arrow",
+        tail: e.bidirectional ? "arrow" : "none",
         originalId: e.originalId,
+        relationIds: e.relationIds,
       }),
     );
     let worker: Worker | undefined;
+    let disposed = false;
     try {
       const sigma = new Sigma(g, container.current, {
         primitives: {
@@ -185,7 +256,10 @@ export function GraphView({
             labelFont: "Segoe UI",
             labelSize: 11,
           },
-          edges: { ...DEFAULT_STYLES.edges, head: "arrow" },
+          edges: {
+            ...DEFAULT_STYLES.edges,
+            head: "arrow",
+          },
         },
         settings: {
           itemSizesReference: "screen",
@@ -197,6 +271,49 @@ export function GraphView({
         },
       });
       renderer.current = sigma;
+      const clearance = new Map<string, number>();
+      const resizeNodes = () => {
+        const ratio = sigma.getCamera().getState().ratio;
+        for (const n of view.nodes) {
+          const base = n.kind === "instance" ? 7 : 4;
+          const size = Math.min(
+            base,
+            (((clearance.get(n.id) ?? Infinity) / ratio) * 0.36) /
+              sigma.scaleSize(1),
+          );
+          if (Math.abs(g.getNodeAttribute(n.id, "size") - size) > 0.01)
+            g.setNodeAttribute(n.id, "size", size);
+        }
+      };
+      const measureClearance = () => {
+        const ratio = sigma.getCamera().getState().ratio;
+        const positions = g.nodes().map((id) => ({
+          id,
+          ...sigma.graphToViewport({
+            x: g.getNodeAttribute(id, "x"),
+            y: g.getNodeAttribute(id, "y"),
+          }),
+        }));
+        for (const p of positions) {
+          let nearest = Infinity;
+          for (const other of positions)
+            if (p !== other)
+              nearest = Math.min(
+                nearest,
+                Math.hypot(p.x - other.x, p.y - other.y),
+              );
+          clearance.set(p.id, nearest * ratio);
+        }
+        resizeNodes();
+      };
+      // Preserve screen separation at fit, then restore ordinary sizes as the
+      // user zooms in. Sizing does not change positions or move the camera.
+      sigma.getCamera().on("updated", resizeNodes);
+      sigma.on("resize", () =>
+        requestAnimationFrame(() => {
+          if (!disposed && clearance.size) measureClearance();
+        }),
+      );
       sigma.on("downNode", () => {
         // Keep the coordinate frame stable when an outer node changes the extent.
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
@@ -205,19 +322,36 @@ export function GraphView({
       sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
       sigma.on("clickNode", (e) => selectRef.current(e.node));
       sigma.on("clickEdge", (e) =>
-        edgeRef.current?.(g.getEdgeAttribute(e.edge, "originalId")),
+        edgeRef.current?.(
+          g.getEdgeAttribute(e.edge, "originalId"),
+          g.getEdgeAttribute(e.edge, "relationIds"),
+          g.source(e.edge),
+        ),
       );
       worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
         type: "module",
       });
       worker.onmessage = (e) => {
+        if (disposed) return;
         sigma.setCustomBBox(null);
         for (const p of e.data)
-          if (g.hasNode(p.id)) g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
+          if (g.hasNode(p.id))
+            g.mergeNodeAttributes(
+              p.id,
+              saved?.positions.get(p.id) ?? { x: p.x, y: p.y },
+            );
         sigma.refresh();
-        requestAnimationFrame(() =>
-          container.current?.setAttribute("data-layout-ready", "true"),
-        );
+        if (saved) {
+          sigma.setCustomBBox(saved.bbox);
+          sigma.getCamera().setState(saved.camera);
+        }
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          measureClearance();
+          sigma.refresh();
+          ready = true;
+          container.current?.setAttribute("data-layout-ready", "true");
+        });
       };
       worker.postMessage({
         nodes: view.nodes.map((n) => n.id),
@@ -234,6 +368,28 @@ export function GraphView({
       );
     }
     return () => {
+      disposed = true;
+      if (ready && renderer.current) {
+        const sigma = renderer.current;
+        arrangements.delete(arrangementKey);
+        arrangements.set(arrangementKey, {
+          positions: new Map(
+            g
+              .nodes()
+              .map((id) => [
+                id,
+                {
+                  x: g.getNodeAttribute(id, "x"),
+                  y: g.getNodeAttribute(id, "y"),
+                },
+              ]),
+          ),
+          camera: { ...sigma.getCamera().getState() },
+          bbox: sigma.getCustomBBox(),
+        });
+        if (arrangements.size > 32)
+          arrangements.delete(arrangements.keys().next().value!);
+      }
       worker?.terminate();
       renderer.current?.kill();
       renderer.current = null;
@@ -277,7 +433,7 @@ export function GraphView({
         <p>
           {view.nodes.length} nodes · {view.edges.length} links
           <br />
-          Select a node to see how it connects.
+          Select a node or connection to see its actions and evidence.
         </p>
       </div>
       <div className="graph-controls">

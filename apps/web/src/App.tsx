@@ -64,6 +64,7 @@ export default function App() {
     [traceResult, setTraceResult] = useState<QueryResult>(),
     [sourceEvidence, setSourceEvidence] = useState<Evidence>(),
     [edgeId, setEdgeId] = useState<string>(),
+    [connectionRelationIds, setConnectionRelationIds] = useState<string[]>(),
     [activeQuery, setActiveQuery] = useState<Query>();
   const [newSnapshot, setNewSnapshot] = useState<string>(),
     [watching, setWatching] = useState(false);
@@ -631,7 +632,7 @@ export default function App() {
                   setEdgeId(undefined);
                   void select(id);
                 }}
-                onEdge={(id) => {
+                onEdge={(id, relationIds, sourceId) => {
                   const projected = result.projection?.edges.find(
                     (e) => e.id === id,
                   );
@@ -640,7 +641,10 @@ export default function App() {
                   );
                   if (relation) {
                     setEdgeId(id);
-                    void select(relation.source);
+                    setConnectionRelationIds(
+                      relationIds ?? projected?.relationIds ?? [relation.id],
+                    );
+                    void select(sourceId ?? relation.source);
                   }
                 }}
               />
@@ -706,6 +710,9 @@ export default function App() {
                 }}
                 onExplore={(op, id) => void explore(op, id)}
                 edgeId={edgeId}
+                connectionRelationIds={
+                  edgeId ? connectionRelationIds : undefined
+                }
                 onShowImplementation={() => {
                   setEdgeId(undefined);
                   setView("code");
