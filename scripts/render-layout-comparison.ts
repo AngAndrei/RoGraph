@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { chromium } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
-const dir = resolve(process.argv[2] ?? "build/layout-comparison-final");
+const dir = resolve(process.argv[2] ?? "build/layout-comparison");
 const report = JSON.parse(await readFile(join(dir, "metrics.json"), "utf8"));
 const css = await readFile("apps/web/src/styles.css", "utf8");
 const worker = await build({

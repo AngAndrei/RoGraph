@@ -24,14 +24,18 @@ export function validPositions(
   if (!Array.isArray(value) || value.length !== ids.length) return false;
   const expected = new Set(ids),
     seen = new Set<string>();
-  return value.every(
-    (p) =>
-      p &&
-      typeof p.id === "string" &&
-      expected.has(p.id) &&
-      !seen.has(p.id) &&
-      Number.isFinite(p.x) &&
-      Number.isFinite(p.y) &&
-      Boolean(seen.add(p.id)),
-  );
+  for (let i = 0; i < value.length; i++) {
+    const p = value[i];
+    if (
+      !p ||
+      typeof p.id !== "string" ||
+      !expected.has(p.id) ||
+      seen.has(p.id) ||
+      !Number.isFinite(p.x) ||
+      !Number.isFinite(p.y)
+    )
+      return false;
+    seen.add(p.id);
+  }
+  return seen.size === expected.size;
 }

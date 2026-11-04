@@ -94,8 +94,10 @@ export function measureLayout(points: Point[], edges: Link[], clearance = 22) {
 // Compare topology readability first. Labels remain a rendered, secondary metric.
 export function layoutCost(points: Point[], edges: Link[]) {
   const m = measureLayout(points, edges, 40);
+  const severe = measureLayout(points, edges).obstructions;
   return (
-    m.obstructions * 100 +
+    severe * 1000 +
+    m.obstructions * 10 +
     m.crossings * 10 +
     Math.max(0, 65 - m.minimumSeparation) * 1000
   );

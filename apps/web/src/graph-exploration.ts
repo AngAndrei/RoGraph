@@ -101,15 +101,21 @@ export function contextualLabels(nodes: Node[]) {
         break;
     }
     // Identical paths can still refer to different saved objects.
-    if (
-      nodes.some(
+    const collisions = nodes
+      .filter(
         (other) =>
-          other.id !== n.id &&
-          other.label === n.label &&
-          paths.get(other.id) === paths.get(n.id),
+          other.label === n.label && paths.get(other.id) === paths.get(n.id),
       )
-    )
-      context += ` · ${n.id.slice(-8)}`;
+      .map((other) => other.id)
+      .sort();
+    if (collisions.length > 1) context += ` · ${collisions.indexOf(n.id) + 1}`;
+    if (context.length > 64 || /[a-f0-9]{24,}/i.test(context)) {
+      const peers = nodes
+        .filter((other) => other.label === n.label)
+        .map((other) => other.id)
+        .sort();
+      context = `${n.kind === "instance" ? "object" : n.kind} ${peers.indexOf(n.id) + 1}`;
+    }
     labels.set(n.id, `${n.label} · ${context}`);
   }
   return labels;

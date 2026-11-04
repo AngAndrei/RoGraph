@@ -2,11 +2,11 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 
 export type Point = { id: string; x: number; y: number };
-export type Link = { source: string; target: string };
+export type Link = { source: string; target: string; order?: string };
 export type LayoutOptions = {
   aspectRatio?: number;
   polish?: boolean;
-  order?: "degree" | "natural";
+  order?: "degree" | "natural" | "evidence";
   coreLayout?: (
     ids: string[],
     links: Link[],
@@ -79,14 +79,55 @@ function separate(points: Point[]) {
       }
     if (!moved) break;
   }
+  removeNodeOverlaps(points);
+}
+
+/** Deterministic spatial packing finishes cases where pairwise relaxation stalls. */
+export function removeNodeOverlaps(points: Point[]) {
+  const cells = new Map<string, Point[]>();
+  const key = (x: number, y: number) => `${x},${y}`;
+  const free = (x: number, y: number) => {
+    const cx = Math.floor(x / GAP),
+      cy = Math.floor(y / GAP);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        for (const p of cells.get(key(cx + dx, cy + dy)) ?? [])
+          if ((p.x - x) ** 2 + (p.y - y) ** 2 < (GAP - 0.001) ** 2)
+            return false;
+    return true;
+  };
+  for (const p of points) {
+    const origin = { x: p.x, y: p.y };
+    if (!free(p.x, p.y))
+      search: for (let ring = 1; ; ring++) {
+        for (let dx = -ring; dx <= ring; dx++)
+          for (const dy of [-ring, ring])
+            if (free(origin.x + dx * GAP, origin.y + dy * GAP)) {
+              p.x = origin.x + dx * GAP;
+              p.y = origin.y + dy * GAP;
+              break search;
+            }
+        for (let dy = -ring + 1; dy < ring; dy++)
+          for (const dx of [-ring, ring])
+            if (free(origin.x + dx * GAP, origin.y + dy * GAP)) {
+              p.x = origin.x + dx * GAP;
+              p.y = origin.y + dy * GAP;
+              break search;
+            }
+      }
+    const cell = key(Math.floor(p.x / GAP), Math.floor(p.y / GAP));
+    const bucket = cells.get(cell) ?? [];
+    bucket.push(p);
+    cells.set(cell, bucket);
+  }
 }
 
 // Coordinate descent can move a vertex inside a cycle (swaps alone cannot).
 // Score only geometry affected by that vertex; keep the worker's cost bounded.
 function untangle(points: Point[], links: Link[], extended = false) {
   if (
-    points.length > (extended ? 800 : 150) ||
-    links.length > (extended ? 1200 : 220)
+    points.length > (extended ? 350 : 150) ||
+    links.length > (extended ? 500 : 220)
   )
     return;
   const byId = new Map(points.map((p) => [p.id, p]));
@@ -477,6 +518,7 @@ function componentLayout(
     for (const next of adjacency.get(id)!)
       if (id < next) links.push({ source: id, target: next });
   untangle(points, links, options.polish);
+  removeNodeOverlaps(points);
   return points;
 }
 
@@ -487,6 +529,13 @@ export function arrangeGraph(
 ): Point[] {
   nodes = [...new Set(nodes)].sort();
   edges = edges.toSorted((a, b) => {
+    if (
+      options.order === "evidence" &&
+      a.order &&
+      b.order &&
+      a.order !== b.order
+    )
+      return a.order < b.order ? -1 : 1;
     const ak = [a.source, a.target].sort().join("\0"),
       bk = [b.source, b.target].sort().join("\0");
     return ak < bk ? -1 : ak > bk ? 1 : 0;

@@ -99,6 +99,7 @@ it("keys exact arrangements by topology, geometry and mode rather than analysis 
   ).not.toBe(a);
 });
 it("rejects incomplete, duplicate, nonfinite and foreign worker geometry", () => {
+  expect(validPositions(new Array(2), ["a", "b"])).toBe(false);
   expect(validPositions([{ id: "a", x: 0, y: 1 }], ["a"])).toBe(true);
   expect(validPositions([{ id: "a", x: NaN, y: 1 }], ["a"])).toBe(false);
   expect(validPositions([{ id: "a", x: 0, y: 1 }], ["a", "b"])).toBe(false);
@@ -112,4 +113,35 @@ it("rejects incomplete, duplicate, nonfinite and foreign worker geometry", () =>
     ),
   ).toBe(false);
   expect(validPositions([{ id: "other", x: 0, y: 1 }], ["a"])).toBe(false);
+});
+
+it("distinguishes identical paths even when canonical field IDs share the same suffix", () => {
+  const nodes = [
+    "module-a:field:string:HitPoints",
+    "module-b:field:string:HitPoints",
+  ].map((id) => ({
+    id,
+    label: "HitPoints",
+    kind: "field",
+    contexts: ["unknown"],
+    attributes: { path: "Workspace.Module.HitPoints" },
+  })) as QueryResult["nodes"];
+  expect(new Set(contextualLabels(nodes).values()).size).toBe(2);
+});
+
+it("keeps opaque generated-owner hashes out of contextual display labels", () => {
+  const nodes = [1, 2].map((i) => ({
+    id: `n${i}`,
+    label: "Part",
+    kind: "instance",
+    contexts: ["unknown"],
+    ownerId: `created:${"a".repeat(64)}:${i}`,
+    attributes: {},
+  })) as QueryResult["nodes"];
+  const labels = [...contextualLabels(nodes).values()];
+  expect(new Set(labels).size).toBe(2);
+  for (const label of labels) {
+    expect(label).not.toContain("a".repeat(24));
+    expect(label.length).toBeLessThan(60);
+  }
 });

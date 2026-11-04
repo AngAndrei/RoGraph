@@ -59,6 +59,7 @@ for (const sample of samples) {
   const edges = view.edges.map((e) => ({
     source: e.source!,
     target: e.target!,
+    order: [...e.relationIds].sort()[0],
   }));
   const entries = new Map<
     string,
@@ -97,8 +98,8 @@ for (const sample of samples) {
       mode,
       engine: entry.engine,
       ...measureLayout(entry.positions, edges),
-      coldMilliseconds: entry.milliseconds[0],
-      warmMilliseconds: entry.milliseconds.slice(1),
+      firstOptimizationMilliseconds: entry.milliseconds[0],
+      repeatOptimizationMilliseconds: entry.milliseconds.slice(1),
       medianMilliseconds: times[Math.floor(times.length / 2)],
       maxMilliseconds: Math.max(...times),
     });

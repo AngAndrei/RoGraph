@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { arrangeGraph } from "../apps/web/src/layout.js";
+import { arrangeGraph, removeNodeOverlaps } from "../apps/web/src/layout.js";
 
 // A cycle between two hubs and two bridges, matching the user's NPC example.
 const npcEdges = [
@@ -12,6 +12,20 @@ const npcEdges = [
   ["Modon", "Health"],
 ].map(([source, target]) => ({ source, target }));
 type P = { x: number; y: number };
+
+it("finishes dense overlap removal with finite separated positions", () => {
+  const points = Array.from({ length: 400 }, (_, i) => ({
+    id: `p${i}`,
+    x: (i % 7) * 3,
+    y: Math.floor(i / 7) * 3,
+  }));
+  removeNodeOverlaps(points);
+  for (let i = 0; i < points.length; i++)
+    for (let j = i + 1; j < points.length; j++)
+      expect(
+        Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y),
+      ).toBeGreaterThanOrEqual(71.99);
+});
 
 it("keeps identical topology stable when query node/edge order changes", () => {
   const nodes = [...new Set(npcEdges.flatMap((e) => [e.source, e.target]))];

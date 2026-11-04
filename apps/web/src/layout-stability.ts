@@ -5,6 +5,7 @@ export function stabilizeLayout(
   points: Point[],
   previous: Point[],
   pins: Point[],
+  allowRotation = true,
 ): Point[] {
   const old = new Map(
     previous
@@ -29,7 +30,7 @@ export function stabilizeLayout(
       dot += x * (q.x - b.x) + y * (q.y - b.y);
       cross += x * (q.y - b.y) - y * (q.x - b.x);
     }
-    const angle = Math.atan2(cross, dot),
+    const angle = allowRotation ? Math.atan2(cross, dot) : 0,
       c = Math.cos(angle),
       s = Math.sin(angle);
     result = result.map((p) => ({

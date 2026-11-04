@@ -160,6 +160,10 @@ export async function optimizeGraph(
     engine = "layered";
   } else {
     if (edges.length < 200 && complexCore(nodes, edges)) {
+      if (edges.some((e) => e.order)) {
+        const placement: LayoutOptions = { ...opts, order: "evidence" };
+        consider(arrangeGraph(nodes, edges, placement), "topology", placement);
+      }
       consider(
         arrangeGraph(nodes, edges, { ...opts, polish: true }),
         "optimized-topology",
@@ -202,6 +206,7 @@ export async function optimizeGraph(
       positions,
       options.previous ?? [],
       options.pins ?? [],
+      options.intent !== "directional",
     );
   return {
     positions,

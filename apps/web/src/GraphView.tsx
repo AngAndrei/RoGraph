@@ -20,8 +20,6 @@ import {
   type LayoutRequest,
   type LayoutResponse,
 } from "./layout-protocol.js";
-import { arrangeGraph } from "./layout.js";
-import { stabilizeLayout } from "./layout-stability.js";
 type Arrangement = {
   positions: Map<string, { x: number; y: number }>;
   camera: ReturnType<ReturnType<Sigma["getCamera"]>["getState"]>;
@@ -129,6 +127,7 @@ export function GraphView({
     setBusy(!saved);
     let ready = false;
     let completed = false;
+    let optimized = false;
     const g = new Graph({ type: "directed" });
     view.nodes.forEach((n, i) =>
       g.addNode(n.id, {
@@ -284,80 +283,88 @@ export function GraphView({
         setError(
           "Layout optimization unavailable. Showing basic layout; you can browse the same nodes below.",
         );
+        // Recovery stays O(nodes); never rerun the timed-out optimizer on the UI thread.
         finish(
-          stabilizeLayout(
-            arrangeGraph(
-              view.nodes.map((n) => n.id),
-              view.edges,
-            ),
-            [...(previous?.positions ?? [])].map(([id, p]) => ({ id, ...p })),
-            [...(previous?.positions ?? [])]
-              .filter(([id]) => manualPins.has(id))
-              .map(([id, p]) => ({ id, ...p })),
-          ),
+          g.nodes().map((id) => ({
+            id,
+            ...(previous?.positions.get(id) ?? {
+              x: g.getNodeAttribute(id, "x"),
+              y: g.getNodeAttribute(id, "y"),
+            }),
+          })),
         );
       };
       if (saved) {
         completed = true;
+        optimized = true;
         finish(
           [...saved.positions].map(([id, p]) => ({ id, ...p })),
           true,
         );
       } else {
-        worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
-          type: "module",
-        });
-        const requestId = String(++layoutRequestSequence);
-        worker.onmessage = (e) => {
-          if (disposed || completed) return;
-          const response = e.data as LayoutResponse;
-          if (
-            !response ||
-            typeof response !== "object" ||
-            typeof response.requestId !== "string"
-          ) {
-            fail();
-            return;
-          }
-          if (response.requestId !== requestId) return;
-          if (
-            "error" in response ||
-            !Array.isArray(response.warnings) ||
-            !validPositions(
-              response.positions,
-              view.nodes.map((n) => n.id),
-            )
-          ) {
-            fail();
-            return;
-          }
-          worker?.terminate();
-          completed = true;
-          if (response.warnings.length) setError(response.warnings.join(" "));
-          finish(response.positions);
-        };
-        worker.onerror = fail;
-        worker.onmessageerror = fail;
-        watchdog = setTimeout(fail, 45000);
-        worker.postMessage({
-          requestId,
-          nodes: view.nodes.map((n) => n.id),
-          edges:
-            layoutIntent === "directional"
-              ? directedLayoutLinks(view)
-              : view.edges.map((e) => ({ source: e.source, target: e.target })),
-          intent: layoutIntent,
-          aspectRatio:
-            container.current.clientWidth /
-            Math.max(1, container.current.clientHeight),
-          previous: [...(previous?.positions ?? [])].map(([id, p]) => ({
-            id,
-            ...p,
-          })),
-          pins: [...(previous?.positions ?? [])]
-            .filter(([id]) => manualPins.has(id))
-            .map(([id, p]) => ({ id, ...p })),
-        } satisfies LayoutRequest);
+        try {
+          worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
+            type: "module",
+          });
+          const requestId = String(++layoutRequestSequence);
+          worker.onmessage = (e) => {
+            if (disposed || completed) return;
+            const response = e.data as LayoutResponse;
+            if (
+              !response ||
+              typeof response !== "object" ||
+              typeof response.requestId !== "string"
+            ) {
+              fail();
+              return;
+            }
+            if (response.requestId !== requestId) return;
+            if (
+              "error" in response ||
+              !Array.isArray(response.warnings) ||
+              !validPositions(
+                response.positions,
+                view.nodes.map((n) => n.id),
+              )
+            ) {
+              fail();
+              return;
+            }
+            worker?.terminate();
+            completed = true;
+            optimized = true;
+            if (response.warnings.length) setError(response.warnings.join(" "));
+            finish(response.positions);
+          };
+          worker.onerror = fail;
+          worker.onmessageerror = fail;
+          watchdog = setTimeout(fail, 45000);
+          worker.postMessage({
+            requestId,
+            nodes: view.nodes.map((n) => n.id),
+            edges:
+              layoutIntent === "directional"
+                ? directedLayoutLinks(view)
+                : view.edges.map((e) => ({
+                    source: e.source,
+                    target: e.target,
+                    order: [...e.relationIds].sort()[0],
+                  })),
+            intent: layoutIntent,
+            aspectRatio:
+              container.current.clientWidth /
+              Math.max(1, container.current.clientHeight),
+            previous: [...(previous?.positions ?? [])].map(([id, p]) => ({
+              id,
+              ...p,
+            })),
+            pins: [...(previous?.positions ?? [])]
+              .filter(([id]) => manualPins.has(id))
+              .map(([id, p]) => ({ id, ...p })),
+          } satisfies LayoutRequest);
+        } catch {
+          fail();
+        }
       }
     } catch (e) {
       console.error(
@@ -374,7 +381,7 @@ export function GraphView({
       if (ready && renderer.current) {
         const sigma = renderer.current;
         arrangements.delete(key);
-        arrangements.set(key, {
+        const arrangement: Arrangement = {
           pins: manualPins,
           positions: new Map(
             g.nodes().map((id) => [
@@ -387,9 +394,10 @@ export function GraphView({
           ),
           camera: { ...sigma.getCamera().getState() },
           bbox: sigma.getCustomBBox(),
-        });
+        };
+        if (optimized) arrangements.set(key, arrangement);
         latestArrangements.delete(scope);
-        latestArrangements.set(scope, arrangements.get(key)!);
+        latestArrangements.set(scope, arrangement);
         if (latestArrangements.size > 32)
           latestArrangements.delete(latestArrangements.keys().next().value!);
         if (arrangements.size > 32)

@@ -36,20 +36,28 @@ async function setupGraph(page: Page, mode = "normal") {
     ],
   });
   const css = await readFile("apps/web/src/styles.css", "utf8");
-  await page.addInitScript(() => {
+  await page.addInitScript((failureMode) => {
     const NativeWorker = Worker;
     (window as any).workerCount = 0;
+    (window as any).workerAttempts = 0;
     (window as any).Worker = class extends NativeWorker {
       constructor(...args: any[]) {
+        (window as any).workerAttempts++;
+        if (failureMode === "fail-once" && (window as any).workerAttempts === 1)
+          throw new Error("Transient worker failure");
+        if (failureMode === "constructor-error")
+          throw new Error("Blocked layout worker");
         super(args[0], args[1]);
         (window as any).workerCount++;
       }
       postMessage(message: any) {
+        if (failureMode === "post-message-error")
+          throw new Error("Cannot clone request");
         (window as any).lastLayoutRequest = message;
         super.postMessage(message);
       }
     };
-  });
+  }, mode);
   await page.route("http://rograph.test/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     return route.fulfill({
@@ -124,7 +132,12 @@ test("focus and direction preserve selection, evidence and cached arrangements",
   await page.screenshot({ path: "build/previews/readability-mobile.png" });
 });
 
-for (const mode of ["error", "malformed"])
+for (const mode of [
+  "error",
+  "malformed",
+  "constructor-error",
+  "post-message-error",
+])
   test(`recovers from ${mode} worker output without losing graph access`, async ({
     page,
   }) => {
@@ -155,4 +168,27 @@ test("ignores a stale worker result and waits for the active request", async ({
       (window as any).s.getGraph().getNodeAttribute("d", "x"),
     ),
   ).toBe(450);
+});
+
+test("retries an optimized view after a transient failure rather than caching the fallback", async ({
+  page,
+}) => {
+  await setupGraph(page, "fail-once");
+  const ready = () =>
+    expect(page.locator(".sigma-container")).toHaveAttribute(
+      "data-layout-ready",
+      "true",
+    );
+  await ready();
+  await expect(page.getByText(/Layout optimization unavailable/)).toBeVisible();
+  await page
+    .getByRole("button", { name: "Focus selected neighborhood" })
+    .click();
+  await ready();
+  await page.getByRole("button", { name: "Show whole graph" }).click();
+  await ready();
+  expect(await page.evaluate(() => (window as any).workerCount)).toBe(2);
+  await expect(page.getByText(/Layout optimization unavailable/)).toHaveCount(
+    0,
+  );
 });

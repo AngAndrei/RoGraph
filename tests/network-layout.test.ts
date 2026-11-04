@@ -46,3 +46,15 @@ it("lays a focused directed chain in reading order without altering input edges"
   expect(p.get("b")!.x).toBeLessThan(p.get("c")!.x);
   expect(JSON.stringify(edges)).toBe(before);
 });
+
+it("keeps directional reading order when a filter reverses the visible relationship", async () => {
+  const r = await optimizeGraph(["a", "b"], [{ source: "b", target: "a" }], {
+    intent: "directional",
+    previous: [
+      { id: "a", x: 0, y: 0 },
+      { id: "b", x: 100, y: 0 },
+    ],
+  });
+  const p = new Map(r.positions.map((p) => [p.id, p]));
+  expect(p.get("b")!.x).toBeLessThan(p.get("a")!.x);
+});
