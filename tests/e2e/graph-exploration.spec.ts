@@ -8,7 +8,7 @@ async function setupGraph(page: Page, mode = "normal") {
       contents: `import React from'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';
   const root=createRoot(document.getElementById('root'));let selected='a';let extra=false;
   window.showGraph=(id=selected,more=extra)=>{selected=id;extra=more;root.render(React.createElement(GraphView,{selectedId:selected,
-    result:{analysisId:'exploration',nodes:['a','b','c','d',...(extra?['extra']:[])].map(id=>({id,kind:'instance',label:'Part',ownerId:'parent-'+id,contexts:['server'],attributes:{className:'Script'}})),
+    result:{analysisId:'exploration',nodes:['a','b','c','d',...(extra?['extra']:[])].map(id=>({id,kind:'instance',label:id==='b'&&${JSON.stringify(mode)}==='long-label'?'ProximityPrompt · Human.HumanoidRootPart':'Part',ownerId:'parent-'+id,contexts:['server'],attributes:{className:'Script'}})),
     relations:[{id:'ab',source:'a',target:'b',type:'REFERENCES'},{id:'ba',source:'b',target:'a',type:'MODIFIES'},{id:'bc',source:'b',target:'c',type:'REFERENCES'}],groups:[]},
     details:true,onSelect:id=>window.showGraph(id),onEdge:(...args)=>window.clicked=args}));};window.showGraph();`,
       resolveDir: process.cwd(),
@@ -75,6 +75,29 @@ async function setupGraph(page: Page, mode = "normal") {
   });
   await page.goto("http://rograph.test/");
 }
+
+test("previews long node labels and reveals the full label on hover", async ({
+  page,
+}) => {
+  await setupGraph(page, "long-label");
+  const canvas = page.locator(".sigma-container");
+  await expect(canvas).toHaveAttribute("data-layout-ready", "true");
+  const full = "ProximityPrompt · Human.HumanoidRootPart";
+  const displayed = () =>
+    page.evaluate(() => (window as any).s.getNodeDisplayData("b").label);
+  const preview = await displayed();
+  expect(preview).toMatch(/^ProximityPrompt.*…$/);
+  expect(preview.length).toBeLessThan(full.length);
+  const point = await page.evaluate(() => {
+    const sigma = (window as any).s;
+    return sigma.graphToViewport(sigma.getGraph().getNodeAttributes("b"));
+  });
+  const bounds = (await canvas.boundingBox())!;
+  await page.mouse.move(bounds.x + point.x, bounds.y + point.y);
+  await expect.poll(displayed).toBe(full);
+  await page.mouse.move(bounds.x + 5, bounds.y + 5);
+  await expect.poll(displayed).toBe(preview);
+});
 
 test("focus and direction preserve selection, evidence and cached arrangements", async ({
   page,

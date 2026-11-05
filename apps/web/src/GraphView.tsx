@@ -30,6 +30,24 @@ type Arrangement = {
 const arrangements = new Map<string, Arrangement>();
 const latestArrangements = new Map<string, Arrangement>();
 let layoutRequestSequence = 0;
+const labelFont = "Segoe UI";
+const labelSize = 11;
+const labelPreviewWidth = 136;
+const graphemes = new Intl.Segmenter();
+
+function previewLabel(label: string, context: CanvasRenderingContext2D | null) {
+  if (!context || context.measureText(label).width <= labelPreviewWidth)
+    return label;
+
+  let prefix = "";
+  for (const { segment } of graphemes.segment(label)) {
+    if (context.measureText(prefix + segment + "…").width > labelPreviewWidth)
+      break;
+    prefix += segment;
+  }
+  return prefix.trimEnd() + "…";
+}
+
 import { projectGraph, channels } from "./graph-projection.js";
 export { projectGraph } from "./graph-projection.js";
 function color(n: Node) {
@@ -160,9 +178,13 @@ export function GraphView({
     let completed = false;
     let optimized = false;
     const g = new Graph({ type: "directed" });
-    view.nodes.forEach((n, i) =>
+    const labelMeasure = document.createElement("canvas").getContext("2d");
+    if (labelMeasure) labelMeasure.font = `${labelSize}px "${labelFont}"`;
+    view.nodes.forEach((n, i) => {
+      const label = labels.get(n.id) ?? n.label;
       g.addNode(n.id, {
-        label: labels.get(n.id) ?? n.label,
+        label,
+        previewLabel: previewLabel(label, labelMeasure),
         x: Math.cos(i * 2.399) * Math.sqrt(i + 1),
         y: Math.sin(i * 2.399) * Math.sqrt(i + 1),
         size: (n.kind === "instance" ? 7 : 4) * 0.95,
@@ -170,8 +192,8 @@ export function GraphView({
         labelColor: "#435069",
         labelSize: 12,
         labelFont: "Segoe UI",
-      }),
-    );
+      });
+    });
     view.edges.forEach((e) =>
       g.addDirectedEdgeWithKey(e.id, e.source!, e.target!, {
         label: e.label,
@@ -201,9 +223,14 @@ export function GraphView({
         styles: {
           nodes: {
             ...DEFAULT_STYLES.nodes,
+            label: {
+              whenState: "isHovered",
+              then: { attribute: "label" },
+              else: { attribute: "previewLabel" },
+            },
             labelColor: "#526880",
-            labelFont: "Segoe UI",
-            labelSize: 11,
+            labelFont,
+            labelSize,
           },
           edges: {
             ...DEFAULT_STYLES.edges,
