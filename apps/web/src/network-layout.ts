@@ -9,6 +9,7 @@ import { stabilizeLayout } from "./layout-stability.js";
 
 export type NetworkOptions = {
   aspectRatio?: number;
+  groups?: string[][];
   intent?: "network" | "directional";
   candidate?: "topology" | "fcose";
   previous?: Point[];
@@ -96,11 +97,12 @@ export async function optimizeGraph(
   edges: Link[],
   options: NetworkOptions = {},
 ) {
-  const opts: LayoutOptions = { aspectRatio: options.aspectRatio };
-  let chosen: LayoutOptions = opts;
-  const baseline = arrangeGraph(nodes, edges, {
+  const opts: LayoutOptions = {
     aspectRatio: options.aspectRatio,
-  });
+    groups: options.groups,
+  };
+  let chosen: LayoutOptions = opts;
+  const baseline = arrangeGraph(nodes, edges, opts);
   let positions = baseline,
     engine = "topology",
     cost = layoutCost(baseline, edges);

@@ -274,6 +274,7 @@ export default function App() {
     activeQuery && activeQuery.analysisId === result?.analysisId
       ? JSON.stringify([
           activeQuery.op,
+          activeQuery.op === "overview" && activeQuery.groupBy,
           "nodeId" in activeQuery && activeQuery.nodeId,
           "fromId" in activeQuery && activeQuery.fromId,
           "toId" in activeQuery && activeQuery.toId,
@@ -612,6 +613,7 @@ export default function App() {
                   Group by{" "}
                   <select
                     aria-label="Group by"
+                    title="Arrange graph nodes by service or nearest folder"
                     value={groupBy}
                     onChange={(e) =>
                       setGroupBy(e.target.value as "service" | "folder")
@@ -625,7 +627,8 @@ export default function App() {
                   Classes{" "}
                   <input
                     aria-label="Object classes"
-                    placeholder="Any class · comma separated"
+                    placeholder="e.g. Part, Model"
+                    title="Enter Roblox class names separated by commas"
                     value={classFilter}
                     onChange={(e) => setClasses(e.target.value)}
                   />
@@ -671,6 +674,10 @@ export default function App() {
                   Boolean(traceResult)
                 }
                 arrangementScope={graphScope}
+                showClassMatches={
+                  activeQuery?.op === "overview" &&
+                  !!activeQuery.classes?.length
+                }
                 onSelect={(id) => {
                   setEdgeId(undefined);
                   void select(id);

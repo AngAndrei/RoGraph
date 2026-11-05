@@ -24,8 +24,25 @@ test("imports binary places and exposes grouping and saved-object controls", asy
   await expect(page.getByText("Partial import", { exact: true })).toHaveCount(
     0,
   );
+  const groups = page.getByLabel("Visible group");
+  await expect(groups).toContainText("ReplicatedStorage");
   await page.getByLabel("Group by", { exact: true }).selectOption("folder");
-  await expect(page.getByLabel("Visible group")).toBeVisible();
+  await expect(groups).toContainText("Shop ·");
+  await expect(groups).not.toContainText("ReplicatedStorage");
+  const classes = page.getByLabel("Object classes");
+  await classes.fill("NotARobloxClass");
+  await expect(
+    page.getByText("No saved objects match these classes."),
+  ).toBeVisible();
+  await classes.fill("localscript, MODULESCRIPT");
+  await expect(
+    page.getByText("No saved objects match these classes."),
+  ).toHaveCount(0);
+  await expect(page.locator(".sigma-container")).toHaveAttribute(
+    "data-layout-ready",
+    "true",
+  );
+  await classes.clear();
   await page.getByLabel("Include saved objects").check();
   await expect(page.getByLabel("Include saved objects")).toBeChecked();
   await expect(page.locator(".sigma-container canvas")).not.toHaveCount(0);

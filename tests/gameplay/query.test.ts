@@ -5,6 +5,77 @@ import { withWorkspace } from "../support/workspace.js";
 import { openStore } from "../../packages/core/src/store.js";
 import { createQueryEngine } from "../../packages/core/src/query.js";
 import { createContext } from "../../packages/core/src/context.js";
+import { object } from "./support.js";
+
+it("groups the overview by the nearest folder or the enclosing service", async () =>
+  withWorkspace(async (dir) => {
+    const graph = await gameplayGraph(eggCode, (snapshot) => {
+      snapshot.instances.push(
+        object("animals", "Animals", "Folder", "workspace"),
+        object("birds", "Birds", "Folder", "animals"),
+      );
+      snapshot.instances.find((n) => n.id === "chicken")!.parentId = "birds";
+    });
+    const store = await openStore(join(dir, "graph.db"));
+    try {
+      await store.save(graph);
+      const engine = createQueryEngine(store);
+      const query = {
+        analysisId: graph.analysisId,
+        op: "overview",
+        view: "gameplay",
+      } as const;
+      const services = await engine.run({ ...query, groupBy: "service" });
+      const folders = await engine.run({ ...query, groupBy: "folder" });
+      const groupOfChicken = (r: typeof services) =>
+        r.groups.find((g) => g.nodeIds.includes("chicken"))?.label;
+      expect(groupOfChicken(services)).toBe("Workspace");
+      expect(groupOfChicken(folders)).toBe("Birds");
+      expect(folders.relations).toEqual(services.relations);
+    } finally {
+      await store.close();
+    }
+  }));
+
+it("finds saved classes in both overviews even when filtering hides their connections", async () =>
+  withWorkspace(async (dir) => {
+    const graph = await gameplayGraph(eggCode);
+    const store = await openStore(join(dir, "graph.db"));
+    try {
+      await store.save(graph);
+      const engine = createQueryEngine(store);
+      for (const view of ["gameplay", "code"] as const) {
+        const query = {
+          analysisId: graph.analysisId,
+          op: "overview",
+          view,
+        } as const;
+        const filtered = await engine.run({
+          ...query,
+          classes: ["part", "Tool"],
+        });
+        expect(
+          filtered.nodes
+            .filter((n) => n.kind === "instance")
+            .map((n) => n.id)
+            .sort(),
+        ).toEqual(["chickentool", "eggpart", "eggtool", "part"]);
+        const ids = new Set(filtered.nodes.map((n) => n.id));
+        expect(
+          filtered.relations.every(
+            (e) => ids.has(e.source) && ids.has(e.target),
+          ),
+        ).toBe(true);
+        expect(filtered.meta.truncated).toBe(false);
+        const empty = await engine.run({ ...query, classes: ["UnknownClass"] });
+        expect(empty.nodes).toHaveLength(0);
+        expect(empty.relations).toHaveLength(0);
+      }
+    } finally {
+      await store.close();
+    }
+  }));
+
 it("returns linked concrete gameplay views and preserves Code as the compatibility default", async () =>
   withWorkspace(async (dir) => {
     const graph = await gameplayGraph(eggCode),

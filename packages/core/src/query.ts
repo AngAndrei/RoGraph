@@ -136,7 +136,8 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
           ...s,
           analysisId: q.analysisId,
           limit,
-          classes: q.classes,
+          classes:
+            s.op !== "adjacent" || q.op === "overview" ? q.classes : undefined,
           contexts:
             s.op === "search" || s.op === "overview" ? q.contexts : undefined,
           statuses: s.op === "search" ? q.statuses : undefined,
@@ -327,6 +328,7 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
       }
       if (
         q.op === "overview" &&
+        !q.classes?.length &&
         (q.statuses?.length || q.relationTypes?.length)
       ) {
         const connected = new Set(

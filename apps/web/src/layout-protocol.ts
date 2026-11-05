@@ -3,7 +3,7 @@ export type LayoutRequest = {
   requestId: string;
   nodes: string[];
   edges: Link[];
-  intent: "network" | "directional";
+  groups?: string[][];
   aspectRatio: number;
   previous?: Point[];
   pins?: Point[];

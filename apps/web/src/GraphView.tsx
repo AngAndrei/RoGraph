@@ -13,7 +13,6 @@ import {
   contextualLabels,
   focusGraph,
   arrangementKey,
-  directedLayoutLinks,
 } from "./graph-exploration.js";
 import {
   validPositions,
@@ -70,12 +69,10 @@ function color(n: Node) {
 type GraphControls = {
   group: string;
   focusId: string;
-  intent: "network" | "directional";
 };
 const defaultControls: GraphControls = {
   group: "all",
   focusId: "",
-  intent: "network",
 };
 
 export function GraphView({
@@ -85,6 +82,7 @@ export function GraphView({
   onEdge,
   selectedId,
   arrangementScope = "",
+  showClassMatches = false,
 }: {
   result: QueryResult;
   details: boolean;
@@ -92,6 +90,7 @@ export function GraphView({
   onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
   selectedId?: string;
   arrangementScope?: string;
+  showClassMatches?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
@@ -106,8 +105,7 @@ export function GraphView({
     result.projection?.view,
     arrangementScope,
   ]);
-  const { group, focusId, intent } =
-    controlsByView[controlsKey] ?? defaultControls;
+  const { group, focusId } = controlsByView[controlsKey] ?? defaultControls;
   const updateControls = (changes: Partial<GraphControls>) => {
     setControlsByView((current) => ({
       ...current,
@@ -118,11 +116,11 @@ export function GraphView({
     }));
   };
   const selection = selectedId ?? localSelection;
-  const activeGroup = result.groups.some((g) => g.id === group) ? group : "all";
   const fullView = useMemo(
-    () => projectGraph(result, details, activeGroup),
-    [result, details, activeGroup],
+    () => projectGraph(result, details, group, showClassMatches),
+    [result, details, group, showClassMatches],
   );
+  const activeGroup = fullView.groups.some((g) => g.id === group) ? group : "all";
   const activeFocus = fullView.nodes.some((n) => n.id === focusId)
     ? focusId
     : "";
@@ -131,7 +129,6 @@ export function GraphView({
     [fullView, activeFocus],
   );
   const labels = useMemo(() => contextualLabels(result.nodes), [result.nodes]);
-  const layoutIntent = activeFocus ? intent : "network";
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const selectionStyle = (sigma: Sigma) => {
@@ -150,8 +147,19 @@ export function GraphView({
   edgeRef.current = onEdge;
   useEffect(() => {
     if (!container.current) return;
-    container.current.setAttribute("data-layout-ready", "false");
     setError("");
+    container.current.setAttribute(
+      "data-layout-ready",
+      String(!view.nodes.length),
+    );
+    if (!view.nodes.length) {
+      setBusy(false);
+      return;
+    }
+    const groups =
+      activeGroup === "all" && !activeFocus && view.groups.length > 1
+        ? view.groups.map((group) => group.nodeIds)
+        : undefined;
     const key = JSON.stringify([
       result.analysisId,
       arrangementScope,
@@ -159,7 +167,8 @@ export function GraphView({
       details,
       activeGroup,
       activeFocus,
-      arrangementKey(result.analysisId, view, layoutIntent),
+      groups,
+      arrangementKey(result.analysisId, view, "network"),
     ]);
     const saved = arrangements.get(key);
     const scope = JSON.stringify([
@@ -169,7 +178,6 @@ export function GraphView({
       details,
       activeGroup,
       activeFocus,
-      layoutIntent,
     ]);
     const previous = latestArrangements.get(scope);
     const manualPins = new Set(saved?.pins ?? previous?.pins ?? []);
@@ -400,15 +408,12 @@ export function GraphView({
           worker.postMessage({
             requestId,
             nodes: view.nodes.map((n) => n.id),
-            edges:
-              layoutIntent === "directional"
-                ? directedLayoutLinks(view)
-                : view.edges.map((e) => ({
-                    source: e.source,
-                    target: e.target,
-                    order: [...e.relationIds].sort()[0],
-                  })),
-            intent: layoutIntent,
+            edges: view.edges.map((e) => ({
+              source: e.source,
+              target: e.target,
+              order: [...e.relationIds].sort()[0],
+            })),
+            groups,
             aspectRatio:
               container.current.clientWidth /
               Math.max(1, container.current.clientHeight),
@@ -466,7 +471,7 @@ export function GraphView({
       renderer.current?.kill();
       renderer.current = null;
     };
-  }, [view, layoutIntent, labels, arrangementScope]);
+  }, [view, labels, arrangementScope]);
   return (
     <div className="graph-area">
       <div className="graph-toolbar">
@@ -491,11 +496,7 @@ export function GraphView({
         )}
         <div className="graph-exploration">
           {activeFocus ? (
-            <button
-              onClick={() => {
-                updateControls({ focusId: "", intent: "network" });
-              }}
-            >
+            <button onClick={() => updateControls({ focusId: "" })}>
               Show whole graph
             </button>
           ) : (
@@ -506,26 +507,6 @@ export function GraphView({
               Focus selected neighborhood
             </button>
           )}
-          <label>
-            Layout{" "}
-            <select
-              aria-label="Layout style"
-              value={layoutIntent}
-              onChange={(e) =>
-                updateControls({
-                  intent:
-                    e.target.value === "directional"
-                      ? "directional"
-                      : "network",
-                })
-              }
-            >
-              <option value="network">Connections</option>
-              <option value="directional" disabled={!activeFocus}>
-                Direction
-              </option>
-            </select>
-          </label>
         </div>
       </div>
       <div
@@ -534,6 +515,11 @@ export function GraphView({
         data-analysis-id={result.analysisId}
         aria-label="Project relationship graph"
       />
+      {showClassMatches && !view.nodes.length && (
+        <div className="graph-empty" role="status">
+          No saved objects match these classes.
+        </div>
+      )}
       {activeFocus && (
         <div className="graph-guide">
           {view.hiddenNodes} nodes hidden · {view.hiddenConnections} connections

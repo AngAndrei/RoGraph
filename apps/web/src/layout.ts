@@ -5,6 +5,7 @@ export type Point = { id: string; x: number; y: number };
 export type Link = { source: string; target: string; order?: string };
 export type LayoutOptions = {
   aspectRatio?: number;
+  groups?: string[][];
   polish?: boolean;
   order?: "degree" | "natural" | "evidence";
   coreLayout?: (
@@ -527,6 +528,21 @@ export function arrangeGraph(
   edges: Link[],
   options: LayoutOptions = {},
 ): Point[] {
+  if (options.groups && options.groups.length > 1) {
+    const remaining = new Set(nodes);
+    const groups = options.groups.map((group) =>
+      group.filter((id) => remaining.delete(id)),
+    );
+    if (remaining.size) groups.push([...remaining]);
+    const localOptions = { ...options, groups: undefined };
+    return packLayouts(
+      groups
+        .filter((group) => group.length)
+        .map((group) => arrangeGraph(group, edges, localOptions)),
+      options.aspectRatio,
+      220,
+    );
+  }
   nodes = [...new Set(nodes)].sort();
   edges = edges.toSorted((a, b) => {
     if (
@@ -590,9 +606,15 @@ export function arrangeGraph(
         }
     components.push(component);
   }
-  const boxes = components
-    .map((ids) => {
-      const p = componentLayout(ids, adjacency, options);
+  return packLayouts(
+    components.map((ids) => componentLayout(ids, adjacency, options)),
+    options.aspectRatio,
+  );
+}
+
+function packLayouts(layouts: Point[][], aspectRatio = 1.96, gap = 120) {
+  const boxes = layouts
+    .map((p) => {
       const minX = Math.min(...p.map((n) => n.x)),
         minY = Math.min(...p.map((n) => n.y));
       p.forEach((n) => {
@@ -601,8 +623,8 @@ export function arrangeGraph(
       });
       return {
         points: p,
-        width: Math.max(...p.map((n) => n.x)) + 120,
-        height: Math.max(...p.map((n) => n.y)) + 120,
+        width: Math.max(...p.map((n) => n.x)) + gap,
+        height: Math.max(...p.map((n) => n.y)) + gap,
       };
     })
     .sort(
@@ -611,10 +633,10 @@ export function arrangeGraph(
         (a.points[0].id < b.points[0].id ? -1 : 1),
     );
   const rowWidth = Math.max(
-    120,
+    gap,
     Math.sqrt(
       boxes.reduce((sum, b) => sum + b.width * b.height, 0) *
-        Math.max(0.2, Math.min(5, options.aspectRatio ?? 1.96)),
+        Math.max(0.2, Math.min(5, aspectRatio)),
     ),
   );
   let x = 0,

@@ -7,7 +7,7 @@ scope.onmessage = async (event: MessageEvent<LayoutRequest>) => {
   let response: LayoutResponse;
   try {
     const result = await optimizeGraph(request.nodes, request.edges, {
-      intent: request.intent,
+      groups: request.groups,
       aspectRatio: request.aspectRatio,
       previous: request.previous,
       pins: request.pins,

@@ -12,17 +12,16 @@ export function groupNodes(
     let current = node,
       group: Node | undefined;
     const seen = new Set<string>();
-    while (current.ownerId && !seen.has(current.id)) {
+    while (!seen.has(current.id)) {
       seen.add(current.id);
-      const parent = ancestors.get(current.ownerId);
-      if (!parent) break;
-      current = parent;
-      const cls = String(parent.attributes.className ?? "");
+      const cls = String(current.attributes.className ?? "");
       if (by === "folder" && cls === "Folder") {
-        group = parent;
+        group = current;
         break;
       }
+      const parent = current.ownerId && ancestors.get(current.ownerId);
       if (
+        (parent && parent.attributes.className === "DataModel") ||
         cls.endsWith("Service") ||
         [
           "ReplicatedStorage",
@@ -34,7 +33,9 @@ export function groupNodes(
           "ServerStorage",
         ].includes(cls)
       )
-        group = parent;
+        group = current;
+      if (!parent) break;
+      current = parent;
     }
     group ??= current;
     const entry = groups.get(group.id) ?? {

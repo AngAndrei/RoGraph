@@ -218,13 +218,6 @@ try {
         await page.screenshot({
           path: join(dir, `${sample.sample}-focus.png`),
         });
-        await page.getByLabel("Layout style").selectOption("directional");
-        await page
-          .locator('.sigma-container[data-layout-ready="true"]')
-          .waitFor({ timeout: 60000 });
-        await page.screenshot({
-          path: join(dir, `${sample.sample}-directional.png`),
-        });
       }
       await context.close();
     }

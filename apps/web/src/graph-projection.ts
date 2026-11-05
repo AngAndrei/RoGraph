@@ -77,6 +77,7 @@ export function projectGraph(
   result: QueryResult,
   details: boolean,
   groupId = "all",
+  showClassMatches = false,
 ) {
   if (result.projection?.view === "gameplay") {
     const available = new Set(result.projection.nodeIds);
@@ -109,7 +110,8 @@ export function projectGraph(
     (n) =>
       details ||
       (n.kind === "instance" &&
-        [...scripts, ...channels].includes(String(n.attributes.className))),
+        (showClassMatches ||
+          [...scripts, ...channels].includes(String(n.attributes.className)))),
   );
   const ids = new Set(visible.map((n) => n.id));
   const owner = (id: string) => {
@@ -125,11 +127,7 @@ export function projectGraph(
   const groups = result.groups
     .map((group) => ({
       ...group,
-      nodeIds: [
-        ...new Set(
-          group.nodeIds.map(owner).filter((id): id is string => Boolean(id)),
-        ),
-      ],
+      nodeIds: group.nodeIds.filter((id) => ids.has(id)),
     }))
     .filter((group) => group.nodeIds.length);
   if (groupId !== "all") {

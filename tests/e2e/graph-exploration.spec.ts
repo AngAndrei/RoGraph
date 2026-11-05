@@ -99,7 +99,7 @@ test("previews long node labels and reveals the full label on hover", async ({
   await expect.poll(displayed).toBe(preview);
 });
 
-test("focus and direction preserve selection, evidence and cached arrangements", async ({
+test("focus preserves selection and cached arrangements without a layout selector", async ({
   page,
 }) => {
   await setupGraph(page);
@@ -117,16 +117,7 @@ test("focus and direction preserve selection, evidence and cached arrangements",
     .poll(() => page.evaluate(() => (window as any).s.getGraph().order))
     .toBe(2);
   await expect(page.getByText(/2 nodes hidden/)).toBeVisible();
-  await page.getByLabel("Layout style").selectOption("directional");
-  await ready();
-  expect(
-    await page.evaluate(() => (window as any).lastLayoutRequest.edges),
-  ).toEqual(
-    expect.arrayContaining([
-      { source: "a", target: "b" },
-      { source: "b", target: "a" },
-    ]),
-  );
+  await expect(page.getByLabel("Layout style")).toHaveCount(0);
   await page.getByRole("button", { name: "Show whole graph" }).click();
   await ready();
   expect(await page.evaluate(() => (window as any).s.getGraph().order)).toBe(4);

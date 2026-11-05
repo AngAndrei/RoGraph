@@ -68,6 +68,8 @@ export interface GraphStore {
   close(): Promise<void>;
 }
 const placeholders = (values: unknown[]) => values.map(() => "?").join(",");
+const matchesClasses = (alias: string, classes: string[]) =>
+  `COALESCE(${alias}.class,json_extract(${alias}.data,'$.attributes.scriptClassName')) COLLATE NOCASE IN (${placeholders(classes)})`;
 const parse = (rows: any[]) => rows.map((r) => JSON.parse(r.data));
 export async function openStore(path: string): Promise<GraphStore> {
   await mkdir(dirname(path), { recursive: true });
@@ -493,6 +495,14 @@ export async function openStore(path: string): Promise<GraphStore> {
             );
             args.push(...q.relationTypes);
           }
+          if (q.classes?.length) {
+            const endpoint = q.direction === "out" ? "target" : "source";
+            sql = sql.replace(
+              " ORDER BY",
+              ` AND EXISTS (SELECT 1 FROM nodes n WHERE n.analysis=relations.analysis AND n.id=relations.${endpoint} AND ${matchesClasses("n", q.classes)}) ORDER BY`,
+            );
+            args.push(...q.classes);
+          }
           break;
         case "sites":
           key = "sites";
@@ -513,13 +523,13 @@ export async function openStore(path: string): Promise<GraphStore> {
           break;
         case "overview":
           sql =
-            q.view === "gameplay" && !q.includeInstances
+            q.view === "gameplay" && !q.includeInstances && !q.classes?.length
               ? `SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND id IN (SELECT source FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])}) UNION SELECT target FROM relations WHERE analysis=? AND type IN (${placeholders([...gameplayTypes])})) ORDER BY id`
-              : q.includeInstances
+              : q.includeInstances || q.classes?.length
                 ? "SELECT data FROM nodes WHERE analysis=? AND kind='instance' ORDER BY id"
                 : "SELECT data FROM nodes WHERE analysis=? AND kind='instance' AND class IN ('Script','LocalScript','ModuleScript') ORDER BY id";
           args =
-            q.view === "gameplay" && !q.includeInstances
+            q.view === "gameplay" && !q.includeInstances && !q.classes?.length
               ? [
                   q.analysisId,
                   q.analysisId,
@@ -545,9 +555,7 @@ export async function openStore(path: string): Promise<GraphStore> {
       const alias = q.op === "search" ? "n" : "nodes";
       if (key === "nodes") {
         if (q.classes?.length) {
-          predicates.push(
-            `COALESCE(json_extract(${alias}.data,'$.attributes.className'),json_extract(${alias}.data,'$.attributes.scriptClassName')) IN (${placeholders(q.classes)})`,
-          );
+          predicates.push(matchesClasses(alias, q.classes));
           args.push(...q.classes);
         }
         if (q.contexts?.length) {
