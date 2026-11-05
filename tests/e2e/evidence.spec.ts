@@ -13,6 +13,7 @@ test("follows a potential remote path and opens exact source evidence", async ({
     page.getByRole("heading", { name: "Coverage", exact: true }),
   ).toBeVisible({ timeout: 90000 });
   await page.getByRole("button", { name: "Code", exact: true }).click();
+  await page.getByText("Graph tools", { exact: true }).click();
   await page.getByRole("button", { name: "Trace a path", exact: true }).click();
   await page
     .getByLabel("Trace start")
@@ -29,6 +30,13 @@ test("follows a potential remote path and opens exact source evidence", async ({
     page.getByRole("heading", { name: "Source evidence" }),
   ).toBeVisible();
   await expect(page.locator(".source-code")).toContainText(
+    "Config.Prices.Sword",
+  );
+  await page
+    .getByRole("searchbox", { name: "Find in source" })
+    .fill("Config.Prices.Sword");
+  await page.getByRole("button", { name: "Find matches" }).click();
+  await expect(page.locator(".source-match").first()).toHaveText(
     "Config.Prices.Sword",
   );
   await page.getByRole("button", { name: "Close source" }).click();

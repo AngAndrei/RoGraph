@@ -7,7 +7,7 @@ test("dragging boundary nodes preserves the viewport; pan and wheel still work",
 }) => {
   const bundle = await build({
     stdin: {
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showView=(view='gameplay',analysisId='drag')=>root.render(React.createElement(GraphView,{result:{analysisId,nodes:['left','right','top','bottom','center'].map(id=>({id,kind:'instance',label:id,contexts:['server'],attributes:{className:'Script'}})),relations:[],groups:[],projection:{view,nodeIds:['left','right','top','bottom','center'],edges:[]}},details:false,onSelect:()=>{}}));window.showView();`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showView=(view='gameplay',analysisId='drag',arrangementScope='')=>root.render(React.createElement(GraphView,{result:{analysisId,nodes:['left','right','top','bottom','center'].map(id=>({id,kind:'instance',label:id,contexts:['server'],attributes:{className:'Script'}})),relations:[],groups:[],projection:{view,nodeIds:['left','right','top','bottom','center'],edges:[]}},details:false,arrangementScope,onSelect:()=>{}}));window.showView();`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -124,6 +124,30 @@ test("dragging boundary nodes preserves the viewport; pan and wheel still work",
       camera: s.getCamera().getState(),
     };
   });
+  await page.evaluate(() =>
+    (window as any).showView("gameplay", "drag", "dependencies"),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).dragRenderer.getGraph().getNodeAttribute("left", "x"),
+      ),
+    )
+    .toBe(-100);
+  await page.evaluate(() => {
+    (window as any).dragRenderer
+      .getGraph()
+      .mergeNodeAttributes("left", { x: 444, y: 444 });
+    (window as any).showView("gameplay");
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).dragRenderer.getGraph().getNodeAttribute("left", "x"),
+      ),
+    )
+    .toBe(saved.node.x);
+  expect(await camera()).toEqual(saved.camera);
   await page.evaluate(() => (window as any).showView("code"));
   await expect(page.locator(".sigma-container")).toHaveAttribute(
     "data-layout-ready",

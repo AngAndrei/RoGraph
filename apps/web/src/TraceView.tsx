@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Node, Evidence } from "../../../packages/contracts/src/model.js";
 import type {
   Query,
@@ -118,6 +118,13 @@ export function TraceControls({
     ),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const currentRequest = useRef(0);
+  useEffect(
+    () => () => {
+      currentRequest.current++;
+    },
+    [analysisId],
+  );
   return (
     <div className="trace-controls">
       <header>
@@ -144,6 +151,7 @@ export function TraceControls({
         className="primary"
         disabled={busy || !from || !to}
         onClick={() => {
+          const request = ++currentRequest.current;
           setBusy(true);
           const q: Query = {
             op: "trace",
@@ -156,9 +164,15 @@ export function TraceControls({
           };
           void api
             .run(q)
-            .then((r) => onResult(r, q))
-            .catch((e) => setError(e.message))
-            .finally(() => setBusy(false));
+            .then((r) => {
+              if (request === currentRequest.current) onResult(r, q);
+            })
+            .catch((e) => {
+              if (request === currentRequest.current) setError(e.message);
+            })
+            .finally(() => {
+              if (request === currentRequest.current) setBusy(false);
+            });
         }}
       >
         {busy ? "Finding…" : "Find path"}

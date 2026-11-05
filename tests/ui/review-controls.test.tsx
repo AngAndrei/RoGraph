@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+  act,
   render,
   screen,
   cleanup,
@@ -12,8 +13,10 @@ import type { QueryResult } from "../../packages/contracts/src/query.js";
 const mock = vi.hoisted(() => ({ run: vi.fn(), workspace: vi.fn() }));
 vi.mock("../../apps/web/src/api.js", () => ({ api: mock }));
 vi.mock("../../apps/web/src/GraphView.js", () => ({
-  GraphView: ({ onSelect }: any) => (
-    <button onClick={() => onSelect("start")}>Choose start</button>
+  GraphView: ({ onSelect, details }: any) => (
+    <button data-details={details} onClick={() => onSelect("start")}>
+      Choose start
+    </button>
   ),
 }));
 vi.mock("../../apps/web/src/Hierarchy.js", () => ({
@@ -91,6 +94,7 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole("button", { name: "Choose start" });
+  await user.click(screen.getByText("Graph tools", { exact: true }));
   await user.selectOptions(
     screen.getByLabelText("Execution context"),
     "server",
@@ -101,7 +105,6 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
   );
   await user.click(screen.getByRole("button", { name: "Code" }));
   await user.selectOptions(screen.getByLabelText("Relationship type"), "CALLS");
-  await user.click(screen.getByRole("button", { name: "Overview" }));
   const filters = {
     contexts: ["server"],
     statuses: ["resolved"],
@@ -142,6 +145,31 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
     ),
   );
 });
+it("returns to the overview on a same-mode click and closes the inspector", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Choose start" }));
+  await user.click(await screen.findByRole("button", { name: "Dependencies" }));
+  expect(
+    screen
+      .getByRole("button", { name: "Choose start" })
+      .getAttribute("data-details"),
+  ).toBe("true");
+  mock.run.mockClear();
+  await user.click(screen.getByRole("button", { name: "Gameplay" }));
+  await waitFor(() =>
+    expect(mock.run).toHaveBeenCalledWith(
+      expect.objectContaining({ op: "overview", view: "gameplay" }),
+    ),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Choose start" })
+      .getAttribute("data-details"),
+  ).toBe("false");
+  await user.click(screen.getByRole("button", { name: "Close inspector" }));
+  expect(screen.queryByText("Node selected")).toBeNull();
+});
 it("searches trace endpoints across the pinned snapshot and retains active filters", async () => {
   const user = userEvent.setup();
   render(
@@ -180,6 +208,28 @@ it("searches trace endpoints across the pinned snapshot and retains active filte
       }),
     ),
   );
+});
+it("ignores a trace response after the controls are dismissed", async () => {
+  const user = userEvent.setup();
+  const onResult = vi.fn();
+  let complete!: (value: QueryResult) => void;
+  mock.run.mockReturnValueOnce(
+    new Promise<QueryResult>((resolve) => {
+      complete = resolve;
+    }),
+  );
+  const { unmount } = render(
+    <TraceControls
+      analysisId="a"
+      nodes={[start, destination]}
+      onClose={() => {}}
+      onResult={onResult}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Find path" }));
+  unmount();
+  await act(async () => complete(result()));
+  expect(onResult).not.toHaveBeenCalled();
 });
 it("shows diagnostic details and opens their indexed owner", async () => {
   mock.run.mockImplementation(async () => ({
@@ -260,5 +310,13 @@ it("opens a parse diagnostic at its exact indexed source location", async () => 
       }),
     ),
   );
-  await screen.findByText(/a{64}/);
+  await screen.findByRole("heading", { name: "Source evidence" });
+  await user.type(
+    screen.getByRole("searchbox", { name: "Find in source" }),
+    "?",
+  );
+  await user.click(screen.getByRole("button", { name: "Find matches" }));
+  expect(document.querySelector(".source-match")?.textContent).toBe("?");
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 });

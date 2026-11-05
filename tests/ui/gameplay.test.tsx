@@ -215,6 +215,7 @@ it("defaults to Gameplay and keeps the actual selected object when switching to 
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole("button", { name: "Gameplay" });
+  await user.click(screen.getByText("Graph tools", { exact: true }));
   expect(screen.getByRole("option", { name: "SPAWNS" })).toBeTruthy();
   expect(
     mock.run.mock.calls.some(

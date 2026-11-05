@@ -86,7 +86,7 @@ small {
   flex-direction: column;
 }
 .topbar {
-  height: 72px;
+  height: 64px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -198,8 +198,35 @@ small {
   align-items: center;
   padding: 27px 22px 17px;
 }
-.sidebar-title > span:last-child {
-  color: #a8b3c2;
+.sidebar.sidebar-collapsed {
+  width: 40px;
+  min-height: 0;
+}
+.sidebar-collapsed .sidebar-title {
+  justify-content: center;
+  padding: 12px 0;
+}
+.navigator-content:not([hidden]) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.navigator-tools-menu {
+  margin: 0 16px 12px;
+  font-size: 11px;
+  color: #536980;
+}
+.navigator-tools-menu summary {
+  cursor: pointer;
+}
+.navigator-tools {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+}
+.navigator-tools select {
+  width: 100%;
+  padding: 4px;
 }
 .search-box {
   margin: 0 16px 18px;
@@ -436,7 +463,7 @@ small {
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  padding: 26px 30px 20px;
+  padding: 12px 24px;
   background: #fbfcfe;
 }
 .view-header h1 {
@@ -516,18 +543,11 @@ small {
 }
 .graph-guide {
   position: absolute;
-  top: 70px;
-  left: 28px;
-  pointer-events: none;
-}
-.graph-guide .eyebrow {
-  font-size: 9px;
-}
-.graph-guide p {
-  color: #a0adbf;
+  top: 60px;
+  left: 16px;
+  color: #536980;
   font-size: 10px;
-  line-height: 1.8;
-  margin-top: 7px;
+  pointer-events: none;
 }
 .graph-controls {
   position: absolute;
@@ -624,12 +644,18 @@ small {
   color: #ac8b4c;
 }
 .inspector {
+  position: relative;
   background: #fff;
   border-left: 1px solid var(--line);
   width: 320px;
   flex-shrink: 0;
   padding: 28px 23px;
   overflow: auto;
+}
+.inspector-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
 }
 .inspector > h2 {
   font-size: 20px;
@@ -955,7 +981,7 @@ small {
     padding: 24px 18px;
   }
   .view-header {
-    padding: 24px 22px;
+    padding: 12px 18px;
   }
   .view-header h1 {
     font-size: 22px;
@@ -1035,10 +1061,10 @@ small {
   }
   .topbar {
     height: auto;
-    min-height: 65px;
+    min-height: 58px;
     flex-wrap: wrap;
     gap: 10px;
-    padding: 15px;
+    padding: 10px 15px;
   }
   .brand {
     min-width: 175px;
@@ -1075,6 +1101,14 @@ small {
   display: flex;
   gap: 6px;
   margin: 18px 0;
+  padding-bottom: 6px;
+  overflow-x: auto;
+  scrollbar-color: #8b9bb0 #edf1f6;
+  scrollbar-width: thin;
+}
+.inspect-actions button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .inspect-actions button {
   font-size: 10px;
@@ -1212,53 +1246,61 @@ small {
   font-weight: 500;
   margin: 9px 0 10px;
 }
-.source-path {
-  font-family: Consolas, monospace;
-  font-size: 10px;
-  color: #94a3b6;
-  overflow-wrap: anywhere;
-  line-height: 1.7;
-  margin-bottom: 18px;
+.source-panel {
+  width: min(1120px, 100%);
+  height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 14px clamp(12px, 3vw, 28px);
 }
-.source-panel .segmented {
-  display: inline-flex;
-}
-.source-notice {
-  background: #fff7e7;
-  border: 1px solid #f2e6cb;
-  border-radius: 5px;
-  padding: 10px 12px;
-  color: #ab8b51;
-  font-size: 10px;
-  line-height: 1.7;
-  margin: 14px 0;
-}
-.source-locator {
-  font-size: 11px;
-  color: #687f98;
-  margin: 20px 0 12px;
-}
-.source-locator small {
-  display: block;
-  font-size: 9px;
-  font-family: Consolas, monospace;
-  color: #a7b3c2;
-  margin-top: 8px;
-  overflow-wrap: anywhere;
-}
-.source-code {
-  padding: 22px 25px;
-  background: #f6f8fc;
-  color: #49617c;
+.source-frame {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   border: 1px solid #e6edf4;
   border-radius: 7px;
+  background: #f6f8fc;
+  overflow: hidden;
+}
+.source-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 9px;
+  border-bottom: 1px solid #e6edf4;
+}
+.source-search {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.source-search input {
+  width: min(12rem, 48vw);
+  padding: 5px 8px;
+  border: 1px solid #dfe6ee;
+  border-radius: 5px;
+  font: inherit;
+}
+.source-no-matches {
+  padding: 4px 9px;
+  color: #536980;
+  text-align: right;
+}
+.source-code {
+  margin: 0;
+  flex: 1;
+  padding: 12px 18px;
+  background: #f6f8fc;
+  color: #49617c;
   font-family: Consolas, "Cascadia Code", monospace;
   font-size: 12px;
   line-height: 1.9;
   white-space: pre;
   overflow: auto;
-  min-height: 160px;
-  max-height: 48dvh;
+  min-height: 0;
   tab-size: 4;
 }
 .source-code mark {
@@ -1267,8 +1309,13 @@ small {
   padding: 3px 0;
   border-bottom: 2px solid #a4c48b;
 }
+.source-code .source-match {
+  background: #ffec9c;
+  color: #382e13;
+}
 .source-panel > footer {
   display: flex;
+  justify-content: flex-end;
   gap: 20px;
   align-items: center;
   margin-top: 15px;

@@ -49,27 +49,56 @@ function color(n: Node) {
                 ? "#55ad99"
                 : "#a2adbb";
 }
+type GraphControls = {
+  group: string;
+  focusId: string;
+  intent: "network" | "directional";
+};
+const defaultControls: GraphControls = {
+  group: "all",
+  focusId: "",
+  intent: "network",
+};
+
 export function GraphView({
   result,
   details,
   onSelect,
   onEdge,
   selectedId,
+  arrangementScope = "",
 }: {
   result: QueryResult;
   details: boolean;
   onSelect: (id: string) => void;
   onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
   selectedId?: string;
+  arrangementScope?: string;
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
     [error, setError] = useState(""),
-    [group, setGroup] = useState("all"),
-    [focusId, setFocus] = useState(""),
-    [intent, setIntent] = useState<"network" | "directional">("network"),
+    [controlsByView, setControlsByView] = useState<
+      Record<string, GraphControls>
+    >({}),
     [localSelection, setLocalSelection] = useState(""),
     [busy, setBusy] = useState(false);
+  const controlsKey = JSON.stringify([
+    result.analysisId,
+    result.projection?.view,
+    arrangementScope,
+  ]);
+  const { group, focusId, intent } =
+    controlsByView[controlsKey] ?? defaultControls;
+  const updateControls = (changes: Partial<GraphControls>) => {
+    setControlsByView((current) => ({
+      ...current,
+      [controlsKey]: {
+        ...(current[controlsKey] ?? defaultControls),
+        ...changes,
+      },
+    }));
+  };
   const selection = selectedId ?? localSelection;
   const activeGroup = result.groups.some((g) => g.id === group) ? group : "all";
   const fullView = useMemo(
@@ -107,6 +136,7 @@ export function GraphView({
     setError("");
     const key = JSON.stringify([
       result.analysisId,
+      arrangementScope,
       result.projection?.view ?? "code",
       details,
       activeGroup,
@@ -116,6 +146,7 @@ export function GraphView({
     const saved = arrangements.get(key);
     const scope = JSON.stringify([
       result.analysisId,
+      arrangementScope,
       result.projection?.view ?? "code",
       details,
       activeGroup,
@@ -134,7 +165,7 @@ export function GraphView({
         label: labels.get(n.id) ?? n.label,
         x: Math.cos(i * 2.399) * Math.sqrt(i + 1),
         y: Math.sin(i * 2.399) * Math.sqrt(i + 1),
-        size: n.kind === "instance" ? 7 : 4,
+        size: (n.kind === "instance" ? 7 : 4) * 0.95,
         color: color(n),
         labelColor: "#435069",
         labelSize: 12,
@@ -193,7 +224,7 @@ export function GraphView({
       const resizeNodes = () => {
         const ratio = sigma.getCamera().getState().ratio;
         for (const n of view.nodes) {
-          const base = n.kind === "instance" ? 7 : 4;
+          const base = (n.kind === "instance" ? 7 : 4) * 0.95;
           const size = Math.min(
             base,
             (((clearance.get(n.id) ?? Infinity) / ratio) * 0.36) /
@@ -408,7 +439,7 @@ export function GraphView({
       renderer.current?.kill();
       renderer.current = null;
     };
-  }, [view, layoutIntent, labels]);
+  }, [view, layoutIntent, labels, arrangementScope]);
   return (
     <div className="graph-area">
       <div className="graph-toolbar">
@@ -419,7 +450,7 @@ export function GraphView({
               <select
                 aria-label="Visible group"
                 value={activeGroup}
-                onChange={(e) => setGroup(e.target.value)}
+                onChange={(e) => updateControls({ group: e.target.value })}
               >
                 <option value="all">All {view.groups.length} groups</option>
                 {view.groups.map((g) => (
@@ -435,8 +466,7 @@ export function GraphView({
           {activeFocus ? (
             <button
               onClick={() => {
-                setFocus("");
-                setIntent("network");
+                updateControls({ focusId: "", intent: "network" });
               }}
             >
               Show whole graph
@@ -444,7 +474,7 @@ export function GraphView({
           ) : (
             <button
               disabled={!view.nodes.some((n) => n.id === selection)}
-              onClick={() => setFocus(selection)}
+              onClick={() => updateControls({ focusId: selection })}
             >
               Focus selected neighborhood
             </button>
@@ -455,7 +485,12 @@ export function GraphView({
               aria-label="Layout style"
               value={layoutIntent}
               onChange={(e) =>
-                setIntent(e.target.value as "network" | "directional")
+                updateControls({
+                  intent:
+                    e.target.value === "directional"
+                      ? "directional"
+                      : "network",
+                })
               }
             >
               <option value="network">Connections</option>
@@ -472,34 +507,12 @@ export function GraphView({
         data-analysis-id={result.analysisId}
         aria-label="Project relationship graph"
       />
-      <div className="graph-guide">
-        <span className="eyebrow">
-          {result.projection?.view === "gameplay"
-            ? "GAMEPLAY CONNECTIONS"
-            : details
-              ? "METHODS & CONFIGURATION"
-              : "CODE CONNECTIONS"}
-        </span>
-        <p>
-          {view.nodes.length} nodes · {view.edges.length} links
-          <br />
-          Select a node or connection to see its actions and evidence.
-          {activeFocus && (
-            <>
-              <br />
-              {view.hiddenNodes} nodes hidden · {view.hiddenConnections}{" "}
-              connections hidden ({view.boundaryConnections} leave this
-              neighborhood)
-            </>
-          )}
-          {result.meta?.truncated && (
-            <>
-              <br />
-              Partial query · additional project content is omitted
-            </>
-          )}
-        </p>
-      </div>
+      {activeFocus && (
+        <div className="graph-guide">
+          {view.hiddenNodes} nodes hidden · {view.hiddenConnections} connections
+          hidden
+        </div>
+      )}
       {busy && (
         <div className="graph-layout-status" role="status">
           Optimizing graph layout…
@@ -549,22 +562,24 @@ export function GraphView({
           </span>
         ))}
       </div>
-      <details className="graph-node-list" open={Boolean(error)}>
-        <summary>{error || "Browse visible nodes"}</summary>
-        <div>
-          {view.nodes.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => {
-                setLocalSelection(n.id);
-                onSelect(n.id);
-              }}
-            >
-              {labels.get(n.id) ?? n.label}
-            </button>
-          ))}
-        </div>
-      </details>
+      {error && (
+        <details className="graph-node-list" open>
+          <summary>{error}</summary>
+          <div>
+            {view.nodes.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => {
+                  setLocalSelection(n.id);
+                  onSelect(n.id);
+                }}
+              >
+                {labels.get(n.id) ?? n.label}
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

@@ -16,23 +16,33 @@ test("shows real objects in Gameplay and follows the Chicken controller into Cod
     "data-layout-ready",
     "true",
   );
-  await page.getByText("Browse visible nodes", { exact: true }).click();
-  const list = page.locator(".graph-node-list");
   await expect(
-    list.getByRole("button", { name: "Chicken", exact: true }),
-  ).toBeVisible();
-  await expect(
-    list.getByRole("button", { name: "Egg", exact: true }),
-  ).toBeVisible();
+    page.getByText("Browse visible nodes", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".inspector")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Collapse project navigator" })
+    .click();
+  await expect(page.getByLabel("Search project")).toBeHidden();
+  await page.getByRole("button", { name: "Expand project navigator" }).click();
+  const search = page.getByLabel("Search project");
+  await search.fill("Egg");
   await expect(page.getByText(/symbolic spawned egg/i)).toHaveCount(0);
-  await list.getByRole("button", { name: "Egg", exact: true }).click();
+  await page
+    .locator(".search-results")
+    .getByRole("button", { name: "Egg", exact: true })
+    .click();
   await expect(
     page
       .locator(".inspector")
       .getByRole("button", { name: /Config · .*EggTemplateName/ })
       .first(),
   ).toBeVisible();
-  await list.getByRole("button", { name: "Chicken", exact: true }).click();
+  await search.fill("Chicken");
+  await page
+    .locator(".search-results")
+    .getByRole("button", { name: "Chicken", exact: true })
+    .click();
   await expect(
     page
       .locator(".inspector")
@@ -55,6 +65,8 @@ test("shows real objects in Gameplay and follows the Chicken controller into Cod
       .locator(".inspector")
       .getByRole("heading", { name: "Chicken", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Close inspector" }).click();
+  await expect(page.locator(".inspector")).toHaveCount(0);
   await page.screenshot({
     path: "build/previews/gameplay.png",
     fullPage: true,

@@ -132,10 +132,6 @@ export function Hierarchy({
           onSelect={onSelect}
         />
       ))}
-      <p className="tree-hint">
-        All saved objects are here, including geometry. Expand a script to
-        browse its functions and fields.
-      </p>
     </nav>
   );
 }

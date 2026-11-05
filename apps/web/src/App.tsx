@@ -53,12 +53,17 @@ export default function App() {
     [view, setView] = useState<"gameplay" | "code">("gameplay"),
     [context, setContext] = useState("all"),
     [status, setStatus] = useState("all"),
-    [type, setType] = useState("all"),
+    [relationshipTypes, setRelationshipTypes] = useState({
+      gameplay: "all",
+      code: "all",
+    }),
     [classFilter, setClasses] = useState(""),
     [depth, setDepth] = useState(6),
     [groupBy, setGroupBy] = useState<"service" | "folder">("service"),
     [includeInstances, setIncludeInstances] = useState(false),
-    [stopped, setStopped] = useState(false);
+    [stopped, setStopped] = useState(false),
+    [navigatorCollapsed, setNavigatorCollapsed] = useState(false),
+    [overviewRevision, setOverviewRevision] = useState(0);
   const [traceOpen, setTraceOpen] = useState(false),
     [exportOpen, setExportOpen] = useState(false),
     [traceResult, setTraceResult] = useState<QueryResult>(),
@@ -69,8 +74,10 @@ export default function App() {
   const [newSnapshot, setNewSnapshot] = useState<string>(),
     [watching, setWatching] = useState(false);
   const requestRef = useRef(0);
+  const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
+  const type = relationshipTypes[view];
   const graphFilters = useMemo(
     () => ({
       view,
@@ -113,7 +120,10 @@ export default function App() {
     let alive = true;
     const changed = previousAnalysis.current !== analysisId;
     const changedView = previousView.current !== view;
-    if (changedView) setEdgeId(undefined);
+    if (changedView) {
+      setEdgeId(undefined);
+      if (!changed && selectedId) void select(selectedId);
+    }
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
@@ -123,9 +133,8 @@ export default function App() {
     }
     setExportOpen(false);
     setTraceOpen(false);
-    setTraceResult(undefined);
-    setActiveQuery(undefined);
-    requestRef.current++;
+    const request = ++graphRequest.current;
+    if (changed) requestRef.current++;
     void api
       .run({
         op: "overview",
@@ -134,9 +143,8 @@ export default function App() {
         ...graphFilters,
       })
       .then((r) => {
-        if (alive) {
+        if (alive && request === graphRequest.current) {
           setResult(r);
-          if (!changed && changedView && selectedId) void select(selectedId);
           setTraceResult(undefined);
           setActiveQuery({
             op: "overview",
@@ -147,12 +155,12 @@ export default function App() {
         }
       })
       .catch((e) => {
-        if (alive) setError(e.message);
+        if (alive && request === graphRequest.current) setError(e.message);
       });
     return () => {
       alive = false;
     };
-  }, [analysisId, graphFilters]);
+  }, [analysisId, graphFilters, overviewRevision]);
   useEffect(() => {
     if (!analysisId || !search.trim()) {
       setMatches([]);
@@ -202,7 +210,7 @@ export default function App() {
       });
       if (request === requestRef.current) setSelection(r);
     } catch (e) {
-      setError((e as Error).message);
+      if (request === requestRef.current) setError((e as Error).message);
     }
   }
   useEffect(() => {
@@ -229,23 +237,20 @@ export default function App() {
       clearInterval(timer);
     };
   }, [analysisId]);
-  async function overview() {
-    const q: Query = {
-      op: "overview",
-      analysisId,
-      limit: 300,
-      ...graphFilters,
-    };
-    try {
-      setResult(await api.run(q));
-      setTraceResult(undefined);
-      setActiveQuery(q);
-      setDetails(false);
-    } catch (e) {
-      setError((e as Error).message);
-    }
+  function openOverview(mode: typeof view) {
+    graphRequest.current++;
+    setView(mode);
+    setOverviewRevision((revision) => revision + 1);
+  }
+  function closeInspector() {
+    requestRef.current++;
+    setSelected("");
+    setSelection(undefined);
+    setEdgeId(undefined);
+    setConnectionRelationIds(undefined);
   }
   async function explore(op: "dependencies" | "impact", id: string) {
+    const request = ++graphRequest.current;
     try {
       const q: Query = {
           op,
@@ -255,20 +260,25 @@ export default function App() {
           ...graphFilters,
         },
         r = await api.run(q);
+      if (request !== graphRequest.current) return;
       setResult(r);
-      setDetails(true);
       setTraceResult(r);
       setActiveQuery(q);
     } catch (e) {
-      setError((e as Error).message);
+      if (request === graphRequest.current) setError((e as Error).message);
     }
   }
-  const node = selection?.nodes.find((n) => n.id === selectedId),
-    members =
-      selection?.nodes.filter(
-        (n) =>
-          n.ownerId === selectedId && ["function", "field"].includes(n.kind),
-      ) ?? [];
+  const traceRequest = graphRequest.current;
+  const node = selection?.nodes.find((n) => n.id === selectedId);
+  const graphScope =
+    activeQuery && activeQuery.analysisId === result?.analysisId
+      ? JSON.stringify([
+          activeQuery.op,
+          "nodeId" in activeQuery && activeQuery.nodeId,
+          "fromId" in activeQuery && activeQuery.fromId,
+          "toId" in activeQuery && activeQuery.toId,
+        ])
+      : "";
   if (stopped)
     return (
       <main className="stopped">
@@ -306,109 +316,208 @@ export default function App() {
         </button>
       </header>
       <div className="workspace">
-        <aside className="sidebar">
+        <aside
+          className={
+            navigatorCollapsed ? "sidebar sidebar-collapsed" : "sidebar"
+          }
+          aria-label="Project navigator"
+        >
           <div className="sidebar-title">
-            <span className="eyebrow">PROJECT NAVIGATOR</span>
-            <span>◫</span>
+            {!navigatorCollapsed && (
+              <span className="eyebrow">PROJECT NAVIGATOR</span>
+            )}
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={
+                navigatorCollapsed
+                  ? "Expand project navigator"
+                  : "Collapse project navigator"
+              }
+              aria-expanded={!navigatorCollapsed}
+              aria-controls="project-navigator-content"
+              onClick={() => setNavigatorCollapsed(!navigatorCollapsed)}
+            >
+              {navigatorCollapsed ? "›" : "‹"}
+            </button>
           </div>
-          <label className="search-box">
-            <span>⌕</span>
-            <input
-              aria-label="Search project"
-              placeholder="Search anything…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <kbd>⌕</kbd>
-          </label>
-          {analysisId ? (
-            <>
-              <label className="snapshot-label">
-                Snapshot
-                <select
-                  aria-label="Snapshot"
-                  value={analysisId}
-                  onChange={(e) => setAnalysis(e.target.value)}
-                >
-                  {analyses.map((a) => (
-                    <option key={a.analysisId} value={a.analysisId}>
-                      {a.analysisId.slice(0, 8)} ·{" "}
-                      {a.complete ? "Complete" : "Partial import"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {search ? (
-                <div className="search-results">
-                  <span className="eyebrow">{matches.length} RESULTS</span>
-                  {matches.map((n) => (
-                    <button
-                      key={n.id}
-                      className="result-row"
-                      aria-label={n.label}
-                      onClick={() => void select(n.id)}
+          <div
+            id="project-navigator-content"
+            className="navigator-content"
+            hidden={navigatorCollapsed}
+          >
+            <label className="search-box">
+              <span>⌕</span>
+              <input
+                aria-label="Search project"
+                placeholder="Search anything…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <kbd>⌕</kbd>
+            </label>
+            {analysisId ? (
+              <>
+                <label className="snapshot-label">
+                  Snapshot
+                  <select
+                    aria-label="Snapshot"
+                    value={analysisId}
+                    onChange={(e) => setAnalysis(e.target.value)}
+                  >
+                    {analyses.map((a) => (
+                      <option key={a.analysisId} value={a.analysisId}>
+                        {a.analysisId.slice(0, 8)} ·{" "}
+                        {a.complete ? "Complete" : "Partial import"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <details className="navigator-tools-menu">
+                  <summary>Graph tools</summary>
+                  <div className="navigator-tools">
+                    <select
+                      aria-label="Execution context"
+                      value={context}
+                      onChange={(e) => setContext(e.target.value)}
                     >
-                      <NodeMark node={n} />
-                      <span>
-                        {n.label}
-                        <small>
-                          {n.kind === "instance"
-                            ? String(n.attributes.className)
-                            : n.kind}
-                        </small>
-                      </span>
+                      <option value="all">All contexts</option>
+                      <option value="client">Client</option>
+                      <option value="server">Server</option>
+                      <option value="unknown">Unknown context</option>
+                    </select>
+                    <select
+                      aria-label="Evidence status"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      {[
+                        "all",
+                        "saved",
+                        "resolved",
+                        "candidate",
+                        "unresolved",
+                      ].map((s) => (
+                        <option key={s} value={s}>
+                          {s === "all" ? "All evidence" : s}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Relationship type"
+                      value={type}
+                      onChange={(e) =>
+                        setRelationshipTypes({
+                          ...relationshipTypes,
+                          [view]: e.target.value,
+                        })
+                      }
+                    >
+                      {[
+                        "all",
+                        ...(view === "gameplay"
+                          ? gameplayTypes
+                          : [
+                              "REQUIRES",
+                              "CALLS",
+                              "READS",
+                              "WRITES",
+                              "REFERENCES",
+                              "SENDS_VIA",
+                              "HANDLES",
+                            ]),
+                      ].map((s) => (
+                        <option key={s} value={s}>
+                          {s === "all" ? "All relationships" : s}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="text-button"
+                      onClick={() => setTraceOpen(!traceOpen)}
+                    >
+                      Trace a path
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div className="tree-heading">ALL SAVED OBJECTS</div>
-                  <Hierarchy
-                    key={analysisId}
-                    analysisId={analysisId}
-                    onSelect={(id) => void select(id)}
-                  />
-                </>
-              )}
-              {result?.analysisId === analysisId && (
-                <>
-                  <CoverageView coverage={result.coverage} />
-                  <DiagnosticView
-                    key={analysisId}
-                    analysisId={analysisId}
-                    onSelect={(id) => void select(id)}
-                  />
-                  {analyses.length > 1 && (
-                    <DiffView
+                    <button
+                      className="text-button"
+                      onClick={() => setExportOpen(true)}
+                    >
+                      Export context
+                    </button>
+                  </div>
+                </details>
+                {search ? (
+                  <div className="search-results">
+                    <span className="eyebrow">{matches.length} RESULTS</span>
+                    {matches.map((n) => (
+                      <button
+                        key={n.id}
+                        className="result-row"
+                        aria-label={n.label}
+                        onClick={() => void select(n.id)}
+                      >
+                        <NodeMark node={n} />
+                        <span>
+                          {n.label}
+                          <small>
+                            {n.kind === "instance"
+                              ? String(n.attributes.className)
+                              : n.kind}
+                          </small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="tree-heading">ALL SAVED OBJECTS</div>
+                    <Hierarchy
                       key={analysisId}
                       analysisId={analysisId}
-                      analyses={analyses}
+                      onSelect={(id) => void select(id)}
                     />
-                  )}
-                </>
-              )}
-            </>
-          ) : (
-            <div className="sidebar-empty">
-              <span>◇</span>
-              <p>
-                Your project structure
-                <br />
-                will appear here.
-              </p>
+                  </>
+                )}
+                {result?.analysisId === analysisId && (
+                  <>
+                    <CoverageView coverage={result.coverage} />
+                    <DiagnosticView
+                      key={analysisId}
+                      analysisId={analysisId}
+                      onSelect={(id) => void select(id)}
+                    />
+                    {analyses.length > 1 && (
+                      <DiffView
+                        key={analysisId}
+                        analysisId={analysisId}
+                        analyses={analyses}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="sidebar-empty">
+                <span>◇</span>
+                <p>
+                  Your project structure
+                  <br />
+                  will appear here.
+                </p>
+              </div>
+            )}
+            <div className="sidebar-footer">
+              <span>
+                RoGraph <b>0.2</b>
+              </span>
+              <a
+                href="https://github.com/AngAndrei/RoGraph"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Project ↗
+              </a>
             </div>
-          )}
-          <div className="sidebar-footer">
-            <span>
-              RoGraph <b>0.2</b>
-            </span>
-            <a
-              href="https://github.com/AngAndrei/RoGraph"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Project ↗
-            </a>
           </div>
         </aside>
         <main className="main-area">
@@ -474,24 +583,17 @@ export default function App() {
                   <h1>
                     Explore your connections<span className="dot">.</span>
                   </h1>
-                  <p>From the big picture to the line that connects it.</p>
                 </div>
                 <div className="segmented">
                   <button
                     className={view === "gameplay" ? "active" : ""}
-                    onClick={() => {
-                      setView("gameplay");
-                      setType("all");
-                    }}
+                    onClick={() => openOverview("gameplay")}
                   >
                     Gameplay
                   </button>
                   <button
                     className={view === "code" ? "active" : ""}
-                    onClick={() => {
-                      setView("code");
-                      setType("all");
-                    }}
+                    onClick={() => openOverview("code")}
                   >
                     Code
                   </button>
@@ -504,71 +606,6 @@ export default function App() {
                     </button>
                   )}
                 </div>
-              </div>
-              <div className="filterbar">
-                <span>View</span>
-                <select
-                  aria-label="Execution context"
-                  value={context}
-                  onChange={(e) => setContext(e.target.value)}
-                >
-                  <option value="all">All contexts</option>
-                  <option value="client">Client</option>
-                  <option value="server">Server</option>
-                  <option value="unknown">Unknown context</option>
-                </select>
-                <select
-                  aria-label="Evidence status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  {["all", "saved", "resolved", "candidate", "unresolved"].map(
-                    (s) => (
-                      <option key={s} value={s}>
-                        {s === "all" ? "All evidence" : s}
-                      </option>
-                    ),
-                  )}
-                </select>
-                <select
-                  aria-label="Relationship type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  {[
-                    "all",
-                    ...(view === "gameplay"
-                      ? gameplayTypes
-                      : [
-                          "REQUIRES",
-                          "CALLS",
-                          "READS",
-                          "WRITES",
-                          "REFERENCES",
-                          "SENDS_VIA",
-                          "HANDLES",
-                        ]),
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {s === "all" ? "All relationships" : s}
-                    </option>
-                  ))}
-                </select>
-                <button className="text-button" onClick={() => void overview()}>
-                  Overview
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() => setTraceOpen(!traceOpen)}
-                >
-                  Trace a path
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() => setExportOpen(true)}
-                >
-                  Export context
-                </button>
               </div>
               <div className="filterbar secondary-filters">
                 <label>
@@ -628,7 +665,12 @@ export default function App() {
               <GraphView
                 result={result}
                 selectedId={selectedId}
-                details={details || includeInstances}
+                details={
+                  ((activeQuery?.view ?? view) === "code" && details) ||
+                  includeInstances ||
+                  Boolean(traceResult)
+                }
+                arrangementScope={graphScope}
                 onSelect={(id) => {
                   setEdgeId(undefined);
                   void select(id);
@@ -656,8 +698,9 @@ export default function App() {
                   filters={graphFilters}
                   onClose={() => setTraceOpen(false)}
                   onResult={(r, q) => {
+                    if (traceRequest !== graphRequest.current) return;
+                    graphRequest.current++;
                     setResult(r);
-                    setDetails(true);
                     setTraceResult(r);
                     setActiveQuery(q);
                     setTraceOpen(false);
@@ -671,16 +714,6 @@ export default function App() {
                   onSelect={(id) => void select(id)}
                 />
               )}
-              {result.meta.truncated && (
-                <div className="bounds-banner">
-                  This view is bounded. Expand a node or narrow your search to
-                  explore further.
-                </div>
-              )}
-              <footer className="canvas-footer">
-                <span>◇ Saved facts + static analysis</span>
-                <span>Potential paths · runtime behavior may differ</span>
-              </footer>
             </>
           ) : (
             <div className="welcome">
@@ -698,49 +731,33 @@ export default function App() {
             </div>
           )}
         </main>
-        {analysisId && (
-          <aside className="inspector">
-            {node && selection?.analysisId === analysisId ? (
-              <Inspector
-                key={selectedId}
-                result={selection}
-                selectedId={selectedId}
-                onSelect={(id) => {
-                  setEdgeId(undefined);
-                  void select(id);
-                }}
-                onExplore={(op, id) => void explore(op, id)}
-                edgeId={edgeId}
-                connectionRelationIds={
-                  edgeId ? connectionRelationIds : undefined
-                }
-                onShowImplementation={() => {
-                  setEdgeId(undefined);
-                  setView("code");
-                  setDetails(true);
-                  setType("all");
-                }}
-              />
-            ) : (
-              <div className="inspector-empty">
-                <div className="selection-art">⌘</div>
-                <h2>Follow a connection</h2>
-                <p>
-                  Select an object, script, or connection to see what it uses
-                  and what depends on it.
-                </p>
-                <div className="inspector-tip">
-                  <strong>Start with a question</strong>
-                  <p>
-                    Who calls this method?
-                    <br />
-                    Where is this price used?
-                    <br />
-                    Which scripts share a remote?
-                  </p>
-                </div>
-              </div>
-            )}
+        {node && selection?.analysisId === analysisId && (
+          <aside className="inspector" aria-label="Selected instance">
+            <button
+              type="button"
+              className="icon-button inspector-close"
+              aria-label="Close inspector"
+              onClick={closeInspector}
+            >
+              ×
+            </button>
+            <Inspector
+              key={selectedId}
+              result={selection}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                setEdgeId(undefined);
+                void select(id);
+              }}
+              onExplore={(op, id) => void explore(op, id)}
+              edgeId={edgeId}
+              connectionRelationIds={edgeId ? connectionRelationIds : undefined}
+              onShowImplementation={() => {
+                setEdgeId(undefined);
+                openOverview("code");
+                setDetails(true);
+              }}
+            />
           </aside>
         )}
       </div>
