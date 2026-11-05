@@ -9,155 +9,29 @@ import {
 import Graph from "graphology";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Node } from "../../../packages/contracts/src/model.js";
+import {
+  contextualLabels,
+  focusGraph,
+  arrangementKey,
+  directedLayoutLinks,
+} from "./graph-exploration.js";
+import {
+  validPositions,
+  type LayoutRequest,
+  type LayoutResponse,
+} from "./layout-protocol.js";
 type Arrangement = {
   positions: Map<string, { x: number; y: number }>;
   camera: ReturnType<ReturnType<Sigma["getCamera"]>["getState"]>;
   bbox: ReturnType<Sigma["getCustomBBox"]>;
+  pins: Set<string>;
 };
 // View state belongs to the browser session, separate from saved analysis facts.
 const arrangements = new Map<string, Arrangement>();
-const scripts = ["Script", "LocalScript", "ModuleScript"],
-  channels = [
-    "RemoteEvent",
-    "UnreliableRemoteEvent",
-    "RemoteFunction",
-    "BindableEvent",
-    "BindableFunction",
-  ];
-function bundleEdges(
-  edges: {
-    id: string;
-    source?: string;
-    target?: string;
-    label: string;
-    type: string;
-    originalId: string;
-    relationIds?: string[];
-  }[],
-) {
-  const bundles = new Map<
-    string,
-    {
-      id: string;
-      source: string;
-      target: string;
-      label: string;
-      type: string;
-      originalId: string;
-      relationIds: string[];
-      bidirectional: boolean;
-    }
-  >();
-  for (const edge of edges) {
-    if (!edge.source || !edge.target || edge.source === edge.target) continue;
-    const key = JSON.stringify([edge.source, edge.target].sort());
-    const bundle = bundles.get(key);
-    if (bundle) {
-      bundle.relationIds = [
-        ...new Set([
-          ...bundle.relationIds,
-          ...(edge.relationIds ?? [edge.originalId]),
-        ]),
-      ];
-      bundle.bidirectional ||= bundle.source !== edge.source;
-    } else
-      bundles.set(key, {
-        ...edge,
-        source: edge.source,
-        target: edge.target,
-        relationIds: [...(edge.relationIds ?? [edge.originalId])],
-        bidirectional: false,
-      });
-  }
-  return [...bundles.values()].map((e) => ({
-    ...e,
-    label:
-      e.relationIds.length > 1
-        ? `${e.relationIds.length} relationships`
-        : e.label,
-  }));
-}
-export function projectGraph(
-  result: QueryResult,
-  details: boolean,
-  groupId = "all",
-) {
-  if (result.projection?.view === "gameplay") {
-    const available = new Set(result.projection.nodeIds);
-    const groups = result.groups
-      .map((g) => ({
-        ...g,
-        nodeIds: g.nodeIds.filter((id) => available.has(id)),
-      }))
-      .filter((g) => g.nodeIds.length);
-    const chosen =
-      groupId === "all" ? undefined : groups.find((g) => g.id === groupId);
-    const nodes = result.nodes.filter(
-        (n) =>
-          available.has(n.id) && (!chosen || chosen.nodeIds.includes(n.id)),
-      ),
-      ids = new Set(nodes.map((n) => n.id));
-    const edges = result.projection.edges
-      .filter((e) => ids.has(e.source) && ids.has(e.target))
-      .map((e) => ({
-        ...e,
-        type:
-          result.relations.find((r) => r.id === e.relationIds[0])?.type ??
-          "REFERENCES",
-        originalId: e.id,
-      }));
-    return { nodes, edges: bundleEdges(edges), groups };
-  }
-  const all = new Map(result.nodes.map((n) => [n.id, n]));
-  let visible = result.nodes.filter(
-    (n) =>
-      details ||
-      (n.kind === "instance" &&
-        [...scripts, ...channels].includes(String(n.attributes.className))),
-  );
-  const ids = new Set(visible.map((n) => n.id));
-  const owner = (id: string) => {
-    const n = all.get(id);
-    return ids.has(id)
-      ? id
-      : ids.has(String(n?.attributes.scriptId))
-        ? String(n?.attributes.scriptId)
-        : ids.has(n?.ownerId ?? "")
-          ? n?.ownerId
-          : undefined;
-  };
-  const groups = result.groups
-    .map((group) => ({
-      ...group,
-      nodeIds: [
-        ...new Set(
-          group.nodeIds.map(owner).filter((id): id is string => Boolean(id)),
-        ),
-      ],
-    }))
-    .filter((group) => group.nodeIds.length);
-  if (groupId !== "all") {
-    const selected = groups.find((g) => g.id === groupId);
-    if (selected) {
-      visible = visible.filter((n) => selected.nodeIds.includes(n.id));
-      ids.clear();
-      for (const n of visible) ids.add(n.id);
-    }
-  }
-  const edges = result.relations
-    .filter(
-      (r) => details || !["CONTAINS", "DECLARES", "MEMBER_OF"].includes(r.type),
-    )
-    .map((r) => ({
-      ...r,
-      source: owner(r.source),
-      target: owner(r.target),
-      originalId: r.id,
-      label: r.type,
-    }))
-    .filter((r) => r.source && r.target && r.source !== r.target);
-  return { nodes: visible, edges: bundleEdges(edges), groups };
-}
+const latestArrangements = new Map<string, Arrangement>();
+let layoutRequestSequence = 0;
+import { projectGraph, channels } from "./graph-projection.js";
+export { projectGraph } from "./graph-projection.js";
 function color(n: Node) {
   return n.kind === "unresolved"
     ? "#de7385"
@@ -180,21 +54,49 @@ export function GraphView({
   details,
   onSelect,
   onEdge,
+  selectedId,
 }: {
   result: QueryResult;
   details: boolean;
   onSelect: (id: string) => void;
   onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
+  selectedId?: string;
 }) {
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
     [error, setError] = useState(""),
-    [group, setGroup] = useState("all");
+    [group, setGroup] = useState("all"),
+    [focusId, setFocus] = useState(""),
+    [intent, setIntent] = useState<"network" | "directional">("network"),
+    [localSelection, setLocalSelection] = useState(""),
+    [busy, setBusy] = useState(false);
+  const selection = selectedId ?? localSelection;
   const activeGroup = result.groups.some((g) => g.id === group) ? group : "all";
-  const view = useMemo(
+  const fullView = useMemo(
     () => projectGraph(result, details, activeGroup),
     [result, details, activeGroup],
   );
+  const activeFocus = fullView.nodes.some((n) => n.id === focusId)
+    ? focusId
+    : "";
+  const view = useMemo(
+    () => focusGraph(fullView, activeFocus),
+    [fullView, activeFocus],
+  );
+  const labels = useMemo(() => contextualLabels(result.nodes), [result.nodes]);
+  const layoutIntent = activeFocus ? intent : "network";
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const selectionStyle = (sigma: Sigma) => {
+    const g = sigma.getGraph(),
+      id = selectionRef.current;
+    for (const n of g.nodes())
+      sigma.setNodeState(n, { isHighlighted: n === id });
+    sigma.refresh();
+  };
+  useEffect(() => {
+    if (renderer.current) selectionStyle(renderer.current);
+  }, [selection]);
   const selectRef = useRef(onSelect),
     edgeRef = useRef(onEdge);
   selectRef.current = onSelect;
@@ -203,18 +105,33 @@ export function GraphView({
     if (!container.current) return;
     container.current.setAttribute("data-layout-ready", "false");
     setError("");
-    const arrangementKey = JSON.stringify([
+    const key = JSON.stringify([
       result.analysisId,
       result.projection?.view ?? "code",
       details,
       activeGroup,
+      activeFocus,
+      arrangementKey(result.analysisId, view, layoutIntent),
     ]);
-    const saved = arrangements.get(arrangementKey);
+    const saved = arrangements.get(key);
+    const scope = JSON.stringify([
+      result.analysisId,
+      result.projection?.view ?? "code",
+      details,
+      activeGroup,
+      activeFocus,
+      layoutIntent,
+    ]);
+    const previous = latestArrangements.get(scope);
+    const manualPins = new Set(saved?.pins ?? previous?.pins ?? []);
+    setBusy(!saved);
     let ready = false;
+    let completed = false;
+    let optimized = false;
     const g = new Graph({ type: "directed" });
     view.nodes.forEach((n, i) =>
       g.addNode(n.id, {
-        label: n.label,
+        label: labels.get(n.id) ?? n.label,
         x: Math.cos(i * 2.399) * Math.sqrt(i + 1),
         y: Math.sin(i * 2.399) * Math.sqrt(i + 1),
         size: n.kind === "instance" ? 7 : 4,
@@ -239,6 +156,7 @@ export function GraphView({
     );
     let worker: Worker | undefined;
     let disposed = false;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
     try {
       const sigma = new Sigma(g, container.current, {
         primitives: {
@@ -264,7 +182,7 @@ export function GraphView({
         settings: {
           itemSizesReference: "screen",
           enableEdgeEvents: true,
-          enableNodeDrag: true,
+          enableNodeDrag: Boolean(saved),
           labelRenderedSizeThreshold: 0,
           stagePadding: 65,
           allowInvalidContainer: true,
@@ -318,9 +236,15 @@ export function GraphView({
         // Keep the coordinate frame stable when an outer node changes the extent.
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
       });
+      sigma.on("nodeDragEnd", (e) => {
+        for (const id of e.allDraggedNodes) manualPins.add(id);
+      });
       // Rapid successive node drags must not become a double-click camera zoom.
       sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
-      sigma.on("clickNode", (e) => selectRef.current(e.node));
+      sigma.on("clickNode", (e) => {
+        setLocalSelection(e.node);
+        selectRef.current(e.node);
+      });
       sigma.on("clickEdge", (e) =>
         edgeRef.current?.(
           g.getEdgeAttribute(e.edge, "originalId"),
@@ -328,36 +252,120 @@ export function GraphView({
           g.source(e.edge),
         ),
       );
-      worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
-        type: "module",
-      });
-      worker.onmessage = (e) => {
+      const finish = (
+        positions: { id: string; x: number; y: number }[],
+        restored = false,
+      ) => {
         if (disposed) return;
+        if (watchdog) clearTimeout(watchdog);
         sigma.setCustomBBox(null);
-        for (const p of e.data)
-          if (g.hasNode(p.id))
-            g.mergeNodeAttributes(
-              p.id,
-              saved?.positions.get(p.id) ?? { x: p.x, y: p.y },
-            );
+        for (const p of positions)
+          g.mergeNodeAttributes(p.id, { x: p.x, y: p.y });
         sigma.refresh();
-        if (saved) {
+        if (restored && saved) {
           sigma.setCustomBBox(saved.bbox);
           sigma.getCamera().setState(saved.camera);
         }
         requestAnimationFrame(() => {
           if (disposed) return;
           measureClearance();
-          sigma.refresh();
+          selectionStyle(sigma);
+          sigma.setSetting("enableNodeDrag", true);
           ready = true;
+          setBusy(false);
           container.current?.setAttribute("data-layout-ready", "true");
         });
       };
-      worker.postMessage({
-        nodes: view.nodes.map((n) => n.id),
-        edges: view.edges.map((e) => ({ source: e.source, target: e.target })),
-        groups: view.groups,
-      });
+      const fail = () => {
+        if (disposed || completed) return;
+        completed = true;
+        worker?.terminate();
+        setError(
+          "Layout optimization unavailable. Showing basic layout; you can browse the same nodes below.",
+        );
+        // Recovery stays O(nodes); never rerun the timed-out optimizer on the UI thread.
+        finish(
+          g.nodes().map((id) => ({
+            id,
+            ...(previous?.positions.get(id) ?? {
+              x: g.getNodeAttribute(id, "x"),
+              y: g.getNodeAttribute(id, "y"),
+            }),
+          })),
+        );
+      };
+      if (saved) {
+        completed = true;
+        optimized = true;
+        finish(
+          [...saved.positions].map(([id, p]) => ({ id, ...p })),
+          true,
+        );
+      } else {
+        try {
+          worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
+            type: "module",
+          });
+          const requestId = String(++layoutRequestSequence);
+          worker.onmessage = (e) => {
+            if (disposed || completed) return;
+            const response = e.data as LayoutResponse;
+            if (
+              !response ||
+              typeof response !== "object" ||
+              typeof response.requestId !== "string"
+            ) {
+              fail();
+              return;
+            }
+            if (response.requestId !== requestId) return;
+            if (
+              "error" in response ||
+              !Array.isArray(response.warnings) ||
+              !validPositions(
+                response.positions,
+                view.nodes.map((n) => n.id),
+              )
+            ) {
+              fail();
+              return;
+            }
+            worker?.terminate();
+            completed = true;
+            optimized = true;
+            if (response.warnings.length) setError(response.warnings.join(" "));
+            finish(response.positions);
+          };
+          worker.onerror = fail;
+          worker.onmessageerror = fail;
+          watchdog = setTimeout(fail, 45000);
+          worker.postMessage({
+            requestId,
+            nodes: view.nodes.map((n) => n.id),
+            edges:
+              layoutIntent === "directional"
+                ? directedLayoutLinks(view)
+                : view.edges.map((e) => ({
+                    source: e.source,
+                    target: e.target,
+                    order: [...e.relationIds].sort()[0],
+                  })),
+            intent: layoutIntent,
+            aspectRatio:
+              container.current.clientWidth /
+              Math.max(1, container.current.clientHeight),
+            previous: [...(previous?.positions ?? [])].map(([id, p]) => ({
+              id,
+              ...p,
+            })),
+            pins: [...(previous?.positions ?? [])]
+              .filter(([id]) => manualPins.has(id))
+              .map(([id, p]) => ({ id, ...p })),
+          } satisfies LayoutRequest);
+        } catch {
+          fail();
+        }
+      }
     } catch (e) {
       console.error(
         "Graph rendering failed: " +
@@ -366,56 +374,98 @@ export function GraphView({
       setError(
         "The graph renderer is unavailable. Browse the same nodes below.",
       );
+      setBusy(false);
     }
     return () => {
       disposed = true;
       if (ready && renderer.current) {
         const sigma = renderer.current;
-        arrangements.delete(arrangementKey);
-        arrangements.set(arrangementKey, {
+        arrangements.delete(key);
+        const arrangement: Arrangement = {
+          pins: manualPins,
           positions: new Map(
-            g
-              .nodes()
-              .map((id) => [
-                id,
-                {
-                  x: g.getNodeAttribute(id, "x"),
-                  y: g.getNodeAttribute(id, "y"),
-                },
-              ]),
+            g.nodes().map((id) => [
+              id,
+              {
+                x: g.getNodeAttribute(id, "x"),
+                y: g.getNodeAttribute(id, "y"),
+              },
+            ]),
           ),
           camera: { ...sigma.getCamera().getState() },
           bbox: sigma.getCustomBBox(),
-        });
+        };
+        if (optimized) arrangements.set(key, arrangement);
+        latestArrangements.delete(scope);
+        latestArrangements.set(scope, arrangement);
+        if (latestArrangements.size > 32)
+          latestArrangements.delete(latestArrangements.keys().next().value!);
         if (arrangements.size > 32)
           arrangements.delete(arrangements.keys().next().value!);
       }
       worker?.terminate();
+      if (watchdog) clearTimeout(watchdog);
       renderer.current?.kill();
       renderer.current = null;
     };
-  }, [view]);
+  }, [view, layoutIntent, labels]);
   return (
     <div className="graph-area">
-      {view.groups.length > 0 && (
-        <div className="group-navigator">
-          <label>
-            Visible group{" "}
-            <select
-              aria-label="Visible group"
-              value={activeGroup}
-              onChange={(e) => setGroup(e.target.value)}
+      <div className="graph-toolbar">
+        {view.groups.length > 0 && (
+          <div className="group-navigator">
+            <label>
+              Visible group{" "}
+              <select
+                aria-label="Visible group"
+                value={activeGroup}
+                onChange={(e) => setGroup(e.target.value)}
+              >
+                <option value="all">All {view.groups.length} groups</option>
+                {view.groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label} · {g.nodeIds.length}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+        <div className="graph-exploration">
+          {activeFocus ? (
+            <button
+              onClick={() => {
+                setFocus("");
+                setIntent("network");
+              }}
             >
-              <option value="all">All {view.groups.length} groups</option>
-              {view.groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.label} · {g.nodeIds.length}
-                </option>
-              ))}
+              Show whole graph
+            </button>
+          ) : (
+            <button
+              disabled={!view.nodes.some((n) => n.id === selection)}
+              onClick={() => setFocus(selection)}
+            >
+              Focus selected neighborhood
+            </button>
+          )}
+          <label>
+            Layout{" "}
+            <select
+              aria-label="Layout style"
+              value={layoutIntent}
+              onChange={(e) =>
+                setIntent(e.target.value as "network" | "directional")
+              }
+            >
+              <option value="network">Connections</option>
+              <option value="directional" disabled={!activeFocus}>
+                Direction
+              </option>
             </select>
           </label>
         </div>
-      )}
+      </div>
       <div
         ref={container}
         className="sigma-container"
@@ -434,8 +484,27 @@ export function GraphView({
           {view.nodes.length} nodes · {view.edges.length} links
           <br />
           Select a node or connection to see its actions and evidence.
+          {activeFocus && (
+            <>
+              <br />
+              {view.hiddenNodes} nodes hidden · {view.hiddenConnections}{" "}
+              connections hidden ({view.boundaryConnections} leave this
+              neighborhood)
+            </>
+          )}
+          {result.meta?.truncated && (
+            <>
+              <br />
+              Partial query · additional project content is omitted
+            </>
+          )}
         </p>
       </div>
+      {busy && (
+        <div className="graph-layout-status" role="status">
+          Optimizing graph layout…
+        </div>
+      )}
       <div className="graph-controls">
         <button
           aria-label="Zoom in"
@@ -471,6 +540,8 @@ export function GraphView({
           ["#9c80d5", "Module"],
           ["#dfad51", "Channel / field"],
           ["#de7385", "Unresolved"],
+          ["#a2adbb", "Saved object"],
+          ["#8e79ca", "Function"],
         ].map(([c, label]) => (
           <span key={label}>
             <i style={{ background: c }} />
@@ -482,8 +553,14 @@ export function GraphView({
         <summary>{error || "Browse visible nodes"}</summary>
         <div>
           {view.nodes.map((n) => (
-            <button key={n.id} onClick={() => onSelect(n.id)}>
-              {n.label}
+            <button
+              key={n.id}
+              onClick={() => {
+                setLocalSelection(n.id);
+                onSelect(n.id);
+              }}
+            >
+              {labels.get(n.id) ?? n.label}
             </button>
           ))}
         </div>
