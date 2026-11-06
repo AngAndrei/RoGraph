@@ -1,5 +1,11 @@
 import { test, expect } from "./support.js";
 import { fixturePath } from "../support/fixtures.js";
+test.use({
+  launchOptions: {
+    ignoreDefaultArgs: ["--hide-scrollbars"],
+    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+  },
+});
 test("imports a saved place and exposes coverage and script members", async ({
   page,
   app,
@@ -29,14 +35,20 @@ test("imports a saved place and exposes coverage and script members", async ({
   await expect(
     page.getByRole("heading", { name: "Functions", exact: true }),
   ).not.toBeVisible();
-  const scroll = page.getByRole("slider", { name: "Scroll node actions" });
-  await expect(scroll).toBeVisible();
-  const slider = (await scroll.boundingBox())!;
-  await page.mouse.click(
-    slider.x + slider.width - 1,
-    slider.y + slider.height / 2,
-  );
   const actions = page.locator(".inspect-actions");
+  const row = (await actions.boundingBox())!;
+  const gutter = await actions.evaluate(
+    (element) => (element as HTMLElement).offsetHeight - element.clientHeight,
+  );
+  expect(gutter).toBe(7);
+  await page.mouse.move(row.x + 12, row.y + row.height - gutter / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    row.x + row.width - 2,
+    row.y + row.height - gutter / 2,
+    { steps: 10 },
+  );
+  await page.mouse.up();
   const impact = page.getByRole("button", { name: "Impact", exact: true });
   await expect
     .poll(async () => {
@@ -45,7 +57,7 @@ test("imports a saved place and exposes coverage and script members", async ({
       return button.x + button.width - row.x - row.width;
     })
     .toBeLessThanOrEqual(1);
-  await scroll.press("Home");
+
   await page
     .getByRole("button", { name: "Show implementation", exact: true })
     .click();

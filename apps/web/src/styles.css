@@ -1112,13 +1112,18 @@ small {
   margin: 18px 0 0;
   padding-bottom: 6px;
   overflow-x: auto;
-  scrollbar-width: none;
+  margin-bottom: 12px;
 }
-.inspect-actions-scroll {
-  display: block;
-  width: 100%;
-  margin: 0 0 12px;
-  accent-color: #627992;
+.inspect-actions::-webkit-scrollbar {
+  height: 7px;
+}
+.inspect-actions::-webkit-scrollbar-track {
+  background: #edf0f3;
+  border-radius: 8px;
+}
+.inspect-actions::-webkit-scrollbar-thumb {
+  background: #9099a3;
+  border-radius: 8px;
 }
 .inspect-actions button {
   flex: 0 0 auto;

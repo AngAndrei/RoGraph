@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Evidence } from "../../../packages/contracts/src/model.js";
 import { NodeMark } from "./Hierarchy.js";
@@ -29,29 +29,9 @@ export function Inspector({
   const [source, setSource] = useState<Evidence>(),
     [expanded, setExpanded] = useState<string>();
   const node = r.nodes.find((n) => n.id === selectedId);
-  const actions = useRef<HTMLDivElement>(null);
-  const [actionScroll, setActionScroll] = useState({ offset: 0, max: 0 });
   const hasSource = Boolean(node?.attributes.sourceId);
   const hasImplementation =
     r.projection?.view === "gameplay" && Boolean(onShowImplementation);
-  const syncActionScroll = () => {
-    const row = actions.current;
-    if (row)
-      setActionScroll({
-        offset: row.scrollLeft,
-        max: row.scrollWidth - row.clientWidth,
-      });
-  };
-  useEffect(() => {
-    const row = actions.current;
-    if (!row) return;
-    syncActionScroll();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(syncActionScroll);
-    observer.observe(row);
-    for (const button of row.children) observer.observe(button);
-    return () => observer.disconnect();
-  }, [node?.id, hasSource, hasImplementation]);
   if (!node) return null;
   const fromSelected = (sourceId: string) => {
     const seen = new Set<string>();
@@ -103,11 +83,7 @@ export function Inspector({
         {String(node.attributes.className ?? node.kind)}
       </span>
       <p className="muted">{node.contexts.join(" + ")} context</p>
-      <div
-        className="inspect-actions"
-        ref={actions}
-        onScroll={syncActionScroll}
-      >
+      <div className="inspect-actions">
         {hasImplementation && (
           <button onClick={onShowImplementation}>Show implementation</button>
         )}
@@ -141,21 +117,6 @@ export function Inspector({
         </button>
         <button onClick={() => onExplore("impact", selectedId)}>Impact</button>
       </div>
-      {actionScroll.max > 0 && (
-        <input
-          className="inspect-actions-scroll"
-          aria-label="Scroll node actions"
-          type="range"
-          min={0}
-          max={actionScroll.max}
-          value={actionScroll.offset}
-          onChange={(event) => {
-            if (actions.current)
-              actions.current.scrollLeft = event.currentTarget.valueAsNumber;
-            syncActionScroll();
-          }}
-        />
-      )}
       {node.kind === "field" && (
         <div className="initializer">
           <span>Saved value / literal initializer</span>
