@@ -1107,6 +1107,7 @@ small {
   color-scheme: light;
 }
 .inspect-actions {
+  --action-scroll-thumb: transparent;
   display: flex;
   gap: 6px;
   margin: 18px 0 0;
@@ -1115,15 +1116,13 @@ small {
   margin-bottom: 12px;
 }
 .inspect-actions::-webkit-scrollbar {
-  height: 7px;
-}
-.inspect-actions::-webkit-scrollbar-track {
-  background: #edf0f3;
-  border-radius: 8px;
+  height: 4px;
 }
 .inspect-actions::-webkit-scrollbar-thumb {
-  background: #9099a3;
-  border-radius: 8px;
+  background: var(--action-scroll-thumb);
+}
+.inspect-actions:hover {
+  --action-scroll-thumb: #b2bac3;
 }
 .inspect-actions button {
   flex: 0 0 auto;

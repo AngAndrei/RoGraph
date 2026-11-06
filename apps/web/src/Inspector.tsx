@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Evidence } from "../../../packages/contracts/src/model.js";
 import { NodeMark } from "./Hierarchy.js";
@@ -29,6 +29,26 @@ export function Inspector({
   const [source, setSource] = useState<Evidence>(),
     [expanded, setExpanded] = useState<string>();
   const node = r.nodes.find((n) => n.id === selectedId);
+  const actions = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = actions.current;
+    if (!row) return;
+    const scrollActions = (event: WheelEvent) => {
+      if (event.ctrlKey || event.shiftKey || event.deltaX || !event.deltaY)
+        return;
+      const before = row.scrollLeft;
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? row.clientWidth
+            : 1;
+      row.scrollLeft += event.deltaY * unit;
+      if (row.scrollLeft !== before) event.preventDefault();
+    };
+    row.addEventListener("wheel", scrollActions, { passive: false });
+    return () => row.removeEventListener("wheel", scrollActions);
+  }, [node?.id]);
   const hasSource = Boolean(node?.attributes.sourceId);
   const hasImplementation =
     r.projection?.view === "gameplay" && Boolean(onShowImplementation);
@@ -83,7 +103,7 @@ export function Inspector({
         {String(node.attributes.className ?? node.kind)}
       </span>
       <p className="muted">{node.contexts.join(" + ")} context</p>
-      <div className="inspect-actions">
+      <div className="inspect-actions" ref={actions}>
         {hasImplementation && (
           <button onClick={onShowImplementation}>Show implementation</button>
         )}

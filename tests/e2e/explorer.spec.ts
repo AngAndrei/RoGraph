@@ -40,7 +40,23 @@ test("imports a saved place and exposes coverage and script members", async ({
   const gutter = await actions.evaluate(
     (element) => (element as HTMLElement).offsetHeight - element.clientHeight,
   );
-  expect(gutter).toBe(7);
+  expect(gutter).toBe(4);
+  const thumbColor = () =>
+    actions.evaluate(
+      (element) =>
+      getComputedStyle(element).getPropertyValue("--action-scroll-thumb"),
+    );
+  expect(await thumbColor()).toBe("transparent");
+  await actions.hover();
+  await expect.poll(thumbColor).toBe("#b2bac3");
+  await page.mouse.wheel(0, 250);
+  await expect
+    .poll(() => actions.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0);
+  await page.mouse.wheel(0, -250);
+  await expect
+    .poll(() => actions.evaluate((element) => element.scrollLeft))
+    .toBe(0);
   await page.mouse.move(row.x + 12, row.y + row.height - gutter / 2);
   await page.mouse.down();
   await page.mouse.move(
