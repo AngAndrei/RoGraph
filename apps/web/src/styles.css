@@ -266,13 +266,34 @@ small {
   color: #8793a5;
   padding: 0 20px 18px;
 }
-.snapshot-label select {
+.snapshot-label summary {
   font-size: 11px;
   border: 1px solid #e3e9ef;
   border-radius: 5px;
   padding: 8px;
   color: #55677e;
   background: white;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.snapshot-list {
+  padding: 0;
+  margin: 6px 0 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+}
+.snapshot-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.snapshot-list button {
+  text-align: left;
+  overflow-wrap: anywhere;
+  padding: 5px;
+  font-size: 11px;
 }
 .tree-heading {
   font-size: 9px;

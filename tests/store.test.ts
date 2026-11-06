@@ -72,3 +72,27 @@ it("never publishes partial or canceled work over the last complete snapshot", a
       await s.close();
     }
   }));
+
+it("deletes a snapshot and releases its blob only after the last reference", async () =>
+  withWorkspace(async (dir) => {
+    const graph = await resolveFixture("shop/place.rbxlx");
+    const store = await openStore(join(dir, "graph.db"));
+    try {
+      await store.save(graph);
+      await store.save({ ...graph, analysisId: "other" });
+      await store.publish(graph.analysisId);
+      const blob = join(dir, "blobs", graph.snapshotId + ".rbxlx");
+      await store.deleteAnalysis(graph.analysisId);
+      expect(await store.current()).toBe("other");
+      await expect(store.readGraph(graph.analysisId)).rejects.toMatchObject({
+        code: "ANALYSIS_NOT_FOUND",
+      });
+      expect((await readFile(blob)).length).toBeGreaterThan(0);
+      await store.deleteAnalysis("other");
+      expect(await store.current()).toBeNull();
+      expect((await store.listAnalyses(100)).items).toEqual([]);
+      await expect(readFile(blob)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await store.close();
+    }
+  }));

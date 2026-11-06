@@ -13,7 +13,7 @@ import { ImportView } from "./ImportView.js";
 import { CoverageView } from "./CoverageView.js";
 import { Hierarchy, NodeMark } from "./Hierarchy.js";
 import { GraphView } from "./GraphView.js";
-import { SnapshotOption, snapshotDetails } from "./SnapshotOption.js";
+import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceControls, TraceView } from "./TraceView.js";
 import { SourceView } from "./SourceView.js";
@@ -41,6 +41,7 @@ function Brand() {
 export default function App() {
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]),
     [analysisId, setAnalysis] = useState(""),
+    [deletingSnapshot, setDeletingSnapshot] = useState(false),
     [result, setResult] = useState<QueryResult>(),
     [selection, setSelection] = useState<QueryResult>(),
     [selectedId, setSelected] = useState(""),
@@ -112,6 +113,44 @@ export default function App() {
     setAnalyses(w.analyses);
     setAnalysis(id ?? w.current ?? w.analyses[0]?.analysisId ?? "");
   };
+  async function deleteSnapshot(snapshot: AnalysisSummary) {
+    if (
+      deletingSnapshot ||
+      !window.confirm(
+        `Permanently delete ${snapshot.displayName} · Import ${snapshot.importNumber} from RoGraph?`,
+      )
+    )
+      return;
+    setDeletingSnapshot(true);
+    try {
+      await api.deleteSnapshot(snapshot.analysisId);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      try {
+        const workspace = await api.workspace();
+        setAnalyses(workspace.analyses);
+        setAnalysis((current) =>
+          workspace.analyses.some((a) => a.analysisId === current)
+            ? current
+            : (workspace.current ?? workspace.analyses[0]?.analysisId ?? ""),
+        );
+        if (!workspace.analyses.some((a) => a.analysisId === analysisId)) {
+          graphRequest.current++;
+          closeInspector();
+          setResult(undefined);
+          setTraceResult(undefined);
+          setActiveQuery(undefined);
+          setExportOpen(false);
+          setTraceOpen(false);
+        }
+        setNewSnapshot(undefined);
+      } catch (error) {
+        setError((error as Error).message);
+      }
+      setDeletingSnapshot(false);
+    }
+  }
   useEffect(() => {
     void refresh()
       .catch((e) => setError(e.message))
@@ -368,21 +407,47 @@ export default function App() {
             </label>
             {analysisId ? (
               <>
-                <label className="snapshot-label">
-                  Snapshot
-                  <select
+                <details className="snapshot-label">
+                  <summary
                     aria-label="Snapshot"
                     title={
                       selectedSnapshot && snapshotDetails(selectedSnapshot)
                     }
-                    value={analysisId}
-                    onChange={(e) => setAnalysis(e.target.value)}
+                    data-analysis-id={analysisId}
                   >
+                    {selectedSnapshot?.displayName} · Import{" "}
+                    {selectedSnapshot?.importNumber}
+                  </summary>
+                  <ul className="snapshot-list">
                     {analyses.map((a) => (
-                      <SnapshotOption key={a.analysisId} snapshot={a} />
+                      <li key={a.analysisId}>
+                        <button
+                          type="button"
+                          aria-current={
+                            a.analysisId === analysisId ? "true" : undefined
+                          }
+                          disabled={deletingSnapshot}
+                          title={snapshotDetails(a)}
+                          onClick={(event) => {
+                            setAnalysis(a.analysisId);
+                            event.currentTarget.closest("details")!.open =
+                              false;
+                          }}
+                        >
+                          {a.displayName} · Import {a.importNumber}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingSnapshot}
+                          aria-label={`Delete ${a.displayName} · Import ${a.importNumber}`}
+                          onClick={() => void deleteSnapshot(a)}
+                        >
+                          Delete
+                        </button>
+                      </li>
                     ))}
-                  </select>
-                </label>
+                  </ul>
+                </details>
                 <details className="navigator-tools-menu">
                   <summary>Graph tools</summary>
                   <div className="navigator-tools">

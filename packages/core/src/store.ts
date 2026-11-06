@@ -1,6 +1,6 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { mkdir, readFile, copyFile, rename, access } from "node:fs/promises";
-import { createReadStream } from "node:fs";
+import { createReadStream, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, win32 } from "node:path";
 import { setImmediate } from "node:timers/promises";
@@ -57,6 +57,7 @@ export type StoreSelection = {
 );
 export interface GraphStore {
   save(graph: Graph, signal?: AbortSignal): Promise<void>;
+  deleteAnalysis(id: string): Promise<void>;
   publish(id: string): Promise<void>;
   current(): Promise<string | null>;
   listAnalyses(
@@ -329,6 +330,46 @@ export async function openStore(path: string): Promise<GraphStore> {
         }
       } finally {
         saving = false;
+      }
+    },
+    async deleteAnalysis(id) {
+      if (saving)
+        throw new RoGraphError(
+          "SAVE_IN_PROGRESS",
+          "Wait for the snapshot to finish saving.",
+        );
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const current = db
+          .prepare("DELETE FROM current_analysis WHERE analysis=?")
+          .run(id);
+        db.prepare("DELETE FROM node_search WHERE analysis=?").run(id);
+        db.prepare("DELETE FROM analyses WHERE id=? AND complete=1").run(id);
+        if (current.changes)
+          db.exec(`INSERT INTO current_analysis
+                   SELECT 1,id FROM analyses WHERE complete=1 AND partial=0
+                   ORDER BY rowid DESC LIMIT 1`);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+      const unused = all(`
+        SELECT hash FROM blobs
+        WHERE hash NOT IN (
+          SELECT json_extract(data,'$.inventory.rawInput.sha256') FROM manifests
+          WHERE json_type(data,'$.inventory.rawInput.sha256')='text'
+          UNION
+          SELECT json_extract(data,'$.origin.originalBinary.sha256') FROM sources
+          WHERE json_type(data,'$.origin.originalBinary.sha256')='text'
+        )`);
+      for (const { hash } of unused) {
+        if (!/^[a-f0-9]{64}$/.test(hash)) continue;
+        for (const extension of [".rbxl", ".rbxlx", ".rbxm"])
+          rmSync(join(dirname(path), "blobs", hash + extension), {
+            force: true,
+          });
+        db.prepare("DELETE FROM blobs WHERE hash=?").run(hash);
       }
     },
     async publish(id) {

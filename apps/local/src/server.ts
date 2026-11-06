@@ -138,6 +138,22 @@ export async function startServer(
           });
           return;
         }
+        if (method === "DELETE" && path === "/api/snapshots") {
+          if (uploading || jobs.busy())
+            throw new RoGraphError(
+              "JOB_BUSY",
+              "Wait for the current analysis to finish.",
+            );
+          const { analysisId } = z
+            .object({
+              analysisId: z.string().min(1).max(128),
+            })
+            .strict()
+            .parse(await json(req));
+          await store.deleteAnalysis(analysisId);
+          send(res, 200, { deleted: true });
+          return;
+        }
         if (method === "POST" && path === "/api/imports") {
           if (uploading || jobs.busy())
             throw new RoGraphError(

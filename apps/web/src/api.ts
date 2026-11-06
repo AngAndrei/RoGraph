@@ -38,6 +38,12 @@ export const api = {
   watch: (enabled: boolean, projectPath?: string) =>
     post("/api/watch", { enabled, projectPath }),
   run: (q: Query) => post<QueryResult>("/api/query", q),
+  deleteSnapshot: (analysisId: string) =>
+    request("/api/snapshots", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ analysisId }),
+    }),
   workspace: () =>
     request<{
       current: string | null;

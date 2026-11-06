@@ -14,9 +14,7 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
     page.getByRole("heading", { name: "Coverage", exact: true }),
   ).toBeVisible({ timeout: 90000 });
   const snapshots = page.getByLabel("Snapshot", { exact: true });
-  await expect(snapshots.locator("option")).toHaveText([
-    "place.rbxlx · Import 1",
-  ]);
+  await expect(snapshots).toHaveText("place.rbxlx · Import 1");
   const xml = (await readFile(fixturePath("shop/place.rbxlx"), "utf8")).replace(
       /Sword\s*=\s*100/,
       "Sword=101",
@@ -62,13 +60,8 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
   });
   try {
     await page.getByRole("button", { name: "Open new snapshot" }).click();
-    await expect(page.getByLabel("Snapshot", { exact: true })).toHaveValue(
-      job.analysisId,
-    );
-    await expect(snapshots.locator("option")).toHaveText([
-      "changed.rbxlx · Import 2",
-      "place.rbxlx · Import 1",
-    ]);
+    await expect(snapshots).toHaveAttribute("data-analysis-id", job.analysisId);
+    await expect(snapshots).toHaveText("changed.rbxlx · Import 2");
     expect(await page.locator(".sigma-container").count()).toBe(0);
   } finally {
     release();
@@ -77,4 +70,22 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
     "data-analysis-id",
     job.analysisId,
   );
+  await snapshots.click();
+  await expect(
+    page.getByRole("button", { name: "Delete place.rbxlx · Import 1" }),
+  ).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Delete changed.rbxlx · Import 2" })
+    .click();
+  await expect(snapshots).toHaveText("place.rbxlx · Import 1");
+  await expect(
+    page.getByRole("button", { name: /Delete changed/ }),
+  ).toHaveCount(0);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Delete place.rbxlx · Import 1" })
+    .click();
+  await expect(snapshots).toHaveCount(0);
+  await expect(page.getByLabel("Place file")).toBeVisible();
 });

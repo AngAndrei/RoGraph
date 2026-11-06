@@ -92,6 +92,7 @@ export async function openWorkerStore(path: string): Promise<WorkerStore> {
     publish: (id) => rpc.call("publish", [id]),
     current: () => rpc.call("current"),
     listAnalyses: (l, c) => rpc.call("listAnalyses", [l, c]),
+    deleteAnalysis: (id) => rpc.call("deleteAnalysis", [id]),
     readGraph: (id) => rpc.call("readGraph", [id]),
     select: (q) => rpc.call("select", [q]),
     query: (q, s) => rpc.call("query", [q], s),

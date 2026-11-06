@@ -76,6 +76,9 @@ parentPort!.on("message", async (request) => {
       case "listAnalyses":
         value = await store!.listAnalyses(a[0], a[1]);
         break;
+      case "deleteAnalysis":
+        value = await store!.deleteAnalysis(a[0]);
+        break;
       case "readGraph":
         value = await store!.readGraph(a[0]);
         break;
