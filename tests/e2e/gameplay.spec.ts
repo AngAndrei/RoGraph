@@ -26,23 +26,51 @@ test("shows real objects in Gameplay and follows the Chicken controller into Cod
   await expect(page.getByLabel("Search project")).toBeHidden();
   await page.getByRole("button", { name: "Expand project navigator" }).click();
   const search = page.getByLabel("Search project");
+  const inspector = page.getByRole("complementary", {
+    name: "Selected instance",
+  });
+  const graph = page.locator(".sigma-container");
+  const chooseWhileLoading = async (name: string, width?: number) => {
+    const button = page
+      .locator(".search-results")
+      .getByRole("button", { name, exact: true });
+    await expect(button).toBeVisible();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(
+      "**/api/query",
+      async (route) => {
+        if (route.request().postDataJSON().op === "inspect") await pending;
+        await route.continue();
+      },
+      { times: 1 },
+    );
+    try {
+      await button.click();
+      await expect(inspector.getByRole("status")).toHaveText(
+        "Loading node details…",
+      );
+      if (width !== undefined)
+        expect((await graph.boundingBox())!.width).toBe(width);
+      return (await graph.boundingBox())!.width;
+    } finally {
+      release();
+    }
+  };
   await search.fill("Egg");
   await expect(page.getByText(/symbolic spawned egg/i)).toHaveCount(0);
-  await page
-    .locator(".search-results")
-    .getByRole("button", { name: "Egg", exact: true })
-    .click();
+  const openWidth = await chooseWhileLoading("Egg");
   await expect(
     page
       .locator(".inspector")
       .getByRole("button", { name: /Config · .*EggTemplateName/ })
       .first(),
   ).toBeVisible();
+  expect((await graph.boundingBox())!.width).toBe(openWidth);
   await search.fill("Chicken");
-  await page
-    .locator(".search-results")
-    .getByRole("button", { name: "Chicken", exact: true })
-    .click();
+  await chooseWhileLoading("Chicken", openWidth);
   await expect(
     page
       .locator(".inspector")

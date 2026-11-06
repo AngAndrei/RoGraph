@@ -143,7 +143,6 @@ export function GraphView({
           ? selected.has(n)
           : n === selectionRef.current,
       });
-    sigma.refresh();
   };
   useEffect(() => {
     dragSelection.current.clear();
@@ -245,19 +244,13 @@ export function GraphView({
               else: { attribute: "previewLabel" },
             },
             color: {
-              whenState: "isHighlighted",
-              then: "#245ca6",
-              else: { attribute: "color" },
-            },
-            labelVisibility: {
-              whenState: ["isHovered", "isHighlighted"],
-              then: "visible",
-              else: "auto",
-            },
-            backdropVisibility: {
-              whenState: ["isHovered", "isHighlighted"],
-              then: "visible",
-              else: "hidden",
+              whenState: "isHovered",
+              then: "#173c72",
+              else: {
+                whenState: "isHighlighted",
+                then: "#245ca6",
+                else: { attribute: "color" },
+              },
             },
             labelColor: "#526880",
             labelFont,
@@ -325,7 +318,7 @@ export function GraphView({
           if (!disposed && clearance.size) measureClearance();
         }),
       );
-      sigma.on("downNode", () => {
+      sigma.on("nodeDragStart", () => {
         // Keep the coordinate frame stable when an outer node changes the extent.
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
       });

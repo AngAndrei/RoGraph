@@ -97,6 +97,29 @@ test("previews long node labels and reveals the full label on hover", async ({
   await expect.poll(displayed).toBe(full);
   await page.mouse.move(bounds.x + 5, bounds.y + 5);
   await expect.poll(displayed).toBe(preview);
+  await page.keyboard.down("Control");
+  await page.mouse.click(bounds.x + point.x, bounds.y + point.y);
+  await page.keyboard.up("Control");
+  const style = () =>
+    page.evaluate(() => {
+      const { color, backdropVisibility, highlighted } = (
+        window as any
+      ).s.getNodeDisplayData("b");
+      return { color, backdropVisibility, highlighted };
+    });
+  await page.mouse.move(bounds.x + 5, bounds.y + 5);
+  await expect.poll(style).toMatchObject({
+    highlighted: true,
+    backdropVisibility: "hidden",
+  });
+  const idleColor = (await style()).color;
+  await page.mouse.move(bounds.x + point.x, bounds.y + point.y);
+  await expect.poll(displayed).toBe(full);
+  await expect.poll(style).toMatchObject({
+    highlighted: true,
+    backdropVisibility: "visible",
+  });
+  expect((await style()).color).not.toBe(idleColor);
 });
 
 test("focus preserves selection and cached arrangements without a layout selector", async ({

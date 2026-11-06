@@ -44,6 +44,7 @@ export default function App() {
     [result, setResult] = useState<QueryResult>(),
     [selection, setSelection] = useState<QueryResult>(),
     [selectedId, setSelected] = useState(""),
+    [inspectionError, setInspectionError] = useState(""),
     [search, setSearch] = useState(""),
     [matches, setMatches] = useState<Node[]>([]),
     [importing, setImporting] = useState(false),
@@ -201,6 +202,7 @@ export default function App() {
   async function select(id: string) {
     const request = ++requestRef.current;
     setSelected(id);
+    setInspectionError("");
     try {
       const r = await api.run({
         op: "inspect",
@@ -209,9 +211,14 @@ export default function App() {
         limit: 300,
         view,
       });
-      if (request === requestRef.current) setSelection(r);
+      if (request === requestRef.current) {
+        setSelection(r);
+        if (!r.nodes.some((n) => n.id === id))
+          setInspectionError("No details are available for this node.");
+      }
     } catch (e) {
-      if (request === requestRef.current) setError((e as Error).message);
+      if (request === requestRef.current)
+        setInspectionError((e as Error).message);
     }
   }
   useEffect(() => {
@@ -740,7 +747,7 @@ export default function App() {
             </div>
           )}
         </main>
-        {node && selection?.analysisId === analysisId && (
+        {selectedId && analysisId && (
           <aside className="inspector" aria-label="Selected instance">
             <button
               type="button"
@@ -750,23 +757,31 @@ export default function App() {
             >
               ×
             </button>
-            <Inspector
-              key={selectedId}
-              result={selection}
-              selectedId={selectedId}
-              onSelect={(id) => {
-                setEdgeId(undefined);
-                void select(id);
-              }}
-              onExplore={(op, id) => void explore(op, id)}
-              edgeId={edgeId}
-              connectionRelationIds={edgeId ? connectionRelationIds : undefined}
-              onShowImplementation={() => {
-                setEdgeId(undefined);
-                openOverview("code");
-                setDetails(true);
-              }}
-            />
+            {inspectionError ? (
+              <p role="alert">{inspectionError}</p>
+            ) : node && selection?.analysisId === analysisId ? (
+              <Inspector
+                key={selectedId}
+                result={selection}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  setEdgeId(undefined);
+                  void select(id);
+                }}
+                onExplore={(op, id) => void explore(op, id)}
+                edgeId={edgeId}
+                connectionRelationIds={
+                  edgeId ? connectionRelationIds : undefined
+                }
+                onShowImplementation={() => {
+                  setEdgeId(undefined);
+                  openOverview("code");
+                  setDetails(true);
+                }}
+              />
+            ) : (
+              <p role="status">Loading node details…</p>
+            )}
           </aside>
         )}
       </div>
