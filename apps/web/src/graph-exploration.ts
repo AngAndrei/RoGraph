@@ -44,81 +44,59 @@ export function directedLayoutLinks(view: View): Link[] {
 }
 
 export function contextualLabels(nodes: Node[]) {
-  const counts = new Map<string, number>();
-  for (const n of nodes) counts.set(n.label, (counts.get(n.label) ?? 0) + 1);
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const paths = new Map(
-    nodes.map((n) => {
-      if (n.attributes.path ?? n.attributes.instancePath)
-        return [
-          n.id,
-          String(n.attributes.path ?? n.attributes.instancePath),
-        ] as const;
-      const names = [n.label],
-        seen = new Set([n.id]);
-      let owner = n.ownerId;
-      while (owner && !seen.has(owner) && names.length < 16) {
-        seen.add(owner);
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const namesakes = new Map<string, string[][]>();
+  const contexts = nodes.map((node) => {
+    const path = node.attributes.path ?? node.attributes.instancePath;
+    const parts = path
+      ? String(path)
+          .split(/[./\\]/)
+          .filter(Boolean)
+      : [];
+    if (parts.at(-1) === node.label) parts.pop();
+    if (!path) {
+      const seen = new Set([node.id]);
+      let owner = node.ownerId;
+      while (owner && !seen.has(owner) && parts.length < 16) {
         const parent = byId.get(owner);
-        if (!parent) {
-          names.unshift(owner.split("/").at(-1) ?? owner);
-          break;
-        }
-        names.unshift(parent.label);
+        if (!parent) break;
+        seen.add(owner);
+        parts.unshift(parent.label);
         owner = parent.ownerId;
       }
-      return [n.id, names.join(".")] as const;
+    }
+    const context = parts.filter(
+      (part) => !/^\d+$/.test(part) && !/[a-f0-9]{24,}/i.test(part),
+    );
+    const peers = namesakes.get(node.label);
+    if (peers) peers.push(context);
+    else namesakes.set(node.label, [context]);
+    return context;
+  });
+  return new Map(
+    nodes.map((node, index) => {
+      const peers = namesakes.get(node.label)!;
+      const parts = contexts[index];
+      if (peers.length === 1 || !parts.length) return [node.id, node.label];
+      const different = peers.filter(
+        (other) => other.join(".") !== parts.join("."),
+      );
+      let context = parts.at(-1)!;
+      for (let size = 1; size < parts.length; size++) {
+        if (
+          !different.some((other) => other.slice(-size).join(".") === context)
+        )
+          break;
+        const longer = parts.slice(-size - 1).join(".");
+        if (longer.length > 64) break;
+        context = longer;
+      }
+      return [
+        node.id,
+        context.length <= 64 ? node.label + " · " + context : node.label,
+      ];
     }),
   );
-  const labels = new Map<string, string>();
-  for (const n of nodes) {
-    if (counts.get(n.label) === 1) {
-      labels.set(n.id, n.label);
-      continue;
-    }
-    const parts = paths
-      .get(n.id)!
-      .split(/[./\\]/)
-      .filter(Boolean);
-    if (parts.at(-1) === n.label) parts.pop();
-    let context = parts.at(-1) ?? n.id;
-    for (let size = 1; size <= parts.length; size++) {
-      context = parts.slice(-size).join(".");
-      if (
-        !nodes.some(
-          (other) =>
-            other.id !== n.id &&
-            other.label === n.label &&
-            paths
-              .get(other.id)!
-              .split(/[./\\]/)
-              .filter(Boolean)
-              .filter((p, i, a) => i !== a.length - 1 || p !== other.label)
-              .slice(-size)
-              .join(".") === context,
-        )
-      )
-        break;
-    }
-    // Identical paths can still refer to different saved objects.
-    const collisions = nodes
-      .filter(
-        (other) =>
-          other.label === n.label && paths.get(other.id) === paths.get(n.id),
-      )
-      .map((other) => other.id)
-      .sort();
-    if (collisions.length > 1) context += ` · ${collisions.indexOf(n.id) + 1}`;
-    if (context.length > 64 || /[a-f0-9]{24,}/i.test(context)) {
-      const peers = nodes
-        .filter((other) => other.label === n.label)
-        .map((other) => other.id)
-        .sort();
-      context = `${n.kind === "instance" ? "object" : n.kind} ${peers.indexOf(n.id) + 1}`;
-    }
-    labels.set(n.id, `${n.label} · ${context}`);
-  }
-  return labels;
 }
 
 export function arrangementKey(analysis: string, view: View, intent: string) {

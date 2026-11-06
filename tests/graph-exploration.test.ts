@@ -115,7 +115,7 @@ it("rejects incomplete, duplicate, nonfinite and foreign worker geometry", () =>
   expect(validPositions([{ id: "other", x: 0, y: 1 }], ["a"])).toBe(false);
 });
 
-it("distinguishes identical paths even when canonical field IDs share the same suffix", () => {
+it("uses meaningful context without numbering nodes with identical paths", () => {
   const nodes = [
     "module-a:field:string:HitPoints",
     "module-b:field:string:HitPoints",
@@ -126,22 +126,21 @@ it("distinguishes identical paths even when canonical field IDs share the same s
     contexts: ["unknown"],
     attributes: { path: "Workspace.Module.HitPoints" },
   })) as QueryResult["nodes"];
-  expect(new Set(contextualLabels(nodes).values()).size).toBe(2);
+  expect([...contextualLabels(nodes).values()]).toEqual([
+    "HitPoints · Module",
+    "HitPoints · Module",
+  ]);
 });
 
-it("keeps opaque generated-owner hashes out of contextual display labels", () => {
+it("omits generated owner IDs and numeric path segments from display labels", () => {
   const nodes = [1, 2].map((i) => ({
     id: `n${i}`,
     label: "Part",
     kind: "instance",
     contexts: ["unknown"],
-    ownerId: `created:${"a".repeat(64)}:${i}`,
-    attributes: {},
+    ownerId: i === 1 ? `created:${"a".repeat(64)}:${i}` : "place/1069",
+    attributes: i === 1 ? {} : { path: "Workspace.Human.1069.Part" },
   })) as QueryResult["nodes"];
   const labels = [...contextualLabels(nodes).values()];
-  expect(new Set(labels).size).toBe(2);
-  for (const label of labels) {
-    expect(label).not.toContain("a".repeat(24));
-    expect(label.length).toBeLessThan(60);
-  }
+  expect(labels).toEqual(["Part", "Part · Human"]);
 });

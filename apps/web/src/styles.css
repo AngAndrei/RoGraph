@@ -1109,11 +1109,16 @@ small {
 .inspect-actions {
   display: flex;
   gap: 6px;
-  margin: 18px 0;
+  margin: 18px 0 0;
   padding-bottom: 6px;
   overflow-x: auto;
-  scrollbar-color: #8b9bb0 #edf1f6;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+.inspect-actions-scroll {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  accent-color: #627992;
 }
 .inspect-actions button {
   flex: 0 0 auto;

@@ -29,6 +29,23 @@ test("imports a saved place and exposes coverage and script members", async ({
   await expect(
     page.getByRole("heading", { name: "Functions", exact: true }),
   ).not.toBeVisible();
+  const scroll = page.getByRole("slider", { name: "Scroll node actions" });
+  await expect(scroll).toBeVisible();
+  const slider = (await scroll.boundingBox())!;
+  await page.mouse.click(
+    slider.x + slider.width - 1,
+    slider.y + slider.height / 2,
+  );
+  const actions = page.locator(".inspect-actions");
+  const impact = page.getByRole("button", { name: "Impact", exact: true });
+  await expect
+    .poll(async () => {
+      const row = (await actions.boundingBox())!;
+      const button = (await impact.boundingBox())!;
+      return button.x + button.width - row.x - row.width;
+    })
+    .toBeLessThanOrEqual(1);
+  await scroll.press("Home");
   await page
     .getByRole("button", { name: "Show implementation", exact: true })
     .click();
