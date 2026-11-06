@@ -211,23 +211,6 @@ small {
   flex: 1;
   flex-direction: column;
 }
-.navigator-tools-menu {
-  margin: 0 16px 12px;
-  font-size: 11px;
-  color: #536980;
-}
-.navigator-tools-menu summary {
-  cursor: pointer;
-}
-.navigator-tools {
-  display: grid;
-  gap: 6px;
-  padding: 8px 0;
-}
-.navigator-tools select {
-  width: 100%;
-  padding: 4px;
-}
 .search-box {
   margin: 0 16px 18px;
   border: 1px solid #e4e9f1;
@@ -294,6 +277,11 @@ small {
   overflow-wrap: anywhere;
   padding: 5px;
   font-size: 11px;
+}
+.snapshot-delete:not(:disabled):is(:hover, :focus-visible) {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
 }
 .tree-heading {
   font-size: 9px;

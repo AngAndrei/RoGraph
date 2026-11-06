@@ -15,10 +15,8 @@ import { Hierarchy, NodeMark } from "./Hierarchy.js";
 import { GraphView } from "./GraphView.js";
 import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
-import { TraceControls, TraceView } from "./TraceView.js";
+import { TraceView } from "./TraceView.js";
 import { SourceView } from "./SourceView.js";
-import { ContextExport } from "./ContextExport.js";
-import { gameplayTypes } from "../../../packages/contracts/src/relation-names.js";
 function Brand() {
   return (
     <div className="brand">
@@ -54,12 +52,6 @@ export default function App() {
     [error, setError] = useState(""),
     [details, setDetails] = useState(false),
     [view, setView] = useState<"gameplay" | "code">("gameplay"),
-    [context, setContext] = useState("all"),
-    [status, setStatus] = useState("all"),
-    [relationshipTypes, setRelationshipTypes] = useState({
-      gameplay: "all",
-      code: "all",
-    }),
     [classFilter, setClasses] = useState(""),
     [depth, setDepth] = useState(6),
     [groupBy, setGroupBy] = useState<"service" | "folder">("service"),
@@ -67,9 +59,7 @@ export default function App() {
     [stopped, setStopped] = useState(false),
     [navigatorCollapsed, setNavigatorCollapsed] = useState(false),
     [overviewRevision, setOverviewRevision] = useState(0);
-  const [traceOpen, setTraceOpen] = useState(false),
-    [exportOpen, setExportOpen] = useState(false),
-    [traceResult, setTraceResult] = useState<QueryResult>(),
+  const [traceResult, setTraceResult] = useState<QueryResult>(),
     [sourceEvidence, setSourceEvidence] = useState<Evidence>(),
     [edgeId, setEdgeId] = useState<string>(),
     [connectionRelationIds, setConnectionRelationIds] = useState<string[]>(),
@@ -80,13 +70,9 @@ export default function App() {
   const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
-  const type = relationshipTypes[view];
   const graphFilters = useMemo(
     () => ({
       view,
-      contexts: context === "all" ? undefined : [context as any],
-      statuses: status === "all" ? undefined : [status as any],
-      relationTypes: type === "all" ? undefined : [type as any],
       classes: classFilter.trim()
         ? classFilter
             .split(",")
@@ -97,16 +83,7 @@ export default function App() {
       groupBy,
       includeInstances,
     }),
-    [
-      view,
-      context,
-      status,
-      type,
-      classFilter,
-      depth,
-      groupBy,
-      includeInstances,
-    ],
+    [view, classFilter, depth, groupBy, includeInstances],
   );
   const refresh = async (id?: string) => {
     const w = await api.workspace();
@@ -141,8 +118,6 @@ export default function App() {
           setResult(undefined);
           setTraceResult(undefined);
           setActiveQuery(undefined);
-          setExportOpen(false);
-          setTraceOpen(false);
         }
         setNewSnapshot(undefined);
       } catch (error) {
@@ -172,8 +147,6 @@ export default function App() {
       setSelected("");
       setEdgeId(undefined);
     }
-    setExportOpen(false);
-    setTraceOpen(false);
     const request = ++graphRequest.current;
     if (changed) requestRef.current++;
     void api
@@ -315,7 +288,6 @@ export default function App() {
       if (request === graphRequest.current) setError((e as Error).message);
     }
   }
-  const traceRequest = graphRequest.current;
   const node = selection?.nodes.find((n) => n.id === selectedId);
   const selectedSnapshot = analyses.find((a) => a.analysisId === analysisId);
   const graphScope =
@@ -438,6 +410,7 @@ export default function App() {
                         </button>
                         <button
                           type="button"
+                          className="snapshot-delete"
                           disabled={deletingSnapshot}
                           aria-label={`Delete ${a.displayName} · Import ${a.importNumber}`}
                           onClick={() => void deleteSnapshot(a)}
@@ -447,79 +420,6 @@ export default function App() {
                       </li>
                     ))}
                   </ul>
-                </details>
-                <details className="navigator-tools-menu">
-                  <summary>Graph tools</summary>
-                  <div className="navigator-tools">
-                    <select
-                      aria-label="Execution context"
-                      value={context}
-                      onChange={(e) => setContext(e.target.value)}
-                    >
-                      <option value="all">All contexts</option>
-                      <option value="client">Client</option>
-                      <option value="server">Server</option>
-                      <option value="unknown">Unknown context</option>
-                    </select>
-                    <select
-                      aria-label="Evidence status"
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                    >
-                      {[
-                        "all",
-                        "saved",
-                        "resolved",
-                        "candidate",
-                        "unresolved",
-                      ].map((s) => (
-                        <option key={s} value={s}>
-                          {s === "all" ? "All evidence" : s}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="Relationship type"
-                      value={type}
-                      onChange={(e) =>
-                        setRelationshipTypes({
-                          ...relationshipTypes,
-                          [view]: e.target.value,
-                        })
-                      }
-                    >
-                      {[
-                        "all",
-                        ...(view === "gameplay"
-                          ? gameplayTypes
-                          : [
-                              "REQUIRES",
-                              "CALLS",
-                              "READS",
-                              "WRITES",
-                              "REFERENCES",
-                              "SENDS_VIA",
-                              "HANDLES",
-                            ]),
-                      ].map((s) => (
-                        <option key={s} value={s}>
-                          {s === "all" ? "All relationships" : s}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="text-button"
-                      onClick={() => setTraceOpen(!traceOpen)}
-                    >
-                      Trace a path
-                    </button>
-                    <button
-                      className="text-button"
-                      onClick={() => setExportOpen(true)}
-                    >
-                      Export context
-                    </button>
-                  </div>
                 </details>
                 {search ? (
                   <div className="search-results">
@@ -772,22 +672,6 @@ export default function App() {
                   }
                 }}
               />
-              {traceOpen && (
-                <TraceControls
-                  analysisId={analysisId}
-                  nodes={result.nodes}
-                  filters={graphFilters}
-                  onClose={() => setTraceOpen(false)}
-                  onResult={(r, q) => {
-                    if (traceRequest !== graphRequest.current) return;
-                    graphRequest.current++;
-                    setResult(r);
-                    setTraceResult(r);
-                    setActiveQuery(q);
-                    setTraceOpen(false);
-                  }}
-                />
-              )}
               {traceResult && (
                 <TraceView
                   key={traceResult.analysisId + activeQuery?.op}
@@ -850,12 +734,6 @@ export default function App() {
           </aside>
         )}
       </div>
-      {exportOpen && activeQuery && (
-        <ContextExport
-          query={activeQuery}
-          onClose={() => setExportOpen(false)}
-        />
-      )}
       {sourceEvidence && (
         <SourceView
           analysisId={analysisId}

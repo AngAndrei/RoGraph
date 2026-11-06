@@ -90,29 +90,15 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
-it("keeps visible filters through overview, dependencies, impact and trace actions", async () => {
+it("keeps visible filters through overview, dependencies and impact actions", async () => {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole("button", { name: "Choose start" });
-  await user.click(screen.getByText("Graph tools", { exact: true }));
-  await user.selectOptions(
-    screen.getByLabelText("Execution context"),
-    "server",
-  );
-  await user.selectOptions(
-    screen.getByLabelText("Evidence status"),
-    "resolved",
-  );
+  expect(screen.queryByText("Graph tools", { exact: true })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Code" }));
-  await user.selectOptions(screen.getByLabelText("Relationship type"), "CALLS");
-  const filters = {
-    contexts: ["server"],
-    statuses: ["resolved"],
-    relationTypes: ["CALLS"],
-  };
   await waitFor(() =>
     expect(mock.run).toHaveBeenLastCalledWith(
-      expect.objectContaining({ op: "overview", ...filters }),
+      expect.objectContaining({ op: "overview" }),
     ),
   );
   await user.click(screen.getByRole("button", { name: "Choose start" }));
@@ -120,13 +106,13 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
   await user.click(screen.getByRole("button", { name: "Dependencies" }));
   await waitFor(() =>
     expect(mock.run).toHaveBeenLastCalledWith(
-      expect.objectContaining({ op: "dependencies", ...filters }),
+      expect.objectContaining({ op: "dependencies" }),
     ),
   );
   await user.click(screen.getByRole("button", { name: "Impact" }));
   await waitFor(() =>
     expect(mock.run).toHaveBeenLastCalledWith(
-      expect.objectContaining({ op: "impact", ...filters }),
+      expect.objectContaining({ op: "impact" }),
     ),
   );
   await user.selectOptions(screen.getByLabelText("Group by"), "folder");
@@ -140,7 +126,6 @@ it("keeps visible filters through overview, dependencies, impact and trace actio
         classes: ["ModuleScript"],
         depth: 4,
         includeInstances: true,
-        ...filters,
       }),
     ),
   );

@@ -74,6 +74,11 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
   await expect(
     page.getByRole("button", { name: "Delete place.rbxlx · Import 1" }),
   ).toBeVisible();
+  const remove = page.getByRole("button", {
+    name: "Delete changed.rbxlx · Import 2",
+  });
+  await remove.hover();
+  await expect(remove).toHaveCSS("background-color", "rgb(180, 35, 24)");
   page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", { name: "Delete changed.rbxlx · Import 2" })

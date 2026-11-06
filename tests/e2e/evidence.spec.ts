@@ -1,9 +1,6 @@
 import { test, expect } from "./support.js";
 import { fixturePath } from "../support/fixtures.js";
-test("follows a potential remote path and opens exact source evidence", async ({
-  page,
-  app,
-}) => {
+test("opens source evidence from a selected script", async ({ page, app }) => {
   await page.goto(app.url + "/#session=" + app.sessionToken);
   await page
     .getByLabel("Place file")
@@ -13,19 +10,12 @@ test("follows a potential remote path and opens exact source evidence", async ({
     page.getByRole("heading", { name: "Coverage", exact: true }),
   ).toBeVisible({ timeout: 90000 });
   await page.getByRole("button", { name: "Code", exact: true }).click();
-  await page.getByText("Graph tools", { exact: true }).click();
-  await page.getByRole("button", { name: "Trace a path", exact: true }).click();
+  await page.getByLabel("Search project").fill("PurchaseService");
   await page
-    .getByLabel("Trace start")
-    .selectOption({ label: "ShopClient.BuySword" });
-  await page
-    .getByLabel("Trace destination")
-    .selectOption({ label: "ShopConfig.Prices.Sword" });
-  await page.getByRole("button", { name: "Find path", exact: true }).click();
-  await expect(
-    page.getByText("Potential communication", { exact: true }).first(),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Inspect hop 4" }).click();
+    .locator(".search-results")
+    .getByRole("button", { name: "PurchaseService", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Source", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Source evidence" }),
   ).toBeVisible();
@@ -40,17 +30,6 @@ test("follows a potential remote path and opens exact source evidence", async ({
     "Config.Prices.Sword",
   );
   await page.getByRole("button", { name: "Close source" }).click();
-  await page
-    .getByRole("button", { name: "Export context", exact: true })
-    .click();
-  await expect(
-    page.getByText("characters/4", { exact: false }).first(),
-  ).toBeVisible();
-  const download = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download JSON", exact: true })
-    .click();
-  expect((await download).suggestedFilename()).toMatch(/rograph.*\.json$/);
   await page.screenshot({
     path: "build/previews/evidence.png",
     fullPage: true,
