@@ -528,21 +528,6 @@ export function arrangeGraph(
   edges: Link[],
   options: LayoutOptions = {},
 ): Point[] {
-  if (options.groups && options.groups.length > 1) {
-    const remaining = new Set(nodes);
-    const groups = options.groups.map((group) =>
-      group.filter((id) => remaining.delete(id)),
-    );
-    if (remaining.size) groups.push([...remaining]);
-    const localOptions = { ...options, groups: undefined };
-    return packLayouts(
-      groups
-        .filter((group) => group.length)
-        .map((group) => arrangeGraph(group, edges, localOptions)),
-      options.aspectRatio,
-      220,
-    );
-  }
   nodes = [...new Set(nodes)].sort();
   edges = edges.toSorted((a, b) => {
     if (
@@ -592,6 +577,43 @@ export function arrangeGraph(
     for (const id of nodes)
       adjacency.set(id, new Set([...adjacency.get(id)!].sort(natural)));
   }
+  const groupByNode = new Map<string, number>();
+  options.groups?.forEach((group, index) => {
+    for (const id of group) groupByNode.set(id, index);
+  });
+  const layouts = connectedComponents(nodes, adjacency).map((ids) => {
+    const groups = new Map<number | undefined, string[]>();
+    for (const id of ids) {
+      const key = groupByNode.get(id);
+      const group = groups.get(key);
+      if (group) group.push(id);
+      else groups.set(key, [id]);
+    }
+    if (groups.size === 1) return componentLayout(ids, adjacency, options);
+    return packLayouts(
+      [...groups.values()].map((group) => {
+        const members = new Set(group);
+        const local = new Map(
+          group.map((id) => [
+            id,
+            new Set([...adjacency.get(id)!].filter((n) => members.has(n))),
+          ]),
+        );
+        return packLayouts(
+          connectedComponents(group, local).map((part) =>
+            componentLayout(part, local, options),
+          ),
+          options.aspectRatio,
+        );
+      }),
+      options.aspectRatio,
+      220,
+    );
+  });
+  return placeDisconnectedLayouts(layouts, options.aspectRatio);
+}
+
+function connectedComponents(nodes: string[], adjacency: Adjacency) {
   const seen = new Set<string>(),
     components: string[][] = [];
   for (const id of nodes) {
@@ -606,10 +628,41 @@ export function arrangeGraph(
         }
     components.push(component);
   }
-  return packLayouts(
-    components.map((ids) => componentLayout(ids, adjacency, options)),
-    options.aspectRatio,
+  return components;
+}
+
+function placeDisconnectedLayouts(layouts: Point[][], aspectRatio = 1.96) {
+  const [main, ...smaller] = layouts.toSorted(
+    (a, b) => b.length - a.length || a[0].id.localeCompare(b[0].id),
   );
+  if (!smaller.length || main.length === 1)
+    return packLayouts(layouts, aspectRatio);
+
+  const wide = aspectRatio >= 1;
+  const axis = wide ? "x" : "y";
+  const crossAxis = wide ? "y" : "x";
+  const shelfAspect = wide ? Math.min(1, aspectRatio / 3) : 2;
+  const shelves =
+    smaller.length === 1
+      ? [[main], smaller]
+      : [
+          smaller.filter((_, index) => index % 2 === 0),
+          [main],
+          smaller.filter((_, index) => index % 2 === 1),
+        ];
+  let offset = 0;
+  return shelves.flatMap((shelf) => {
+    if (!shelf.length) return [];
+    const points = packLayouts(shelf, shelfAspect, 190);
+    const length = Math.max(...points.map((p) => p[axis]));
+    const center = Math.max(...points.map((p) => p[crossAxis])) / 2;
+    for (const p of points) {
+      p[axis] += offset;
+      p[crossAxis] -= center;
+    }
+    offset += length + 280;
+    return points;
+  });
 }
 
 function packLayouts(layouts: Point[][], aspectRatio = 1.96, gap = 120) {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AnalysisSummary } from "../../../packages/contracts/src/query.js";
 import type { GraphDiff } from "../../../packages/core/src/diff.js";
 import { api } from "./api.js";
+import { SnapshotOption } from "./SnapshotOption.js";
 export function DiffView({
   analysisId,
   analyses,
@@ -30,9 +31,7 @@ export function DiffView({
         {analyses
           .filter((a) => a.analysisId !== analysisId)
           .map((a) => (
-            <option key={a.analysisId} value={a.analysisId}>
-              {a.analysisId.slice(0, 8)}
-            </option>
+            <SnapshotOption key={a.analysisId} snapshot={a} />
           ))}
       </select>
       <button

@@ -2,7 +2,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { mkdir, readFile, copyFile, rename, access } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import { dirname, join, win32 } from "node:path";
 import { setImmediate } from "node:timers/promises";
 import {
   validateGraph,
@@ -357,18 +357,40 @@ export async function openStore(path: string): Promise<GraphStore> {
       if (!Number.isSafeInteger(offset) || offset < 0)
         throw new Error("Invalid cursor");
       const rows = all(
-        "SELECT * FROM analyses WHERE complete=1 ORDER BY created DESC,id LIMIT ? OFFSET ?",
+        `WITH page AS (
+          SELECT id, snapshot, kind, partial, created,
+                 ROW_NUMBER() OVER (ORDER BY rowid) AS importNumber
+          FROM analyses WHERE complete=1
+          ORDER BY importNumber DESC LIMIT ? OFFSET ?
+        )
+        SELECT page.*,
+               json_extract(m.data,'$.displayName') AS displayName,
+               COALESCE(json_extract(m.data,'$.input.path'),
+                        json_extract(m.data,'$.input.projectPath')) AS inputPath
+        FROM page LEFT JOIN manifests m ON m.analysis=page.id
+        ORDER BY page.importNumber DESC`,
         count + 1,
         offset,
       );
       return {
-        items: rows.slice(0, count).map((r) => ({
-          analysisId: r.id,
-          snapshotId: r.snapshot,
-          inputKind: r.kind,
-          complete: !r.partial,
-          createdAt: r.created,
-        })),
+        items: rows.slice(0, count).map((r) => {
+          const inputPath = String(r.inputPath ?? "");
+          // Old uploads may only have the generated storage name.
+          const uploadPath =
+            /(?:^|[\\/])uploads[\\/][0-9a-f-]{36}\.rbxlx?$/i.test(inputPath);
+          const name = r.displayName || (!uploadPath && inputPath);
+          return {
+            analysisId: r.id,
+            snapshotId: r.snapshot,
+            inputKind: r.kind,
+            displayName:
+              (typeof name === "string" && win32.basename(name).trim()) ||
+              (r.kind === "rojo" ? "Rojo project" : "Roblox place"),
+            importNumber: r.importNumber,
+            complete: !r.partial,
+            createdAt: r.created,
+          };
+        }),
         nextCursor: rows.length > count ? String(offset + count) : undefined,
       };
     },

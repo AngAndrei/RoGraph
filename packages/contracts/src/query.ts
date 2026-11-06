@@ -115,6 +115,8 @@ export interface AnalysisSummary {
   analysisId: string;
   snapshotId: string;
   inputKind: string;
+  displayName: string;
+  importNumber: number;
   complete: boolean;
   createdAt: string;
 }

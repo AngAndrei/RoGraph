@@ -60,6 +60,51 @@ test("dragging boundary nodes preserves the viewport; pan and wheel still work",
   const camera = () =>
     page.evaluate(() => (window as any).dragRenderer.getCamera().getState());
   const rect = (await page.locator(".sigma-container").boundingBox())!;
+  const clickNode = async (id: string) => {
+    const point = await screen(id);
+    await page.mouse.click(rect.x + point.x, rect.y + point.y);
+  };
+  await page.keyboard.down("Control");
+  await clickNode("left");
+  await clickNode("right");
+  await clickNode("center");
+  await clickNode("center");
+  await page.keyboard.up("Control");
+  const selected = () =>
+    page.evaluate(() => {
+      const s = (window as any).dragRenderer;
+      return s
+        .getGraph()
+        .nodes()
+        .filter((id: string) => s.getNodeState(id).isHighlighted);
+    });
+  await expect.poll(selected).toEqual(["left", "right"]);
+  const leftStart = await screen("left"),
+    rightStart = await screen("right"),
+    centerStart = await screen("center");
+  await page.mouse.move(rect.x + leftStart.x, rect.y + leftStart.y);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + leftStart.x, rect.y + leftStart.y);
+  await page.mouse.move(rect.x + leftStart.x + 25, rect.y + leftStart.y + 30, {
+    steps: 10,
+  });
+  await page.mouse.up();
+  for (const [id, start] of [
+    ["left", leftStart],
+    ["right", rightStart],
+  ] as const) {
+    await expect
+      .poll(async () => {
+        const point = await screen(id);
+        return Math.hypot(point.x - start.x - 25, point.y - start.y - 30);
+      })
+      .toBeLessThan(2);
+  }
+  expect(await screen("center")).toEqual(centerStart);
+  const groupCamera = await camera();
+  await page.mouse.click(rect.x + 25, rect.y + 25);
+  await expect.poll(selected).toEqual([]);
+  expect(await camera()).toEqual(groupCamera);
   for (const [id, dx, dy] of [
     ["left", 60, 0],
     ["left", -100, 0],

@@ -48,6 +48,7 @@ it("never publishes partial or canceled work over the last complete snapshot", a
       const partial = {
         ...g,
         analysisId: "partial",
+        importManifest: { ...g.importManifest, displayName: "My Game.rbxlx" },
         coverage: { ...g.coverage, partialImport: true },
       };
       await s.save(partial);
@@ -60,7 +61,13 @@ it("never publishes partial or canceled work over the last complete snapshot", a
         s.save({ ...g, analysisId: "canceled" }, c.signal),
       ).rejects.toBeDefined();
       expect(await s.current()).toBe(g.analysisId);
-      expect((await s.listAnalyses(10)).items).toHaveLength(2);
+      const first = await s.listAnalyses(1);
+      expect(first.items).toMatchObject([
+        { displayName: "My Game.rbxlx", importNumber: 2, complete: false },
+      ]);
+      expect((await s.listAnalyses(1, first.nextCursor)).items).toMatchObject([
+        { displayName: "place.rbxlx", importNumber: 1, complete: true },
+      ]);
     } finally {
       await s.close();
     }

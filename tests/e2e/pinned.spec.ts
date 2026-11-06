@@ -13,6 +13,10 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
   await expect(
     page.getByRole("heading", { name: "Coverage", exact: true }),
   ).toBeVisible({ timeout: 90000 });
+  const snapshots = page.getByLabel("Snapshot", { exact: true });
+  await expect(snapshots.locator("option")).toHaveText([
+    "place.rbxlx · Import 1",
+  ]);
   const xml = (await readFile(fixturePath("shop/place.rbxlx"), "utf8")).replace(
       /Sword\s*=\s*100/,
       "Sword=101",
@@ -61,6 +65,10 @@ test("keeps graph data pinned while a newly selected snapshot loads", async ({
     await expect(page.getByLabel("Snapshot", { exact: true })).toHaveValue(
       job.analysisId,
     );
+    await expect(snapshots.locator("option")).toHaveText([
+      "changed.rbxlx · Import 2",
+      "place.rbxlx · Import 1",
+    ]);
     expect(await page.locator(".sigma-container").count()).toBe(0);
   } finally {
     release();

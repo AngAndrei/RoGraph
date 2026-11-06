@@ -45,6 +45,37 @@ it("packs disconnected components for the available viewport shape", () => {
     (Math.max(...p.map((n) => n.y)) + 120);
   expect(ratio(wide)).toBeGreaterThan(ratio(tall) * 2);
 });
+
+it("places disconnected clusters on the sides even when services span components", () => {
+  const main = ["a", "b", "c", "d"];
+  const satellites = [
+    ["e", "f"],
+    ["g", "h"],
+  ];
+  const points = arrangeGraph(
+    [...main, ...satellites.flat()],
+    [
+      ...main.slice(1).map((target) => ({ source: "a", target })),
+      ...satellites.map(([source, target]) => ({ source, target })),
+    ],
+    {
+      aspectRatio: 2,
+      groups: [
+        ["a", "b", "e", "g"],
+        ["c", "d", "f", "h"],
+      ],
+    },
+  );
+  const horizontalBounds = (ids: string[]) => {
+    const xs = points.filter((p) => ids.includes(p.id)).map((p) => p.x);
+    return [Math.min(...xs), Math.max(...xs)];
+  };
+  const [left, right] = horizontalBounds(main);
+  expect(left - horizontalBounds(satellites[0])[1]).toBeGreaterThanOrEqual(250);
+  expect(horizontalBounds(satellites[1])[0] - right).toBeGreaterThanOrEqual(
+    250,
+  );
+});
 const turn = (a: P, b: P, c: P) =>
   (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 function crossings(

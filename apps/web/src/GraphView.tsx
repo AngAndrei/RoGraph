@@ -120,7 +120,9 @@ export function GraphView({
     () => projectGraph(result, details, group, showClassMatches),
     [result, details, group, showClassMatches],
   );
-  const activeGroup = fullView.groups.some((g) => g.id === group) ? group : "all";
+  const activeGroup = fullView.groups.some((g) => g.id === group)
+    ? group
+    : "all";
   const activeFocus = fullView.nodes.some((n) => n.id === focusId)
     ? focusId
     : "";
@@ -130,15 +132,21 @@ export function GraphView({
   );
   const labels = useMemo(() => contextualLabels(result.nodes), [result.nodes]);
   const selectionRef = useRef(selection);
+  const dragSelection = useRef(new Set<string>());
   selectionRef.current = selection;
   const selectionStyle = (sigma: Sigma) => {
     const g = sigma.getGraph(),
-      id = selectionRef.current;
+      selected = dragSelection.current;
     for (const n of g.nodes())
-      sigma.setNodeState(n, { isHighlighted: n === id });
+      sigma.setNodeState(n, {
+        isHighlighted: selected.size
+          ? selected.has(n)
+          : n === selectionRef.current,
+      });
     sigma.refresh();
   };
   useEffect(() => {
+    dragSelection.current.clear();
     if (renderer.current) selectionStyle(renderer.current);
   }, [selection]);
   const selectRef = useRef(onSelect),
@@ -236,6 +244,21 @@ export function GraphView({
               then: { attribute: "label" },
               else: { attribute: "previewLabel" },
             },
+            color: {
+              whenState: "isHighlighted",
+              then: "#245ca6",
+              else: { attribute: "color" },
+            },
+            labelVisibility: {
+              whenState: ["isHovered", "isHighlighted"],
+              then: "visible",
+              else: "auto",
+            },
+            backdropVisibility: {
+              whenState: ["isHovered", "isHighlighted"],
+              then: "visible",
+              else: "hidden",
+            },
             labelColor: "#526880",
             labelFont,
             labelSize,
@@ -249,6 +272,10 @@ export function GraphView({
           itemSizesReference: "screen",
           enableEdgeEvents: true,
           enableNodeDrag: Boolean(saved),
+          getDraggedNodes: (id) =>
+            dragSelection.current.has(id) ? [...dragSelection.current] : [id],
+          labelGridCellSize: 128,
+          labelDensity: 0.75,
           labelRenderedSizeThreshold: 0,
           stagePadding: 65,
           allowInvalidContainer: true,
@@ -305,9 +332,34 @@ export function GraphView({
       sigma.on("nodeDragEnd", (e) => {
         for (const id of e.allDraggedNodes) manualPins.add(id);
       });
-      // Rapid successive node drags must not become a double-click camera zoom.
-      sigma.on("doubleClickNode", (e) => e.preventSigmaDefault());
+      const toggleDragSelection = (id: string) => {
+        const selected = dragSelection.current;
+        if (!selected.delete(id)) selected.add(id);
+        selectionStyle(sigma);
+      };
+      const clearDragSelection = () => {
+        if (!dragSelection.current.size) return;
+        dragSelection.current.clear();
+        selectionStyle(sigma);
+      };
+      sigma.on("clickStage", clearDragSelection);
+      sigma.on("doubleClickStage", (e) => {
+        if (!dragSelection.current.size) return;
+        e.preventSigmaDefault();
+        clearDragSelection();
+      });
+      sigma.on("doubleClickNode", (e) => {
+        e.preventSigmaDefault();
+        // Sigma emits a double-click event in place of the second rapid click.
+        if (e.event.original.ctrlKey || e.event.original.metaKey)
+          toggleDragSelection(e.node);
+      });
       sigma.on("clickNode", (e) => {
+        if (e.event.original.ctrlKey || e.event.original.metaKey) {
+          toggleDragSelection(e.node);
+          return;
+        }
+        clearDragSelection();
         setLocalSelection(e.node);
         selectRef.current(e.node);
       });
@@ -441,6 +493,7 @@ export function GraphView({
     }
     return () => {
       disposed = true;
+      dragSelection.current.clear();
       if (ready && renderer.current) {
         const sigma = renderer.current;
         arrangements.delete(key);

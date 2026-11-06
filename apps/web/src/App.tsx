@@ -13,6 +13,7 @@ import { ImportView } from "./ImportView.js";
 import { CoverageView } from "./CoverageView.js";
 import { Hierarchy, NodeMark } from "./Hierarchy.js";
 import { GraphView } from "./GraphView.js";
+import { SnapshotOption, snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceControls, TraceView } from "./TraceView.js";
 import { SourceView } from "./SourceView.js";
@@ -270,6 +271,7 @@ export default function App() {
   }
   const traceRequest = graphRequest.current;
   const node = selection?.nodes.find((n) => n.id === selectedId);
+  const selectedSnapshot = analyses.find((a) => a.analysisId === analysisId);
   const graphScope =
     activeQuery && activeQuery.analysisId === result?.analysisId
       ? JSON.stringify([
@@ -363,14 +365,14 @@ export default function App() {
                   Snapshot
                   <select
                     aria-label="Snapshot"
+                    title={
+                      selectedSnapshot && snapshotDetails(selectedSnapshot)
+                    }
                     value={analysisId}
                     onChange={(e) => setAnalysis(e.target.value)}
                   >
                     {analyses.map((a) => (
-                      <option key={a.analysisId} value={a.analysisId}>
-                        {a.analysisId.slice(0, 8)} ·{" "}
-                        {a.complete ? "Complete" : "Partial import"}
-                      </option>
+                      <SnapshotOption key={a.analysisId} snapshot={a} />
                     ))}
                   </select>
                 </label>
