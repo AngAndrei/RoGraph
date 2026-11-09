@@ -49,6 +49,7 @@ export interface Query {
   classes?: string[];
   startByte?: number;
   endByte?: number;
+  matchIndex?: number;
 }
 export interface SourceView {
   id: string;
@@ -59,6 +60,7 @@ export interface SourceView {
   text?: string;
   excerpts: { span: Span; text: string }[];
   omittedBytes: number;
+  search?: { term: string; total: number; index: number; match?: Span };
 }
 export interface PathHop {
   relationId: string;

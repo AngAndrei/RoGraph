@@ -9,6 +9,84 @@ import {
 import { validPositions } from "../apps/web/src/layout-protocol.js";
 import type { QueryResult } from "../packages/contracts/src/query.js";
 
+it("explains numeric saved names with class and hierarchy without changing object identity", () => {
+  const node = {
+    id: "slot9",
+    kind: "instance",
+    label: "9",
+    contexts: ["unknown"],
+    attributes: {
+      name: "9",
+      className: "ImageButton",
+      labelAncestors: ["DataModel", "StarterGui", "Inventory", "Frame"],
+    },
+  } as QueryResult["nodes"][number];
+  expect(contextualLabels([node]).get("slot9")).toBe(
+    "ImageButton 9 · Inventory.Frame",
+  );
+  expect(node.label).toBe("9");
+  expect(node.attributes.name).toBe("9");
+  const part = {
+    ...node,
+    id: "leg",
+    label: "2",
+    attributes: {
+      ...node.attributes,
+      name: "2",
+      className: "Part",
+      labelAncestors: ["Workspace", "Dog", "Legs"],
+    },
+  };
+  expect(contextualLabels([part]).get("leg")).toBe("Part 2 · Dog.Legs");
+});
+
+it("adds an asset parent to a saved limb and resolves runtime parent IDs", () => {
+  const nodes = [
+    {
+      id: "dog",
+      label: "Dog",
+      kind: "instance",
+      contexts: ["unknown"],
+      attributes: { className: "Model" },
+    },
+    {
+      id: "leg",
+      label: "Leg",
+      kind: "instance",
+      contexts: ["unknown"],
+      ownerId: "dog",
+      attributes: { className: "Part" },
+    },
+    {
+      id: "created",
+      label: "Part",
+      kind: "instance",
+      contexts: ["unknown"],
+      attributes: { className: "Part", runtimeDefined: true, parentId: "dog" },
+    },
+  ] as QueryResult["nodes"];
+  const labels = contextualLabels(nodes);
+  expect(labels.get("leg")).toBe("Leg · Dog");
+  expect(labels.get("created")).toBe("Part · Dog");
+});
+
+it("retains a real ancestor even when the child has the same name", () => {
+  const nodes = [
+    {
+      id: "child",
+      kind: "instance",
+      label: "Dog",
+      contexts: ["unknown"],
+      attributes: {
+        className: "Part",
+        parentClassName: "Model",
+        labelAncestors: ["Game", "Workspace", "Dog"],
+      },
+    },
+  ] as QueryResult["nodes"];
+  expect(contextualLabels(nodes).get("child")).toBe("Dog · Dog");
+});
+
 const result = {
   analysisId: "same",
   nodes: ["a", "b", "c", "d"].map((id) => ({

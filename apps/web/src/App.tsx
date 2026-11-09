@@ -55,7 +55,7 @@ export default function App() {
     [classFilter, setClasses] = useState(""),
     [depth, setDepth] = useState(6),
     [groupBy, setGroupBy] = useState<"service" | "folder">("service"),
-    [includeInstances, setIncludeInstances] = useState(false),
+    [nodeSearch, setNodeSearch] = useState(""),
     [stopped, setStopped] = useState(false),
     [navigatorCollapsed, setNavigatorCollapsed] = useState(false),
     [overviewRevision, setOverviewRevision] = useState(0);
@@ -81,9 +81,9 @@ export default function App() {
         : undefined,
       depth,
       groupBy,
-      includeInstances,
+      includeInstances: false,
     }),
-    [view, classFilter, depth, groupBy, includeInstances],
+    [view, classFilter, depth, groupBy],
   );
   const refresh = async (id?: string) => {
     const w = await api.workspace();
@@ -622,13 +622,14 @@ export default function App() {
                   </select>
                 </label>
                 <label>
+                  Search nodes{" "}
                   <input
-                    type="checkbox"
-                    aria-label="Include saved objects"
-                    checked={includeInstances}
-                    onChange={(e) => setIncludeInstances(e.target.checked)}
-                  />{" "}
-                  Show saved objects
+                    type="search"
+                    aria-label="Search nodes"
+                    placeholder="Search node labels…"
+                    value={nodeSearch}
+                    onChange={(e) => setNodeSearch(e.target.value)}
+                  />
                 </label>
               </div>
               {view === "gameplay" &&
@@ -641,10 +642,10 @@ export default function App() {
                 )}
               <GraphView
                 result={result}
+                nodeSearch={nodeSearch}
                 selectedId={selectedId}
                 details={
                   ((activeQuery?.view ?? view) === "code" && details) ||
-                  includeInstances ||
                   Boolean(traceResult)
                 }
                 arrangementScope={graphScope}

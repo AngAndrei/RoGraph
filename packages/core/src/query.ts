@@ -54,6 +54,7 @@ export const querySchema = z.object({
   classes: z.array(z.string().max(64)).max(50).optional(),
   startByte: z.number().int().nonnegative().optional(),
   endByte: z.number().int().nonnegative().optional(),
+  matchIndex: z.number().int().min(-16777216).max(16777216).optional(),
 });
 export function createQueryEngine(store: GraphStore): QueryEngine {
   return {
@@ -165,6 +166,8 @@ export function createQueryEngine(store: GraphStore): QueryEngine {
           original: q.original,
           startByte: q.startByte,
           endByte: q.endByte,
+          findText: q.text,
+          matchIndex: q.matchIndex,
         });
         if (!r.sources.length)
           throw new RoGraphError(

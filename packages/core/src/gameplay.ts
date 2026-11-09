@@ -671,6 +671,7 @@ export function resolveGameplay(
         );
     }
   for (const object of resolver.created.values()) {
+    const bindingName = resolver.createdBindingNames.get(object.id);
     const allocation = facts
       .flatMap((f) => f.sites.map((site) => ({ f, site })))
       .find(
@@ -680,11 +681,15 @@ export function resolveGameplay(
     addNode(result, {
       id: object.id,
       kind: "instance",
-      label: object.name,
+      label:
+        object.name === object.className
+          ? (bindingName ?? object.name)
+          : object.name,
       contexts: ["unknown"],
       attributes: {
         ...object,
         runtimeDefined: true,
+        bindingName,
         sourceId: allocation?.f.sourceId,
         scriptId: allocation?.f.scriptId,
         span: allocation?.site.span,

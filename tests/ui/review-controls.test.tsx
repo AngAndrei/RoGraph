@@ -118,14 +118,15 @@ it("keeps visible filters through overview, dependencies and impact actions", as
   await user.selectOptions(screen.getByLabelText("Group by"), "folder");
   await user.type(screen.getByLabelText("Object classes"), "ModuleScript");
   await user.selectOptions(screen.getByLabelText("Traversal depth"), "4");
-  await user.click(screen.getByLabelText("Include saved objects"));
+  expect(screen.queryByLabelText("Include saved objects")).toBeNull();
+  await user.type(screen.getByRole("searchbox", { name: "Search nodes" }), "Start");
   await waitFor(() =>
     expect(mock.run).toHaveBeenLastCalledWith(
       expect.objectContaining({
         groupBy: "folder",
         classes: ["ModuleScript"],
         depth: 4,
-        includeInstances: true,
+        includeInstances: false,
       }),
     ),
   );
@@ -300,8 +301,10 @@ it("opens a parse diagnostic at its exact indexed source location", async () => 
     screen.getByRole("searchbox", { name: "Find in source" }),
     "?",
   );
-  await user.click(screen.getByRole("button", { name: "Find matches" }));
-  expect(document.querySelector(".source-match")?.textContent).toBe("?");
+  await waitFor(() =>
+    expect(document.querySelector(".source-match")?.textContent).toBe("?"),
+  );
+  expect(screen.getByRole("button", { name: "Close find" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 });

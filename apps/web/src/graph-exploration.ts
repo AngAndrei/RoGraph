@@ -48,21 +48,31 @@ export function contextualLabels(nodes: Node[]) {
   const namesakes = new Map<string, string[][]>();
   const contexts = nodes.map((node) => {
     const path = node.attributes.path ?? node.attributes.instancePath;
+    const inherited = Array.isArray(node.attributes.labelAncestors)
+      ? node.attributes.labelAncestors.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
     const parts = path
       ? String(path)
           .split(/[./\\]/)
           .filter(Boolean)
-      : [];
-    if (parts.at(-1) === node.label) parts.pop();
-    if (!path) {
+      : [...inherited];
+    if (path && parts.at(-1) === node.label) parts.pop();
+    if (!path && !inherited.length) {
       const seen = new Set([node.id]);
-      let owner = node.ownerId;
+      const parentId =
+        node.ownerId ??
+        node.attributes.parentId ??
+        (node.attributes.runtimeDefined ? node.attributes.scriptId : undefined);
+      let owner = typeof parentId === "string" ? parentId : undefined;
       while (owner && !seen.has(owner) && parts.length < 16) {
-        const parent = byId.get(owner);
+        const parent = byId.get(String(owner));
         if (!parent) break;
         seen.add(owner);
         parts.unshift(parent.label);
-        owner = parent.ownerId;
+        const nextOwner = parent.ownerId ?? parent.attributes.parentId;
+        owner = typeof nextOwner === "string" ? nextOwner : undefined;
       }
     }
     const context = parts.filter(
@@ -77,7 +87,28 @@ export function contextualLabels(nodes: Node[]) {
     nodes.map((node, index) => {
       const peers = namesakes.get(node.label)!;
       const parts = contexts[index];
-      if (peers.length === 1 || !parts.length) return [node.id, node.label];
+      if (node.kind === "instance" && /^\d+$/.test(node.label)) {
+        const kind = String(node.attributes.className ?? "Object");
+        const context = parts.slice(-2).join(".");
+        return [
+          node.id,
+          `${kind} ${node.label}${context ? " · " + context : ""}`,
+        ];
+      }
+      const parent = byId.get(
+        String(node.ownerId ?? node.attributes.parentId ?? ""),
+      );
+      const assetChild =
+        node.kind === "instance" &&
+        ["Model", "Tool"].includes(
+          String(
+            parent?.attributes.className ?? node.attributes.parentClassName,
+          ),
+        );
+      const generic =
+        node.kind === "instance" && node.label === node.attributes.className;
+      if ((peers.length === 1 && !assetChild && !generic) || !parts.length)
+        return [node.id, node.label];
       const different = peers.filter(
         (other) => other.join(".") !== parts.join("."),
       );
