@@ -547,7 +547,9 @@ small {
   color: #415671;
 }
 .filterbar {
-  height: 47px;
+  min-height: 47px;
+  height: auto;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -589,11 +591,20 @@ small {
   border-radius: 8px;
   box-shadow: 0 4px 16px #172b4d18;
 }
-.graph-search-results > div { display: grid; gap: 4px; margin-top: 8px; }
-.graph-search-results button { text-align: left; overflow-wrap: anywhere; }
+.graph-search-results > div {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.graph-search-results button {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
 .graph-area {
   flex: 1;
   min-height: 260px;
+  display: flex;
+  flex-direction: column;
   position: relative;
   background-color: #f9fbfe;
   background-image: radial-gradient(#d9e1ed 0.6px, transparent 0.6px);
@@ -603,6 +614,11 @@ small {
 .sigma-container {
   position: absolute;
   inset: 0;
+}
+.graph-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 100px;
 }
 .graph-guide {
   position: absolute;
@@ -615,7 +631,7 @@ small {
 .graph-controls {
   position: absolute;
   right: 20px;
-  bottom: 52px;
+  bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -636,15 +652,17 @@ small {
   background: #eaf3f0;
 }
 .graph-legend {
-  position: absolute;
-  bottom: 15px;
-  left: 28px;
-  right: 60px;
+  position: relative;
+  flex-shrink: 0;
+  margin: 4px 16px 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 13px;
-  font-size: 8px;
-  color: #8a9aaf;
+  font-size: 11px;
+  color: #526880;
+  background: #f9fbfef2;
+  padding: 6px 8px;
+  border-radius: 5px;
   pointer-events: none;
 }
 .graph-legend > span {
@@ -653,8 +671,8 @@ small {
   align-items: center;
 }
 .graph-legend i {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 .graph-node-list {
@@ -1710,6 +1728,8 @@ small {
 .secondary-filters {
   flex-wrap: wrap;
   gap: 12px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 .secondary-filters label {
   display: flex;
@@ -1732,11 +1752,10 @@ small {
   max-width: 240px;
 }
 .graph-toolbar {
-  position: absolute;
+  position: relative;
+  flex-shrink: 0;
   z-index: 2;
-  top: 12px;
-  left: 16px;
-  right: 16px;
+  margin: 10px 16px 4px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1787,10 +1806,324 @@ small {
   color: #435d72;
   pointer-events: none;
 }
-@media (max-width: 600px) {
-  .graph-toolbar {
+.trace-open,
+.map-scope button {
+  padding: 7px 10px;
+  border: 1px solid #c9d8e4;
+  border-radius: 5px;
+  background: #fff;
+  color: #245b75;
+  white-space: nowrap;
+}
+.map-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  align-items: center;
+  padding: 8px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  color: #526880;
+  flex-shrink: 0;
+}
+.map-limits {
+  color: #825515;
+}
+.game-orientation {
+  padding: 10px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.game-orientation summary {
+  cursor: pointer;
+  color: #2f655c;
+  font-size: 12px;
+}
+.game-orientation summary > span {
+  color: #526880;
+  margin-left: 10px;
+  font-size: 11px;
+}
+.orientation-entries {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  margin-top: 9px;
+}
+.orientation-entry {
+  flex: 1 0 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid #dce7e5;
+  border-radius: 6px;
+  background: #f7fbfa;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.orientation-entry:hover {
+  background: #eaf4f1;
+  border-color: #8cbcaf;
+}
+.orientation-entry > strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.orientation-entry small {
+  color: #526880;
+}
+.orientation-example {
+  color: #526880;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.orientation-example em {
+  color: #245b50;
+  font-style: normal;
+}
+.orientation-note {
+  margin: 7px 0 0;
+  color: #526880;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.orientation-entries > p {
+  font-size: 12px;
+  margin-bottom: 0;
+}
+.behavior-summary {
+  padding: 0 12px 12px;
+  margin-top: 16px;
+  border: 1px solid #dce7e5;
+  border-radius: 6px;
+  background: #f7fbfa;
+}
+.behavior-summary h3 {
+  margin: 13px 0 12px;
+}
+.behavior-summary > div {
+  margin-top: 12px;
+}
+.behavior-summary > div > strong {
+  font-size: 11px;
+  color: #2f655c;
+}
+.behavior-summary button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  padding: 7px 0;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.behavior-summary button:hover {
+  text-decoration: underline;
+}
+.behavior-summary small,
+.behavior-summary p {
+  color: #526880;
+  font-size: 11px;
+}
+.behavior-summary p {
+  line-height: 1.4;
+  margin: 10px 0 0;
+}
+.graph-map-count {
+  margin-right: auto;
+  padding: 9px 7px;
+  color: #526880;
+  font-size: 11px;
+  background: #f9fbfef2;
+  border-radius: 5px;
+}
+.graph-direction-key {
+  font-weight: 600;
+}
+.trace-controls {
+  max-height: min(460px, 70dvh);
+  overflow: auto;
+}
+.trace-controls > div {
+  flex: 1;
+  min-width: 180px;
+}
+.trace-controls .trace-question {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.trace-question small {
+  color: #526880;
+  font-size: 11px;
+}
+.trace-controls label {
+  font-size: 12px;
+  color: #526880;
+  margin-top: 8px;
+}
+.trace-controls input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dce7ef;
+  border-radius: 5px;
+}
+.trace-controls select {
+  width: 100%;
+  font-size: 12px;
+}
+@media (min-width: 761px) and (max-width: 1350px) {
+  .orientation-entries {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+  .orientation-entry {
+    flex: 0 0 225px;
+  }
+  .orientation-note {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .app {
+    height: 100dvh;
+    min-height: 600px;
+  }
+  .topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .topbar .brand {
+    min-width: 0;
+  }
+  .brand > span {
+    display: none;
+  }
+  .topbar > .text-button {
+    font-size: 11px;
+    min-height: 36px;
+  }
+  .workspace {
+    flex-wrap: nowrap;
+    position: relative;
+  }
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: min(300px, calc(100vw - 50px));
+    min-height: 0;
+    z-index: 10;
+    box-shadow: 8px 0 24px #25344d15;
+  }
+  .sidebar.sidebar-collapsed {
+    position: static;
+    width: 40px;
+    box-shadow: none;
+  }
+  .sidebar .sidebar-title {
+    padding: 14px 12px;
+  }
+  .main-area {
+    min-height: 0;
+    min-width: 0;
+  }
+  .view-header {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .view-header h1 {
+    font-size: 20px;
+    margin: 3px 0;
+  }
+  .view-header .eyebrow {
+    display: none;
+  }
+  .segmented button {
+    min-height: 36px;
+  }
+  .secondary-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 6px 12px;
+  }
+  .secondary-filters > label {
+    flex-shrink: 0;
+  }
+  .secondary-filters input {
+    width: 140px;
+  }
+  .map-scope {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+  .map-limits {
+    font-size: 11px;
+  }
+  .game-orientation {
+    padding: 8px 12px;
+  }
+  .game-orientation summary > span {
+    display: none;
+  }
+  .orientation-entries {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .orientation-entry {
+    flex: 0 0 235px;
+  }
+  .orientation-note {
+    display: none;
+  }
+  .graph-area {
+    min-height: 220px;
+  }
+  .graph-legend {
+    font-size: 10px;
+    bottom: 5px;
+    right: 8px;
+  }
+  .graph-legend .graph-direction-key {
+    flex-basis: 100%;
+  }
+  .graph-map-count {
+    padding: 3px 5px;
+  }
+  .graph-exploration:has(button:disabled) {
+    display: none;
+  }
+  .inspector {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(370px, calc(100vw - 40px));
+    max-height: 100%;
+    z-index: 11;
+    box-shadow: -8px 0 24px #25344d20;
+    padding: 20px;
+    background: white;
+  }
+  .trace-controls {
+    top: 100px;
     left: 8px;
     right: 8px;
+    max-height: calc(100dvh - 240px);
+  }
+}
+@media (max-width: 600px) {
+  .graph-toolbar {
+    margin: 6px 8px 2px;
     justify-content: flex-start;
   }
   .group-navigator {
@@ -1808,11 +2141,11 @@ small {
     min-height: 36px;
   }
   .graph-guide {
-    top: 115px;
+    top: 12px;
     left: 12px;
   }
   .graph-legend {
-    left: 12px;
+    margin: 4px 8px;
     gap: 7px;
   }
   .graph-controls button {

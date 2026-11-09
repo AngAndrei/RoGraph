@@ -15,7 +15,8 @@ import { Hierarchy, NodeMark } from "./Hierarchy.js";
 import { GraphView } from "./GraphView.js";
 import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
-import { TraceView } from "./TraceView.js";
+import { TraceView, TraceControls } from "./TraceView.js";
+import { GameOrientation } from "./GameOrientation.js";
 import { SourceView } from "./SourceView.js";
 function Brand() {
   return (
@@ -57,19 +58,33 @@ export default function App() {
     [groupBy, setGroupBy] = useState<"service" | "folder">("service"),
     [nodeSearch, setNodeSearch] = useState(""),
     [stopped, setStopped] = useState(false),
-    [navigatorCollapsed, setNavigatorCollapsed] = useState(false),
+    [navigatorCollapsed, setNavigatorCollapsed] = useState(
+      () => window.innerWidth <= 760,
+    ),
     [overviewRevision, setOverviewRevision] = useState(0);
+  const [tracing, setTracing] = useState(false);
   const [traceResult, setTraceResult] = useState<QueryResult>(),
     [sourceEvidence, setSourceEvidence] = useState<Evidence>(),
     [edgeId, setEdgeId] = useState<string>(),
     [connectionRelationIds, setConnectionRelationIds] = useState<string[]>(),
     [activeQuery, setActiveQuery] = useState<Query>();
-  const [newSnapshot, setNewSnapshot] = useState<string>(),
+  const [newSnapshot, setNewSnapshot] = useState<AnalysisSummary>(),
     [watching, setWatching] = useState(false);
+  const knownAnalyses = useRef(new Set<string>());
   const requestRef = useRef(0);
   const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
+  useEffect(() => {
+    const narrow = window.matchMedia?.("(max-width: 760px)");
+    if (!narrow) return;
+    const collapse = () => {
+      if (narrow.matches) setNavigatorCollapsed(true);
+    };
+    collapse();
+    narrow.addEventListener("change", collapse);
+    return () => narrow.removeEventListener("change", collapse);
+  }, []);
   const graphFilters = useMemo(
     () => ({
       view,
@@ -87,6 +102,8 @@ export default function App() {
   );
   const refresh = async (id?: string) => {
     const w = await api.workspace();
+    for (const analysis of w.analyses)
+      knownAnalyses.current.add(analysis.analysisId);
     setAnalyses(w.analyses);
     setAnalysis(id ?? w.current ?? w.analyses[0]?.analysisId ?? "");
   };
@@ -133,6 +150,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!analysisId) return;
+    setTracing(false);
     let alive = true;
     const changed = previousAnalysis.current !== analysisId;
     const changedView = previousView.current !== view;
@@ -143,6 +161,10 @@ export default function App() {
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
+      setSearch("");
+      setNodeSearch("");
+      setNewSnapshot(undefined);
+      setTracing(false);
       setSelection(undefined);
       setSelected("");
       setEdgeId(undefined);
@@ -187,7 +209,9 @@ export default function App() {
         .then((r) => {
           if (alive) setMatches(r.nodes);
         })
-        .catch((e) => setError(e.message));
+        .catch((e) => {
+          if (alive) setError(e.message);
+        });
     }, 180);
     return () => {
       alive = false;
@@ -243,12 +267,22 @@ export default function App() {
           if (!alive) return;
           setWatching(Boolean(w.watch?.enabled));
           if (w.watch?.error) setError(w.watch.error);
-          if (w.current && w.current !== analysisId) {
-            const current = w.analyses.find((a) => a.analysisId === w.current),
-              selected = w.analyses.find((a) => a.analysisId === analysisId);
-            if (current && selected && current.createdAt > selected.createdAt)
-              setNewSnapshot(w.current);
-          }
+          const current = w.analyses.find((a) => a.analysisId === w.current),
+            selected = w.analyses.find((a) => a.analysisId === analysisId);
+          const unseen =
+            current && !knownAnalyses.current.has(current.analysisId);
+          for (const analysis of w.analyses)
+            knownAnalyses.current.add(analysis.analysisId);
+          setNewSnapshot((pending) =>
+            unseen &&
+            current.complete &&
+            current.analysisId !== analysisId &&
+            (!selected || current.createdAt > selected.createdAt)
+              ? current
+              : pending?.analysisId === w.current
+                ? pending
+                : undefined,
+          );
         })
         .catch(() => {});
     }, 3000);
@@ -259,6 +293,7 @@ export default function App() {
   }, [analysisId]);
   function openOverview(mode: typeof view) {
     graphRequest.current++;
+    setTracing(false);
     setView(mode);
     setOverviewRevision((revision) => revision + 1);
   }
@@ -271,6 +306,7 @@ export default function App() {
   }
   async function explore(op: "dependencies" | "impact", id: string) {
     const request = ++graphRequest.current;
+    setTracing(false);
     try {
       const q: Query = {
           op,
@@ -290,6 +326,9 @@ export default function App() {
   }
   const node = selection?.nodes.find((n) => n.id === selectedId);
   const selectedSnapshot = analyses.find((a) => a.analysisId === analysisId);
+  const explorationLabel =
+    result?.nodes.find((n) => n.id === activeQuery?.nodeId)?.label ??
+    "selected object";
   const graphScope =
     activeQuery && activeQuery.analysisId === result?.analysisId
       ? JSON.stringify([
@@ -457,13 +496,13 @@ export default function App() {
                   <>
                     <CoverageView coverage={result.coverage} />
                     <DiagnosticView
-                      key={analysisId}
+                      key={`diagnostics:${analysisId}`}
                       analysisId={analysisId}
                       onSelect={(id) => void select(id)}
                     />
                     {analyses.length > 1 && (
                       <DiffView
-                        key={analysisId}
+                        key={`diff:${analysisId}`}
                         analysisId={analysisId}
                         analyses={analyses}
                       />
@@ -499,9 +538,12 @@ export default function App() {
           {newSnapshot && (
             <div className="job-banner">
               <strong>A new complete snapshot is ready.</strong>
+              <span>
+                {newSnapshot.displayName} · Import {newSnapshot.importNumber}
+              </span>
               <button
                 onClick={() => {
-                  void refresh(newSnapshot);
+                  void refresh(newSnapshot.analysisId);
                   setNewSnapshot(undefined);
                 }}
               >
@@ -631,7 +673,73 @@ export default function App() {
                     onChange={(e) => setNodeSearch(e.target.value)}
                   />
                 </label>
+                <button
+                  className="trace-open"
+                  onClick={() => setTracing(!tracing)}
+                  aria-expanded={tracing}
+                >
+                  Trace a path
+                </button>
               </div>
+              <div className="map-scope" role="status">
+                <span>
+                  <strong>
+                    {activeQuery?.op === "dependencies"
+                      ? `Dependencies of ${explorationLabel}`
+                      : activeQuery?.op === "impact"
+                        ? `Potential impact of ${explorationLabel}`
+                        : activeQuery?.op === "trace"
+                          ? "Potential connection path"
+                          : `${view === "gameplay" ? "Gameplay" : "Code"} overview`}
+                  </strong>{" "}
+                  · Static saved-file analysis
+                </span>
+                {activeQuery?.op !== "overview" && (
+                  <button
+                    onClick={() => {
+                      closeInspector();
+                      openOverview(view);
+                    }}
+                  >
+                    Back to overview
+                  </button>
+                )}
+                {(result.meta.truncated || result.coverage.partialImport) && (
+                  <span className="map-limits">
+                    {result.meta.truncated &&
+                      "Bounded map: some records are omitted. "}
+                    {result.coverage.partialImport && "Partial import. "}Search
+                    the whole project to inspect beyond this map.
+                  </span>
+                )}
+              </div>
+              {tracing && (
+                <TraceControls
+                  key={analysisId + view}
+                  analysisId={analysisId}
+                  nodes={result.nodes}
+                  filters={graphFilters}
+                  onClose={() => setTracing(false)}
+                  onResult={(r, q) => {
+                    graphRequest.current++;
+                    closeInspector();
+                    setResult(r);
+                    setTraceResult(r);
+                    setActiveQuery(q);
+                    setTracing(false);
+                  }}
+                />
+              )}
+              {view === "gameplay" && activeQuery?.op === "overview" && (
+                <GameOrientation
+                  key={analysisId}
+                  result={result}
+                  onSelect={(id) => {
+                    setEdgeId(undefined);
+                    void select(id);
+                  }}
+                />
+              )}
               {view === "gameplay" &&
                 result.capabilities?.gameplay === false && (
                   <div className="bounds-banner">
@@ -673,7 +781,7 @@ export default function App() {
                   }
                 }}
               />
-              {traceResult && (
+              {traceResult && activeQuery?.op === "trace" && (
                 <TraceView
                   key={traceResult.analysisId + activeQuery?.op}
                   result={traceResult}

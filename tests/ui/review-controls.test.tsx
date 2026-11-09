@@ -119,7 +119,10 @@ it("keeps visible filters through overview, dependencies and impact actions", as
   await user.type(screen.getByLabelText("Object classes"), "ModuleScript");
   await user.selectOptions(screen.getByLabelText("Traversal depth"), "4");
   expect(screen.queryByLabelText("Include saved objects")).toBeNull();
-  await user.type(screen.getByRole("searchbox", { name: "Search nodes" }), "Start");
+  await user.type(
+    screen.getByRole("searchbox", { name: "Search nodes" }),
+    "Start",
+  );
   await waitFor(() =>
     expect(mock.run).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -130,6 +133,60 @@ it("keeps visible filters through overview, dependencies and impact actions", as
       }),
     ),
   );
+});
+it("explains dependency scope and returns to overview without a false zero-hop path", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Choose start" }));
+  await user.click(await screen.findByRole("button", { name: "Dependencies" }));
+  await screen.findByText("Dependencies of Start");
+  expect(
+    screen.queryByText(/0 hops|No modeled path within these bounds/),
+  ).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Back to overview" }));
+  await waitFor(() =>
+    expect(screen.queryByText("Dependencies of Start")).toBeNull(),
+  );
+});
+it("makes existing path tracing discoverable from the graph workspace", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Trace a path" }));
+  expect(screen.getByRole("button", { name: "Find path" })).toBeTruthy();
+  expect(screen.getByLabelText("Trace start")).toBeTruthy();
+});
+it("discards a pending trace when the developer switches graph view", async () => {
+  const user = userEvent.setup();
+  let finish: (r: QueryResult) => void = () => {};
+  mock.run.mockImplementation((q) =>
+    q.op === "trace"
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : Promise.resolve(result()),
+  );
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Trace a path" }));
+  await user.click(screen.getByRole("button", { name: "Find path" }));
+  await user.click(screen.getByRole("button", { name: "Code" }));
+  await act(async () =>
+    finish({
+      ...result(),
+      paths: [
+        [
+          {
+            relationId: "late",
+            fromId: "start",
+            toId: "end",
+            direction: "forward",
+            transition: "dependency",
+          },
+        ],
+      ],
+    }),
+  );
+  expect(screen.queryByText("Potential connection path")).toBeNull();
+  expect(screen.queryByText("1 hops")).toBeNull();
 });
 it("returns to the overview on a same-mode click and closes the inspector", async () => {
   const user = userEvent.setup();
@@ -195,6 +252,28 @@ it("searches trace endpoints across the pinned snapshot and retains active filte
     ),
   );
 });
+it("lets a developer include configuration influence in a gameplay trace", async () => {
+  const user = userEvent.setup();
+  render(
+    <TraceControls
+      analysisId="a"
+      nodes={[start, destination]}
+      filters={{ view: "gameplay" }}
+      onClose={() => {}}
+      onResult={() => {}}
+    />,
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Trace question"),
+    "influence",
+  );
+  await user.click(screen.getByRole("button", { name: "Find path" }));
+  await waitFor(() =>
+    expect(mock.run).toHaveBeenLastCalledWith(
+      expect.objectContaining({ traceGoal: "influence", view: "gameplay" }),
+    ),
+  );
+});
 it("ignores a trace response after the controls are dismissed", async () => {
   const user = userEvent.setup();
   const onResult = vi.fn();
@@ -243,6 +322,75 @@ it("shows diagnostic details and opens their indexed owner", async () => {
       analysisId: "a",
     }),
   );
+});
+it.each([false, true])(
+  "does not offer another game as a newer snapshot (watch enabled: %s)",
+  async (enabled) => {
+    const analyses = [
+      {
+        analysisId: "a",
+        snapshotId: "s",
+        displayName: "First.rbxl",
+        importNumber: 1,
+        inputKind: "place",
+        complete: true,
+        createdAt: "2026-11-01",
+      },
+      {
+        analysisId: "b",
+        snapshotId: "t",
+        displayName: "Other.rbxl",
+        importNumber: 2,
+        inputKind: "place",
+        complete: true,
+        createdAt: "2026-11-02",
+      },
+    ];
+    mock.workspace
+      .mockResolvedValueOnce({ current: "a", analyses, watch: { enabled } })
+      .mockResolvedValue({ current: "b", analyses, watch: { enabled } });
+    render(<App />);
+    await screen.findByRole("button", { name: "Choose start" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 3100));
+    });
+    expect(screen.queryByText("A new complete snapshot is ready.")).toBeNull();
+  },
+);
+it("still offers an unseen complete import received from outside this browser", async () => {
+  const analyses = [
+    {
+      analysisId: "a",
+      snapshotId: "s",
+      displayName: "Project",
+      importNumber: 1,
+      inputKind: "rojo",
+      complete: true,
+      createdAt: "2026-11-01",
+    },
+    {
+      analysisId: "b",
+      snapshotId: "t",
+      displayName: "Project",
+      importNumber: 2,
+      inputKind: "rojo",
+      complete: true,
+      createdAt: "2026-11-02",
+    },
+  ];
+  mock.workspace
+    .mockResolvedValueOnce({
+      current: "a",
+      analyses: [analyses[0]],
+      watch: { enabled: false },
+    })
+    .mockResolvedValue({ current: "b", analyses, watch: { enabled: false } });
+  render(<App />);
+  await screen.findByRole("button", { name: "Choose start" });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 3100));
+  });
+  expect(screen.getByText("A new complete snapshot is ready.")).toBeTruthy();
 });
 it("opens a parse diagnostic at its exact indexed source location", async () => {
   const span = {

@@ -12,12 +12,15 @@ Extract the portable package into a writable folder and open **RoGraph.exe**. Yo
 
 - Search scripts, functions, fields, or any saved object; expand the hierarchy for geometry.
 - Select a node to inspect its incoming/outgoing relationships and retained occurrences.
+- Use **Start here** for connected scripts and example actions; **Trace a path** follows supported gameplay or configuration connections with source evidence.
 - Open **Source** for exact decoded code and revision/byte/line locators.
 - Switch to **Code** and trace `ShopClient.BuySword` to `ShopConfig.Prices.Sword` to follow a potential client → remote → server-handler → method → configuration path.
 - Export a bounded JSON/Markdown context pack, or connect an agent through read-only MCP.
 - Use **Stop app** to stop the service and its owned workers. Closing a browser tab alone leaves the local app running.
 
 This is static saved-file analysis. It does not execute game code or prove runtime behavior. Studio runtime capture is deferred. Rojo imports cover their configured project; Studio-only objects are outside that input.
+
+See the [first-time developer QA review](docs/qa-first-time-developer.md) for findings from the six supplied test games, implemented usability changes and remaining priorities.
 
 See the [user guide](docs/user-guide.md), [agent setup](docs/agent-setup.md), [troubleshooting](docs/troubleshooting.md), and [measured performance](docs/performance.md). The preview has been tested with synthetic fixtures and three supplied games; see [provided-game validation](docs/provided-game-validation.md) for partial-import and parsing limits. A separate clean PC remains untested.
 

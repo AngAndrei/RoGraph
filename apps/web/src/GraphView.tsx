@@ -174,10 +174,13 @@ export function GraphView({
   const labels = useMemo(() => contextualLabels(result.nodes), [result.nodes]);
   const searchMatches = useMemo(() => {
     const term = nodeSearch.trim().toLocaleLowerCase();
-    return term ? view.nodes.filter((node) =>
-      (annotations[node.id]?.label ?? labels.get(node.id) ?? node.label)
-        .toLocaleLowerCase().includes(term),
-    ) : [];
+    return term
+      ? view.nodes.filter((node) =>
+          (annotations[node.id]?.label ?? labels.get(node.id) ?? node.label)
+            .toLocaleLowerCase()
+            .includes(term),
+        )
+      : [];
   }, [nodeSearch, view, annotations, labels]);
   useEffect(() => {
     setMenu(null);
@@ -627,6 +630,9 @@ export function GraphView({
   return (
     <div className="graph-area">
       <div className="graph-toolbar">
+        <span className="graph-map-count" aria-label="Visible map size">
+          {view.nodes.length} nodes · {view.edges.length} connections
+        </span>
         {view.groups.length > 0 && (
           <div className="group-navigator">
             <label>
@@ -663,131 +669,154 @@ export function GraphView({
       </div>
       {nodeSearch.trim() && (
         <div className="graph-search-results" aria-label="Node search results">
-          <span role="status">{searchMatches.length} matching nodes in this graph</span>
+          <span role="status">
+            {searchMatches.length} matching nodes in this graph
+          </span>
           <div>
             {searchMatches.slice(0, 100).map((node) => (
-              <button key={node.id} onClick={() => {
-                setLocalSelection(node.id);
-                onSelect(node.id);
-                const sigma = renderer.current;
-                const position = sigma?.getNodeDisplayData(node.id);
-                if (sigma && position)
-                  void sigma.getCamera().animate({ x: position.x, y: position.y, ratio: 0.3 }, { duration: 250 });
-              }}>
-                {annotations[node.id]?.label ?? labels.get(node.id) ?? node.label}
+              <button
+                key={node.id}
+                onClick={() => {
+                  setLocalSelection(node.id);
+                  onSelect(node.id);
+                  const sigma = renderer.current;
+                  const position = sigma?.getNodeDisplayData(node.id);
+                  if (sigma && position)
+                    void sigma
+                      .getCamera()
+                      .animate(
+                        { x: position.x, y: position.y, ratio: 0.3 },
+                        { duration: 250 },
+                      );
+                }}
+              >
+                {annotations[node.id]?.label ??
+                  labels.get(node.id) ??
+                  node.label}
               </button>
             ))}
           </div>
-          {searchMatches.length > 100 && <span>Showing the first 100. Refine your search to narrow the results.</span>}
+          {searchMatches.length > 100 && (
+            <span>
+              Showing the first 100. Refine your search to narrow the results.
+            </span>
+          )}
         </div>
       )}
-      <div
-        ref={container}
-        className="sigma-container"
-        data-analysis-id={result.analysisId}
-        aria-label="Project relationship graph"
-        tabIndex={0}
-        aria-keyshortcuts="Shift+F10"
-        onKeyDown={(e) => {
-          if (e.key !== "ContextMenu" && !(e.shiftKey && e.key === "F10"))
-            return;
-          const sigma = renderer.current;
-          if (!sigma?.getGraph().hasNode(selection)) return;
-          e.preventDefault();
-          const point = sigma.graphToViewport(
-            sigma.getGraph().getNodeAttributes(selection) as {
-              x: number;
-              y: number;
-            },
-          );
-          setMenu({
-            nodeId: selection,
-            x: Math.max(
-              8,
-              Math.min(point.x, container.current!.clientWidth - 184),
-            ),
-            y: Math.max(
-              8,
-              Math.min(point.y, container.current!.clientHeight - 100),
-            ),
-          });
-        }}
-      />
-      {menu && view.nodes.some((n) => n.id === menu.nodeId) && (
-        <NodeContextMenu
-          menu={menu}
-          highlighted={Boolean(annotations[menu.nodeId]?.highlighted)}
-          onClose={closeMenu}
-          onRename={() => {
-            const label = window.prompt(
-              "Rename node (leave blank to restore its automatic label)",
-              annotations[menu.nodeId]?.label ?? labels.get(menu.nodeId) ?? "",
-            );
-            if (label === null) {
-              closeMenu();
+      <div className="graph-viewport">
+        <div
+          ref={container}
+          className="sigma-container"
+          data-analysis-id={result.analysisId}
+          aria-label="Project relationship graph"
+          tabIndex={0}
+          aria-keyshortcuts="Shift+F10"
+          onKeyDown={(e) => {
+            if (e.key !== "ContextMenu" && !(e.shiftKey && e.key === "F10"))
               return;
-            }
-            annotate(menu.nodeId, {
-              label: annotationLabel(label) || undefined,
+            const sigma = renderer.current;
+            if (!sigma?.getGraph().hasNode(selection)) return;
+            e.preventDefault();
+            const point = sigma.graphToViewport(
+              sigma.getGraph().getNodeAttributes(selection) as {
+                x: number;
+                y: number;
+              },
+            );
+            setMenu({
+              nodeId: selection,
+              x: Math.max(
+                8,
+                Math.min(point.x, container.current!.clientWidth - 184),
+              ),
+              y: Math.max(
+                8,
+                Math.min(point.y, container.current!.clientHeight - 100),
+              ),
             });
           }}
-          onHighlight={() =>
-            annotate(menu.nodeId, {
-              highlighted: !annotations[menu.nodeId]?.highlighted,
-            })
-          }
         />
-      )}
-      {annotationNotice && (
-        <div className="graph-annotation-notice" role="status">
-          {annotationNotice}
+        {menu && view.nodes.some((n) => n.id === menu.nodeId) && (
+          <NodeContextMenu
+            menu={menu}
+            highlighted={Boolean(annotations[menu.nodeId]?.highlighted)}
+            onClose={closeMenu}
+            onRename={() => {
+              const label = window.prompt(
+                "Rename node (leave blank to restore its automatic label)",
+                annotations[menu.nodeId]?.label ??
+                  labels.get(menu.nodeId) ??
+                  "",
+              );
+              if (label === null) {
+                closeMenu();
+                return;
+              }
+              annotate(menu.nodeId, {
+                label: annotationLabel(label) || undefined,
+              });
+            }}
+            onHighlight={() =>
+              annotate(menu.nodeId, {
+                highlighted: !annotations[menu.nodeId]?.highlighted,
+              })
+            }
+          />
+        )}
+        {annotationNotice && (
+          <div className="graph-annotation-notice" role="status">
+            {annotationNotice}
+          </div>
+        )}
+        {showClassMatches && !view.nodes.length && (
+          <div className="graph-empty" role="status">
+            No saved objects match these classes.
+          </div>
+        )}
+        {activeFocus && (
+          <div className="graph-guide">
+            {view.hiddenNodes} nodes hidden · {view.hiddenConnections}{" "}
+            connections hidden
+          </div>
+        )}
+        {busy && (
+          <div className="graph-layout-status" role="status">
+            Optimizing graph layout…
+          </div>
+        )}
+        <div className="graph-controls">
+          <button
+            aria-label="Zoom in"
+            onClick={() =>
+              void renderer.current?.getCamera().zoomIn({ duration: 180 })
+            }
+          >
+            +
+          </button>
+          <button
+            aria-label="Zoom out"
+            onClick={() =>
+              void renderer.current?.getCamera().zoomOut({ duration: 180 })
+            }
+          >
+            −
+          </button>
+          <button
+            aria-label="Fit graph"
+            onClick={() => {
+              renderer.current?.setCustomBBox(null);
+              renderer.current?.refresh();
+              void renderer.current?.getCamera().reset({ duration: 180 });
+            }}
+          >
+            ⌖
+          </button>
         </div>
-      )}
-      {showClassMatches && !view.nodes.length && (
-        <div className="graph-empty" role="status">
-          No saved objects match these classes.
-        </div>
-      )}
-      {activeFocus && (
-        <div className="graph-guide">
-          {view.hiddenNodes} nodes hidden · {view.hiddenConnections} connections
-          hidden
-        </div>
-      )}
-      {busy && (
-        <div className="graph-layout-status" role="status">
-          Optimizing graph layout…
-        </div>
-      )}
-      <div className="graph-controls">
-        <button
-          aria-label="Zoom in"
-          onClick={() =>
-            void renderer.current?.getCamera().zoomIn({ duration: 180 })
-          }
-        >
-          +
-        </button>
-        <button
-          aria-label="Zoom out"
-          onClick={() =>
-            void renderer.current?.getCamera().zoomOut({ duration: 180 })
-          }
-        >
-          −
-        </button>
-        <button
-          aria-label="Fit graph"
-          onClick={() => {
-            renderer.current?.setCustomBBox(null);
-            renderer.current?.refresh();
-            void renderer.current?.getCamera().reset({ duration: 180 });
-          }}
-        >
-          ⌖
-        </button>
       </div>
       <div className="graph-legend">
+        <span className="graph-direction-key">
+          → direction · select a line for its actions
+        </span>
         {[
           ["#669bea", "Client"],
           ["#55ad99", "Server"],

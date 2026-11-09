@@ -5,6 +5,7 @@ import type { Evidence } from "../../../packages/contracts/src/model.js";
 import { NodeMark } from "./Hierarchy.js";
 import { SourceView } from "./SourceView.js";
 import { contextualLabels } from "./graph-exploration.js";
+import { BehaviorSummary } from "./GameOrientation.js";
 export function Inspector({
   result: initial,
   selectedId,
@@ -156,6 +157,9 @@ export function Inspector({
         </button>
         <button onClick={() => onExplore("impact", selectedId)}>Impact</button>
       </div>
+      {r.projection?.view === "gameplay" && !edgeId && (
+        <BehaviorSummary result={r} nodeId={selectedId} onSelect={onSelect} />
+      )}
       {node.kind === "field" && (
         <div className="initializer">
           <span>Saved value / literal initializer</span>
