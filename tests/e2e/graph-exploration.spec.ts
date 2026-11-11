@@ -10,7 +10,7 @@ async function setupGraph(page: Page, mode = "normal") {
   window.showGraph=(id=selected,more=extra)=>{selected=id;extra=more;root.render(React.createElement(GraphView,{selectedId:selected,
     result:{analysisId:'exploration',nodes:['a','b','c','d',...(extra?['extra']:[])].map(id=>({id,kind:'instance',label:id==='b'&&${JSON.stringify(mode)}==='long-label'?'ProximityPrompt · Human.HumanoidRootPart':'Part',ownerId:'parent-'+id,contexts:['server'],attributes:{className:'Script'}})),
     relations:[{id:'ab',source:'a',target:'b',type:'REFERENCES'},{id:'ba',source:'b',target:'a',type:'MODIFIES'},{id:'bc',source:'b',target:'c',type:'REFERENCES'}],groups:[]},
-    details:true,onSelect:id=>window.showGraph(id),onEdge:(...args)=>window.clicked=args}));};window.showGraph();`,
+    details:true,nodeSearch:window.nodeSearch||'',onSelect:id=>{if(window.searchTest)window.selectedSearchNode=id;else window.showGraph(id)},onEdge:(...args)=>window.clicked=args}));};window.showGraph();`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -75,6 +75,119 @@ async function setupGraph(page: Page, mode = "normal") {
   });
   await page.goto("http://rograph.test/");
 }
+
+test("node label search selects and centers a match without rebuilding the layout", async ({ page }) => {
+  await setupGraph(page, "long-label");
+  await expect(page.locator(".sigma-container")).toHaveAttribute("data-layout-ready", "true");
+  await page.evaluate(() => { (window as any).searchTest = true; (window as any).nodeSearch = "hUmAn"; (window as any).showGraph(); });
+  const results = page.getByLabel("Node search results");
+  await expect(results).toContainText("1 matching nodes");
+  await results.getByRole("button").click();
+  await expect.poll(() => page.evaluate(() => (window as any).s.getCamera().getState().ratio)).toBe(0.3);
+  expect(await page.evaluate(() => (window as any).selectedSearchNode)).toBe("b");
+  await page.evaluate(() => { (window as any).nodeSearch = "missing-label"; (window as any).showGraph(); });
+  await expect(results).toContainText("0 matching nodes");
+  await page.evaluate(() => { (window as any).nodeSearch = ""; (window as any).showGraph(); });
+  await expect(results).toHaveCount(0);
+});
+
+test("personal node rename and yellow highlight survive refresh without moving the graph", async ({
+  page,
+}) => {
+  await setupGraph(page);
+  const canvas = page.locator(".sigma-container");
+  await expect(canvas).toHaveAttribute("data-layout-ready", "true");
+  const geometry = () =>
+    page.evaluate(() => {
+      const s = (window as any).s,
+        g = s.getGraph();
+      return {
+        positions: g
+          .nodes()
+          .map((id: string) => [
+            id,
+            g.getNodeAttribute(id, "x"),
+            g.getNodeAttribute(id, "y"),
+          ]),
+        camera: s.getCamera().getState(),
+        workers: (window as any).workerCount,
+      };
+    });
+  const before = await geometry();
+  const open = async () => {
+    const p = await page.evaluate(() => {
+      const s = (window as any).s;
+      return s.graphToViewport(s.getGraph().getNodeAttributes("b"));
+    });
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.click(box.x + p.x, box.y + p.y, { button: "right" });
+    await expect(
+      page.getByRole("menu", { name: "Node actions" }),
+    ).toBeVisible();
+  };
+  await open();
+  page.once("dialog", (dialog) => dialog.accept("Punch animation"));
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).s.getGraph().getNodeAttribute("b", "label"),
+      ),
+    )
+    .toBe("Punch animation");
+  await open();
+  await page.getByRole("menuitemcheckbox", { name: "Highlight" }).click();
+  await page.mouse.move(5, 5);
+  const style = () =>
+    page.evaluate(() => {
+      const d = (window as any).s.getNodeDisplayData("b");
+      return {
+        label: d.label,
+        backdropVisibility: d.backdropVisibility,
+        backdropColor: d.backdropColor,
+        backdropArea: d.backdropArea,
+      };
+    });
+  await expect
+    .poll(style)
+    .toMatchObject({
+      label: "Punch animation",
+      backdropVisibility: "visible",
+      backdropColor: "#ffe66d",
+      backdropArea: "both",
+    });
+  expect(await geometry()).toEqual(before);
+  await page.screenshot({ path: "build/previews/node-annotations.png" });
+  await page.reload();
+  await expect(canvas).toHaveAttribute("data-layout-ready", "true");
+  await expect
+    .poll(style)
+    .toMatchObject({
+      label: "Punch animation",
+      backdropVisibility: "visible",
+      backdropColor: "#ffe66d",
+    });
+  await open();
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Highlight" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("menuitemcheckbox", { name: "Highlight" }).click();
+  await page.mouse.move(5, 5);
+  await expect.poll(style).toMatchObject({ backdropVisibility: "hidden" });
+  await open();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  await expect.poll(style).toMatchObject({ label: "Punch animation" });
+  await open();
+  page.once("dialog", (dialog) => dialog.accept(""));
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  await expect.poll(style).toMatchObject({ label: "Part" });
+  await canvas.focus();
+  await page.keyboard.press("Shift+F10");
+  await expect(page.getByRole("menu", { name: "Node actions" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu", { name: "Node actions" })).toHaveCount(0);
+});
 
 test("previews long node labels and reveals the full label on hover", async ({
   page,

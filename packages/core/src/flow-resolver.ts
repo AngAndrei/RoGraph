@@ -3,6 +3,7 @@ import { resolveContexts } from "./execution-context.js";
 import { ModuleResolver } from "./module-values.js";
 import { unknown, type Value } from "./resolver.js";
 import { apiMember } from "./api-members.js";
+import { creationBinding, sameCreationCall } from "./creation-labels.js";
 import {
   alternatives,
   anchorIds,
@@ -44,6 +45,7 @@ const events = new Set([
 ]);
 export class FlowResolver extends ModuleResolver {
   readonly created = new Map<string, Instance>();
+  readonly createdBindingNames = new Map<string, string>();
   private readonly lexicalTargets = new Map<string, string | undefined>();
   private callerIndex?: Map<
     string,
@@ -165,7 +167,16 @@ export class FlowResolver extends ModuleResolver {
         const type = primitive(this.get(args[0], f, seen));
         if (typeof type.value !== "string")
           return unknown("DYNAMIC_INSTANCE_CLASS");
-        const id = `created:${f.scriptId}:${e.span.startByte}`;
+        // Lowering preserves the value but widens spans for parentheses/type
+        // assertions. Anchor identity to the actual call site in both cases.
+        const call =
+          f.sites.find(
+            (site) =>
+              site.kind === "call" && sameCreationCall(site.expression, e),
+          )?.expression ?? e;
+        const id = `created:${f.scriptId}:${call.span.startByte}`;
+        const bindingName = creationBinding(f, call);
+        if (bindingName) this.createdBindingNames.set(id, bindingName);
         let name = type.value;
         for (const m of f.members as any[]) {
           if (
@@ -178,7 +189,12 @@ export class FlowResolver extends ModuleResolver {
             m.target.base?.kind === "binding"
               ? this.bindings.get(m.target.base.bindingId)
               : undefined;
-          if (binding?.initializer?.span.startByte === e.span.startByte)
+          if (
+            sameCreationCall(binding?.initializer, call) ||
+            binding?.assignments.some((a: { value: Expr }) =>
+              sameCreationCall(a.value, call),
+            )
+          )
             name = m.value.value;
         }
         const parent = args[1] ? this.get(args[1], f, seen) : undefined;
@@ -202,7 +218,7 @@ export class FlowResolver extends ModuleResolver {
           id,
           sourceId: f.sourceId,
           scriptId: f.scriptId,
-          span: e.span,
+          span: call.span,
           className: type.value,
           created: true,
           parentId: object.parentId,

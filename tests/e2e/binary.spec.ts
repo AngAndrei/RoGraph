@@ -43,8 +43,10 @@ test("imports binary places and exposes grouping and saved-object controls", asy
     "true",
   );
   await classes.clear();
-  await page.getByLabel("Include saved objects").check();
-  await expect(page.getByLabel("Include saved objects")).toBeChecked();
+  await expect(page.getByLabel("Include saved objects")).toHaveCount(0);
+  await page.getByRole("searchbox", { name: "Search nodes" }).fill("zz-no-node-matches");
+  await expect(page.getByLabel("Node search results")).toContainText("0 matching nodes");
+  await page.getByRole("searchbox", { name: "Search nodes" }).clear();
   await expect(page.locator(".sigma-container canvas")).not.toHaveCount(0);
   await page.screenshot({
     path: "build/previews/binary-grouped.png",

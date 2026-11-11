@@ -33,6 +33,7 @@ export function resolveGameplay(
   const relationIds = new Set<string>();
   const scopes = gameplayScopes(facts, resolutions, resolver);
   const factsBySource = new Map(facts.map((f) => [f.sourceId, f]));
+  const witnessSites = new WeakMap<Facts, Map<string, string[]>>();
   const scriptOf = (id: string) => resolver.owners.get(id) ?? id;
   const entity = (id: string): string | undefined => {
     let current = resolver.objects.get(id),
@@ -50,13 +51,21 @@ export function resolveGameplay(
   };
   const witness = (e: Expr, f: Facts, seen = new Set<string>()): string[] => {
     if (seen.size > 32) return [];
-    const found = f.sites
-      .filter(
-        (s) =>
-          s.span.startByte === e.span.startByte &&
-          s.span.endByte === e.span.endByte,
-      )
-      .map((s) => s.id);
+    let spans = witnessSites.get(f);
+    if (!spans) {
+      spans = new Map();
+      for (const site of f.sites) {
+        const key = `${site.span.startByte}:${site.span.endByte}`;
+        const ids = spans.get(key);
+        if (ids) ids.push(site.id);
+        else spans.set(key, [site.id]);
+      }
+      witnessSites.set(f, spans);
+    }
+    // Copy before recursive traversal adds support sites to this occurrence.
+    const found = [
+      ...(spans.get(`${e.span.startByte}:${e.span.endByte}`) ?? []),
+    ];
     if (e.kind === "binding") {
       const id = String(e.bindingId);
       if (seen.has(id)) return found;
@@ -671,6 +680,7 @@ export function resolveGameplay(
         );
     }
   for (const object of resolver.created.values()) {
+    const bindingName = resolver.createdBindingNames.get(object.id);
     const allocation = facts
       .flatMap((f) => f.sites.map((site) => ({ f, site })))
       .find(
@@ -680,11 +690,15 @@ export function resolveGameplay(
     addNode(result, {
       id: object.id,
       kind: "instance",
-      label: object.name,
+      label:
+        object.name === object.className
+          ? (bindingName ?? object.name)
+          : object.name,
       contexts: ["unknown"],
       attributes: {
         ...object,
         runtimeDefined: true,
+        bindingName,
         sourceId: allocation?.f.sourceId,
         scriptId: allocation?.f.scriptId,
         span: allocation?.site.span,

@@ -80,6 +80,7 @@ export function projectGraph(
   showClassMatches = false,
 ) {
   if (result.projection?.view === "gameplay") {
+    const relationsById = new Map(result.relations.map((r) => [r.id, r]));
     const available = new Set(result.projection.nodeIds);
     const groups = result.groups
       .map((g) => ({
@@ -98,9 +99,7 @@ export function projectGraph(
       .filter((e) => ids.has(e.source) && ids.has(e.target))
       .map((e) => ({
         ...e,
-        type:
-          result.relations.find((r) => r.id === e.relationIds[0])?.type ??
-          "REFERENCES",
+        type: relationsById.get(e.relationIds[0])?.type ?? "REFERENCES",
         originalId: e.id,
       }));
     return { nodes, edges: bundleEdges(edges), groups };

@@ -15,6 +15,7 @@ type GraphFilters = Pick<
   | "depth"
   | "groupBy"
   | "includeInstances"
+  | "view"
 >;
 function Endpoint({
   analysisId,
@@ -114,8 +115,12 @@ export function TraceControls({
       nodes.find((n) => n.kind === "function")?.id ?? nodes[0]?.id ?? "",
     ),
     [to, setTo] = useState(
-      nodes.find((n) => n.kind === "field")?.id ?? nodes[0]?.id ?? "",
+      nodes.find((n) => n.kind === "field")?.id ??
+        nodes[1]?.id ??
+        nodes[0]?.id ??
+        "",
     ),
+    [goal, setGoal] = useState<"flow" | "influence">("flow"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const currentRequest = useRef(0);
@@ -133,6 +138,26 @@ export function TraceControls({
           ×
         </button>
       </header>
+      {filters.view === "gameplay" && (
+        <label className="trace-question">
+          Trace question
+          <select
+            aria-label="Trace question"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value as "flow" | "influence")}
+          >
+            <option value="flow">What can trigger or affect this?</option>
+            <option value="influence">
+              How is this connected, including configuration?
+            </option>
+          </select>
+          <small>
+            {goal === "flow"
+              ? "Follows potential gameplay flow. Configuration reads are excluded."
+              : "Includes configuration influence; this does not imply execution order."}
+          </small>
+        </label>
+      )}
       <Endpoint
         analysisId={analysisId}
         nodes={nodes}
@@ -149,10 +174,11 @@ export function TraceControls({
       />
       <button
         className="primary"
-        disabled={busy || !from || !to}
+        disabled={busy || !from || !to || from === to}
         onClick={() => {
           const request = ++currentRequest.current;
           setBusy(true);
+          setError("");
           const q: Query = {
             op: "trace",
             analysisId,
@@ -161,6 +187,7 @@ export function TraceControls({
             depth: 6,
             limit: 300,
             ...filters,
+            ...(filters.view === "gameplay" ? { traceGoal: goal } : {}),
           };
           void api
             .run(q)
@@ -177,6 +204,7 @@ export function TraceControls({
       >
         {busy ? "Finding…" : "Find path"}
       </button>
+      {from && from === to && <p>Choose two different components.</p>}
       {error && <p className="error">{error}</p>}
     </div>
   );
@@ -192,17 +220,25 @@ export function TraceView({
     [pathIndex, setPathIndex] = useState(0),
     path = r.paths[pathIndex] ?? [],
     labels = new Map(r.nodes.map((n) => [n.id, n.label]));
+  useEffect(() => {
+    setPathIndex(0);
+    setSource(undefined);
+  }, [r]);
   return (
     <div className="trace-result">
       <div className="section-heading">
         <strong>
-          {path.some((h) => h.transition === "potential-communication")
-            ? "Potential communication"
-            : path.some((h) => h.transition === "potential-impact")
-              ? "Potential impact"
-              : "Dependency path"}
+          {r.projection?.view === "gameplay"
+            ? "Potential gameplay path"
+            : path.some((h) => h.transition === "potential-communication")
+              ? "Potential communication"
+              : path.some((h) => h.transition === "potential-impact")
+                ? "Potential impact"
+                : "Dependency path"}
         </strong>
-        <span className="badge">{path.length} hops</span>
+        <span className="badge">
+          {path.length ? `${path.length} hops` : "No path found"}
+        </span>
       </div>
       {!path.length && (
         <p>
@@ -235,8 +271,9 @@ export function TraceView({
                 {labels.get(hop.fromId)}
               </button>
               <small>
-                {rel?.type}{" "}
-                {hop.transition !== "dependency"
+                {rel?.gameplay?.label ?? rel?.type}
+                {rel?.gameplay?.conditional ? " · conditional" : ""}{" "}
+                {!rel?.gameplay && hop.transition !== "dependency"
                   ? "· " + hop.transition.replaceAll("-", " ")
                   : ""}
               </small>

@@ -15,8 +15,10 @@ import type {
   AnalysisSummary,
 } from "../../contracts/src/query.js";
 import { indexSource } from "./source-index.js";
+import { findSourceMatch } from "./source-find.js";
 import { RoGraphError } from "./util.js";
 import { migrateDatabase } from "./migrations.js";
+import { retainedCreationBinding } from "./creation-labels.js";
 import { gameplayTypes } from "../../contracts/src/gameplay.js";
 export type StoreSelection = {
   analysisId: string;
@@ -45,6 +47,8 @@ export type StoreSelection = {
       original?: boolean;
       startByte?: number;
       endByte?: number;
+      findText?: string;
+      matchIndex?: number;
     }
   | { op: "children"; parentId: string | null }
   | {
@@ -136,6 +140,110 @@ export async function openStore(path: string): Promise<GraphStore> {
     };
   };
   let saving = false;
+  // Small derived-label cache; saved snapshots and source bytes stay immutable.
+  const creationLabels = new Map<string, string | undefined>();
+  const labelParents = new Map<
+    string,
+    { label: string; className: string; owner?: string } | undefined
+  >();
+  const parentLabel = (analysis: string, id: string) => {
+    const key = JSON.stringify([analysis, id]);
+    if (!labelParents.has(key)) {
+      const row = db
+        .prepare(
+          "SELECT label,class,COALESCE(owner,json_extract(data,'$.attributes.parentId')) AS parent FROM nodes WHERE analysis=? AND id=?",
+        )
+        .get(analysis, id) as any;
+      labelParents.set(
+        key,
+        row
+          ? {
+              label: row.label,
+              className: row.class,
+              owner: row.parent ?? undefined,
+            }
+          : undefined,
+      );
+    }
+    return labelParents.get(key);
+  };
+  const labelCreatedNodes = (nodes: any[], analysis: string) => {
+    const sources = new Map<string, any[]>();
+    for (const node of nodes) {
+      const a = node.attributes;
+      if (
+        node.kind !== "instance" ||
+        !a.runtimeDefined ||
+        node.label !== a.className ||
+        !a.sourceId
+      )
+        continue;
+      const key = JSON.stringify([analysis, node.id]);
+      if (creationLabels.has(key)) continue;
+      const group = sources.get(a.sourceId) ?? [];
+      group.push(node);
+      sources.set(a.sourceId, group);
+    }
+    for (const [sourceId, group] of sources) {
+      const row = db
+        .prepare(
+          "SELECT json_extract(data,'$.text') AS text FROM sources WHERE analysis=? AND id=?",
+        )
+        .get(analysis, sourceId) as any;
+      const source = Buffer.from(row?.text ?? "", "utf8");
+      for (const node of group) {
+        const name = retainedCreationBinding(source, node.attributes.span);
+        creationLabels.set(JSON.stringify([analysis, node.id]), name);
+      }
+    }
+    const result = nodes.map((node) => {
+      const name = creationLabels.get(JSON.stringify([analysis, node.id]));
+      const labeled =
+        name && node.label === node.attributes.className
+          ? {
+              ...node,
+              label: name,
+              attributes: { ...node.attributes, bindingName: name },
+            }
+          : node;
+      if (node.kind !== "instance") return labeled;
+      const ancestors: string[] = [];
+      const seen = new Set([node.id]);
+      let owner =
+        node.ownerId ??
+        node.attributes.parentId ??
+        (node.attributes.runtimeDefined ? node.attributes.scriptId : undefined);
+      let parentClassName: string | undefined;
+      while (
+        typeof owner === "string" &&
+        !seen.has(owner) &&
+        ancestors.length < 16
+      ) {
+        seen.add(owner);
+        const parent = parentLabel(analysis, owner);
+        if (!parent) break;
+        parentClassName ??= parent.className;
+        ancestors.unshift(parent.label);
+        owner = parent.owner;
+      }
+      return ancestors.length
+        ? {
+            ...labeled,
+            attributes: {
+              ...labeled.attributes,
+              labelAncestors: ancestors,
+              labelAncestorsTruncated: Boolean(owner),
+              parentClassName,
+            },
+          }
+        : labeled;
+    });
+    while (creationLabels.size > 4096)
+      creationLabels.delete(creationLabels.keys().next().value!);
+    while (labelParents.size > 4096)
+      labelParents.delete(labelParents.keys().next().value!);
+    return result;
+  };
   return {
     async save(input, signal) {
       signal?.throwIfAborted();
@@ -659,12 +767,24 @@ export async function openStore(path: string): Promise<GraphStore> {
                 : "No separate original file is stored for this source",
             );
           const text = original ? s.origin.originalText! : s.text;
+          const search =
+            q.op === "sources" && q.findText
+              ? findSourceMatch(text, q.findText, q.matchIndex)
+              : undefined;
           const bytes = Buffer.byteLength(text),
-            start = q.op === "sources" ? (q.startByte ?? 0) : 0,
+            start = search?.range
+              ? Math.max(0, search.range.startByte - 300)
+              : q.op === "sources"
+                ? (q.startByte ?? 0)
+                : 0,
             end = Math.min(
               bytes,
               start + 32000,
-              q.op === "sources" ? (q.endByte ?? bytes) : bytes,
+              search?.range
+                ? start + 8000
+                : q.op === "sources"
+                  ? (q.endByte ?? bytes)
+                  : bytes,
             );
           const index = indexSource(text);
           const buf = Buffer.from(text);
@@ -683,9 +803,28 @@ export async function openStore(path: string): Promise<GraphStore> {
             ...(a === 0 && b === bytes ? { text } : {}),
             excerpts: [{ span, text: buf.subarray(a, b).toString("utf8") }],
             omittedBytes: bytes - (b - a),
+            ...(search
+              ? {
+                  search: {
+                    term: search.term,
+                    total: search.total,
+                    index: search.index,
+                    ...(search.range
+                      ? {
+                          match: index.span(
+                            search.range.startByte,
+                            search.range.endByte,
+                          ),
+                        }
+                      : {}),
+                  },
+                }
+              : {}),
           };
         });
-      else (result[key] as any[]) = values;
+      else
+        (result[key] as any[]) =
+          key === "nodes" ? labelCreatedNodes(values, q.analysisId) : values;
       return result;
     },
     async close() {

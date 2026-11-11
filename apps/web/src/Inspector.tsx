@@ -4,6 +4,8 @@ import type { QueryResult } from "../../../packages/contracts/src/query.js";
 import type { Evidence } from "../../../packages/contracts/src/model.js";
 import { NodeMark } from "./Hierarchy.js";
 import { SourceView } from "./SourceView.js";
+import { contextualLabels } from "./graph-exploration.js";
+import { BehaviorSummary } from "./GameOrientation.js";
 export function Inspector({
   result: initial,
   selectedId,
@@ -79,7 +81,7 @@ export function Inspector({
         ? Boolean(focusedIds?.includes(e.id))
         : e.source === selectedId || e.target === selectedId,
     ),
-    names = new Map(r.nodes.map((n) => [n.id, n.label]));
+    names = contextualLabels(r.nodes);
   const sourceScripts = new Set(
     rels.flatMap((rel) => (rel.gameplay ? [rel.gameplay.sourceScriptId] : [])),
   );
@@ -98,11 +100,29 @@ export function Inspector({
   return (
     <>
       <span className="eyebrow">SELECTED {node.kind.toUpperCase()}</span>
-      <h2>{node.label}</h2>
+      <h2>{names.get(node.id) ?? node.label}</h2>
       <span className="badge">
         {String(node.attributes.className ?? node.kind)}
       </span>
       <p className="muted">{node.contexts.join(" + ")} context</p>
+      {node.kind === "instance" && !node.attributes.runtimeDefined && (
+        <div className="inspect-object-path">
+          <span>
+            Saved name:{" "}
+            <code>{String(node.attributes.name ?? node.label)}</code>
+          </span>
+          <span>
+            {node.attributes.labelAncestorsTruncated ? "… / " : ""}
+            {[
+              ...(Array.isArray(node.attributes.labelAncestors)
+                ? node.attributes.labelAncestors
+                : []
+              ).filter((v): v is string => typeof v === "string"),
+              String(node.attributes.name ?? node.label),
+            ].join(" / ")}
+          </span>
+        </div>
+      )}
       <div className="inspect-actions" ref={actions}>
         {hasImplementation && (
           <button onClick={onShowImplementation}>Show implementation</button>
@@ -137,6 +157,9 @@ export function Inspector({
         </button>
         <button onClick={() => onExplore("impact", selectedId)}>Impact</button>
       </div>
+      {r.projection?.view === "gameplay" && !edgeId && (
+        <BehaviorSummary result={r} nodeId={selectedId} onSelect={onSelect} />
+      )}
       {node.kind === "field" && (
         <div className="initializer">
           <span>Saved value / literal initializer</span>
