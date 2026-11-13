@@ -3,7 +3,8 @@ import type { Evidence } from "../../../packages/contracts/src/model.js";
 import type { SourceView as View } from "../../../packages/contracts/src/query.js";
 import { api } from "./api.js";
 import { sourceMatchRanges } from "./source-find.js";
-type Props = { analysisId: string; evidence: Evidence; onClose: () => void };
+export type SourceLocation = Pick<Evidence, "sourceId" | "span">;
+type Props = { analysisId: string; evidence: SourceLocation; onClose: () => void };
 
 export function SourceView(props: Props) {
   // A new evidence locator starts its own find and pagination state.

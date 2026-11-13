@@ -31,6 +31,12 @@ test("floating assistant provides help, moves, finds a node and exports its cont
   await page.getByRole("button", { name: "Download JSON", exact: true }).click();
   const download = await downloadEvent;
   expect(download.suggestedFilename()).toMatch(/\.json$/);
+  await page.getByRole("button", { name: "Close context export" }).click();
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  await page.getByLabel("Ask RoGraph").fill("source of ShopClient.BuySword");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await panel.getByRole("button", { name: "Inspect Source: ShopClient.BuySword", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Source evidence", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

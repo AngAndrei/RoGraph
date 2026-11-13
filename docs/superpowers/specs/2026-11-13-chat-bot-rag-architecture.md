@@ -1,10 +1,10 @@
 # RoGraph chatbot: graph navigation and application help
 
-Date: 13 November 2026  
+Date: 13 November 2026
 Revision: 3 — adds approved model selection, hardware-aware CPU/GPU execution and floating draggable chat.
 Status: approved for implementation on 13 November 2026; progress and actual validation are tracked in the implementation plan and validation report.
-Repository: [AngAndrei/RoGraph](https://github.com/AngAndrei/RoGraph)  
-Inspected baseline: `fd05837146b612fdba4dab71cf90926cee41145c` (RoGraph 0.2.0).  
+Repository: [AngAndrei/RoGraph](https://github.com/AngAndrei/RoGraph)
+Inspected baseline: `fd05837146b612fdba4dab71cf90926cee41145c` (RoGraph 0.2.0).
 Required implementation branch: **`chat_bot_RAG`**, exactly, without any prefix or the word `codex`.
 
 ## 1. Intent, scope and decisions
@@ -25,7 +25,7 @@ Revisions from the first proposal:
 | Area | Revised decision |
 | --- | --- |
 | Local model role | Intent interpretation, entity disambiguation, feature discovery and concise grounded replies |
-| Model selection | A catalog offers 0.8B, 2B, 4B and 9B; 2B is the initial local test pack, while users choose based on hardware | 
+| Model selection | A catalog offers 0.8B, 2B, 4B and 9B; 2B is the initial local test pack, while users choose based on hardware |
 | Retrieval | Deterministic graph tools plus lexical retrieval initially; optional compact semantic search only where measured useful |
 | App knowledge | One authoritative, maintained file: `docs/app-functionalities.json`, packaged with each release |
 | External models | Preserve direct MCP access; allow the user to prepare bounded raw evidence from helper results |

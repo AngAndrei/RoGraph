@@ -22,7 +22,9 @@ The initial smoke exposed a structurally valid search intent lacking search text
 
 Targeted tests cover maintained-help discovery/version validation, strict contracts, ambiguous/truncated searches, gameplay/code search scope, evidence-backed path/source operations, corrupt/cross-snapshot history, atomic verified downloads/cancellation, runtime intent validation, compact context provenance and floating-window behavior. Real HTTP checks exercise session/Origin protections and model-independent help/history. Browser checks exercise import, floating help, keyboard movement, model choices/mobile geometry and context export.
 
-The final task report records exact full-suite/browser counts after the final code revision. Existing parser/import/runtime limitations remain explicit. Separate clean-PC and AMD/NVIDIA device validation, broad model-quality evaluation, semantic retrieval and external-provider token-savings measurements remain unperformed. No token-reduction percentage is claimed.
+Full regression run: **309 tests passed across 70 files**. The subsequent scoped UI fix passed **14 UI tests** (including the new source-window regression). Typecheck and production build passed. Edge checks exercise the assistant plus existing source/snapshot flows; their final results are recorded with this branch's task ledger. A fresh engineering review found four Important issues; hardware-cache refresh, actual-status refresh, source navigation and dependency-direction fixes were reviewed and cleared.
+
+Existing parser/import/runtime limitations remain explicit. Separate clean-PC and AMD/NVIDIA device validation, broad model-quality evaluation, semantic retrieval and external-provider token-savings measurements remain unperformed. No token-reduction percentage is claimed.
 
 ## Updating functionality
 

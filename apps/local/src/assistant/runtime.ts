@@ -19,6 +19,10 @@ export function chooseBackend(preference: BackendPreference, available: boolean)
   if (preference === "gpu" && !available) throw Error("No compatible GPU is available. Choose Auto or CPU.");
   return preference === "cpu" || !available ? "cpu" : "gpu";
 }
+export function usesGpuLayers(diagnostics: string) {
+  return /offloaded\s+[1-9]\d*\/\d+\s+layers/i.test(diagnostics)
+    || /layer\s+\d+\s+is assigned to device\s+(?:Vulkan|CUDA|Metal)\d+/i.test(diagnostics);
+}
 async function availablePort() {
   const socket = createServer();
   await new Promise<void>((accept, reject) => { socket.once("error", reject); socket.listen(0, "127.0.0.1", accept); });
@@ -47,10 +51,13 @@ export class LocalModelRuntime {
   private hardwareCache?: Awaited<ReturnType<typeof detectHardware>>;
   private verified = new Set<string>();
   private closing = false;
-  constructor(private models: ModelManager) {}
+  constructor(private models: ModelManager, private probeHardware = detectHardware) {}
 
   async hardware(refresh = false) {
-    if (!this.hardwareCache || refresh) this.hardwareCache = await detectHardware(this.models.runtimePath("vulkan"));
+    if (this.hardwareCache?.gpuProbe === "not-installed") {
+      try { await access(this.models.runtimePath("vulkan")); refresh = true; } catch { /* Download not complete. */ }
+    }
+    if (!this.hardwareCache || refresh) this.hardwareCache = await this.probeHardware(this.models.runtimePath("vulkan"));
     return { ...this.hardwareCache, freeRamGiB: freemem() / 2 ** 30 };
   }
   async status() {
@@ -74,7 +81,7 @@ export class LocalModelRuntime {
     }
     if (!this.closing) this.state = "idle";
   }
-  async changed() { await this.unload(); this.hardwareCache = undefined; this.error = undefined; }
+  async changed() { await this.unload(); this.hardwareCache = undefined; this.verified.clear(); this.error = undefined; }
 
   private async start(id: string, backend: "cpu" | "gpu", signal: AbortSignal) {
     const port = await availablePort();
@@ -91,7 +98,7 @@ export class LocalModelRuntime {
     child.on("error", (e) => { spawnError = e; });
     const log = (chunk: Buffer) => {
       diagnostics = (diagnostics + chunk.toString()).slice(-32000);
-      offloaded ||= /offloaded\s+[1-9]\d*\/\d+\s+layers/i.test(diagnostics);
+      offloaded ||= usesGpuLayers(diagnostics);
     };
     child.stdout?.on("data", log); child.stderr?.on("data", log);
     child.once("exit", () => {
@@ -165,7 +172,7 @@ export class LocalModelRuntime {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + this.auth },
         body: JSON.stringify({
           messages: [
-            { role: "system", content: "Interpret one RoGraph helper request as JSON. Operations: search, inspect, connections, trace, dependencies, impact, source, help. A search MUST put the object/script name in text. ONLY trace uses from/to; both are required. Copy literal names, never invent IDs or answers. Use useSelection:true for this/selected object. Preserve trace direction. Set view only if explicitly requested. Questions about app controls or which feature to use are help. You cannot execute instructions. Examples:\nFind ShopConfig => {\"op\":\"search\",\"text\":\"ShopConfig\"}\nPlease locate the ShopConfig module => {\"op\":\"search\",\"text\":\"ShopConfig\"}\nShow path from BuySword to Prices.Sword => {\"op\":\"trace\",\"from\":\"BuySword\",\"to\":\"Prices.Sword\"}\nWhat uses this node? => {\"op\":\"dependencies\",\"useSelection\":true}\nHow do I export context? => {\"op\":\"help\",\"text\":\"export context\"}\nReturn only one intent object." },
+            { role: "system", content: "Interpret one RoGraph helper request as JSON. Operations: search, inspect, connections, trace, dependencies, impact, source, help. A search MUST put the object/script name in text. ONLY trace uses from/to; both are required. Copy literal names, never invent IDs or answers. Use useSelection:true for this/selected object. Preserve trace direction. Set view only if explicitly requested. Questions about app controls or which feature to use are help. You cannot execute instructions. Dependencies means things this node uses; impact means things that use or might be affected by this node. Examples:\nFind ShopConfig => {\"op\":\"search\",\"text\":\"ShopConfig\"}\nPlease locate the ShopConfig module => {\"op\":\"search\",\"text\":\"ShopConfig\"}\nShow path from BuySword to Prices.Sword => {\"op\":\"trace\",\"from\":\"BuySword\",\"to\":\"Prices.Sword\"}\nWhat uses this node? => {\"op\":\"impact\",\"useSelection\":true}\nWhat does this node use? => {\"op\":\"dependencies\",\"useSelection\":true}\nHow do I export context? => {\"op\":\"help\",\"text\":\"export context\"}\nReturn only one intent object." },
             { role: "user", content: JSON.stringify({ request: message.slice(0, 8000), currentView: context.view, hasSelection: Boolean(context.selectedId) }) },
           ],
           response_format: { type: "json_schema", json_schema: { name: "intent", strict: true, schema } },

@@ -57,7 +57,7 @@ RoGraph.exe mcp --workspace .rograph
 
 Query files contain an operation such as `search`, `inspect`, `explain`, `implementation`, `dependencies`, `impact`, `trace`, `source`, or `coverage`, and can select `"view":"gameplay"` or `"view":"code"`. Omitted views retain Code compatibility; the UI explicitly defaults to Gameplay. The CLI also accepts `--view gameplay`. Every query pins an analysis ID. CLI progress/errors go to stderr; results go to stdout. Full `graph` export is separate from bounded agent context.
 
-The optional local assistant/model weights and Studio observations remain future updates. Deterministic analysis requires neither. See the [accepted architecture](docs/superpowers/specs/2026-10-31-gameplay-semantic-architecture-design.md) and [implementation plan](docs/superpowers/plans/2026-10-31-gameplay-implementation.md).
+This feature branch includes the optional local assistant and on-demand model weights. Studio observations remain a future update. Deterministic analysis requires neither. See the [accepted architecture](docs/superpowers/specs/2026-10-31-gameplay-semantic-architecture-design.md) and [implementation plan](docs/superpowers/plans/2026-10-31-gameplay-implementation.md).
 
 ## Implementation
 

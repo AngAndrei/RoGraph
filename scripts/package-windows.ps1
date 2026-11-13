@@ -1,5 +1,16 @@
 $ErrorActionPreference='Stop'
 function Get-RoGraphHash([string]$Path){$stream=[IO.File]::OpenRead($Path);$algorithm=[Security.Cryptography.SHA256]::Create();try{[BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$algorithm.Dispose()}}
+function Copy-RoGraphReleaseEntry([string]$Source,[string]$Destination) {
+    $entry=Get-Item -LiteralPath $Source
+    if($entry.PSIsContainer){
+        New-Item -ItemType Directory -Force -Path $Destination|Out-Null
+        foreach($child in Get-ChildItem -LiteralPath $Source -Force){Copy-RoGraphReleaseEntry $child.FullName (Join-Path $Destination $child.Name)}
+    } else {
+        # An unchanged bundled runtime may be running. Preserve identical bytes without reopening for write.
+        if((Test-Path -LiteralPath $Destination -PathType Leaf) -and ((Get-RoGraphHash $Source) -eq (Get-RoGraphHash $Destination))){return}
+        Copy-Item -LiteralPath $Source -Destination $Destination -Force
+    }
+}
 $repoPath=Split-Path -Parent $PSScriptRoot
 Push-Location $repoPath
 try {
@@ -38,7 +49,7 @@ try {
     $destination=Join-Path $repoPath 'dist/windows-x64'
     New-Item -ItemType Directory -Force -Path $destination|Out-Null
     # Copy only release files; an existing user's workspace is preserved and never enters the ZIP.
-    foreach($entry in Get-ChildItem -LiteralPath $stage -Force){Copy-Item -LiteralPath $entry.FullName -Destination $destination -Recurse -Force}
+    foreach($entry in Get-ChildItem -LiteralPath $stage -Force){Copy-RoGraphReleaseEntry $entry.FullName (Join-Path $destination $entry.Name)}
     $archive=Join-Path $repoPath 'dist/RoGraph-0.2.0-windows-x64.zip'
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -Force
     $resolvedStage=[IO.Path]::GetFullPath($stage)

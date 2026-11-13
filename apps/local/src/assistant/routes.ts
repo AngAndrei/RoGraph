@@ -15,6 +15,7 @@ export async function createAssistantRoutes(workspace: string, store: WorkerStor
   const runtime = new LocalModelRuntime(models);
   const history = await createHistory(join(workspace, "assistant"));
   const turns = new Map<string, { controller: AbortController; analysisId?: string; promise: Promise<unknown> }>();
+  const completed = new Map<string, { fingerprint: string; analysisId?: string; answer: unknown }>();
   const scope = (id?: string) => id ?? "help";
   const status = async () => ({ catalog: models.catalog, ...(await models.status()), ...(await runtime.status()),
     hardware: await runtime.hardware(), helpIdentity });
@@ -58,7 +59,15 @@ export async function createAssistantRoutes(workspace: string, store: WorkerStor
       if (method === "POST" && path === "/api/chat/turns") {
         const body = chatRequestSchema.extend({ requestId: z.string().regex(/^[\w-]{1,100}$/) }).strict().parse(await json());
         const { requestId, ...request } = body;
+        if (request.analysisId) await store.query({ op: "coverage", analysisId: request.analysisId });
+        const fingerprint = JSON.stringify(request);
+        const previous = completed.get(requestId);
+        if (previous) {
+          if (previous.fingerprint !== fingerprint) throw Error("Request ID belongs to another question.");
+          send(res, previous.answer); return true;
+        }
         if (turns.has(requestId)) throw Error("This request is already running.");
+        if ([...turns.values()].some((turn) => turn.analysisId === request.analysisId)) throw Error("A question is already active for this conversation.");
         if (turns.size >= 4) throw Error("Assistant queue is full. Wait for the active question.");
         const controller = new AbortController();
         const abort = () => { if (!res.writableEnded) controller.abort(); };
@@ -72,6 +81,8 @@ export async function createAssistantRoutes(workspace: string, store: WorkerStor
             interpret: selected.selectedId ? (message, context, s) => runtime.interpret(message, context, s ?? signal) : undefined });
           signal.throwIfAborted();
           await history.append(scope(request.analysisId), request.message, answer);
+          completed.set(requestId, { fingerprint, analysisId: request.analysisId, answer });
+          if (completed.size > 20) completed.delete(completed.keys().next().value!);
           send(res, answer);
         })();
         turns.set(requestId, { controller, analysisId: request.analysisId, promise });
@@ -85,6 +96,7 @@ export async function createAssistantRoutes(workspace: string, store: WorkerStor
       }
     },
     async deleteAnalysis(id: string) {
+      for (const [key, entry] of completed) if (entry.analysisId === id) completed.delete(key);
       const active = [...turns.values()].filter((t) => t.analysisId === id);
       for (const turn of active) turn.controller.abort();
       await Promise.allSettled(active.map((t) => t.promise));

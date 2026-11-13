@@ -17,7 +17,7 @@ import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceView, TraceControls } from "./TraceView.js";
 import { GameOrientation } from "./GameOrientation.js";
-import { SourceView } from "./SourceView.js";
+import { SourceView, type SourceLocation } from "./SourceView.js";
 import { ChatWidget } from "./chat/ChatWidget.js";
 import { ContextExport } from "./ContextExport.js";
 function Brand() {
@@ -66,7 +66,7 @@ export default function App() {
     [overviewRevision, setOverviewRevision] = useState(0);
   const [tracing, setTracing] = useState(false);
   const [traceResult, setTraceResult] = useState<QueryResult>(),
-    [sourceEvidence, setSourceEvidence] = useState<Evidence>(),
+    [sourceEvidence, setSourceEvidence] = useState<SourceLocation>(),
     [edgeId, setEdgeId] = useState<string>(),
     [connectionRelationIds, setConnectionRelationIds] = useState<string[]>(),
     [activeQuery, setActiveQuery] = useState<Query>();
@@ -79,6 +79,8 @@ export default function App() {
   const previousView = useRef(view);
   const assistantNavigation = useRef<Query | undefined>(undefined);
   const [assistantContext, setAssistantContext] = useState<Query>();
+  const currentAnalysis = useRef(analysisId);
+  currentAnalysis.current = analysisId;
   useEffect(() => {
     const narrow = window.matchMedia?.("(max-width: 760px)");
     if (!narrow) return;
@@ -165,6 +167,7 @@ export default function App() {
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
+      setSourceEvidence(undefined); setAssistantContext(undefined);
       setSearch("");
       setNodeSearch("");
       setNewSnapshot(undefined);
@@ -867,12 +870,25 @@ export default function App() {
         analysisId={analysisId || undefined} view={view} selectedId={selectedId || undefined}
         onNavigate={(query) => {
           if (query.analysisId !== analysisId) { setError("Select the cited snapshot before opening this result."); return; }
+          if (query.op === "source") {
+            // Resolve a source-only locator without creating relationship evidence or replacing the graph.
+            void api.run(query).then((r) => {
+              if (currentAnalysis.current !== query.analysisId) return;
+              const source = r.sources[0], excerpt = source?.excerpts[0];
+              if (!source || !excerpt) throw Error("Source location is unavailable.");
+              setSourceEvidence({ sourceId: source.id, span: excerpt.span });
+            }).catch((e) => setError(e.message));
+            return;
+          }
           assistantNavigation.current = query;
           setView(query.view ?? view); setDetails((query.view ?? view) === "code");
           closeInspector(); setOverviewRevision((revision) => revision + 1);
         }}
         onSource={(source) => {
-          if (source.analysisId === analysisId) setSourceEvidence(source.evidence);
+          if (source.analysisId === analysisId) {
+            if (source.evidence.sourceId) setSourceEvidence(source.evidence);
+            else if (source.evidence.instanceId) void select(source.evidence.instanceId);
+          }
           else setError("This source belongs to another snapshot.");
         }}
         onContext={(query) => { if (query.analysisId === analysisId) setAssistantContext(query); }}

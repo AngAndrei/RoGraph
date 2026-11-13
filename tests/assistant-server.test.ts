@@ -13,9 +13,13 @@ it("authenticates assistant routes and answers maintained help without model wei
     const answer = await response.json() as any;
     expect(answer.cards.some((c: any) => c.feature?.id === "source-find")).toBe(true);
     expect(answer.modelUsed).toBe(false);
+    const retry = await fetch(app.url + "/api/chat/turns", { method: "POST", headers,
+      body: JSON.stringify({ requestId: "help-1", mode: "help", message: "How do I find text inside a script?" }) });
+    expect((await retry.json() as any).id).toBe(answer.id);
     const invalid = await fetch(app.url + "/api/assistant/settings", { method: "POST", headers, body: JSON.stringify({ modelId: "../../private" }) });
     expect(invalid.status).toBe(400);
     const history = await (await fetch(app.url + "/api/chat/history", { headers })).json() as any;
     expect(history.turns[0].message).toBe("How do I find text inside a script?");
+    expect(history.turns).toHaveLength(1);
   } finally { await app.close(); }
 }));
