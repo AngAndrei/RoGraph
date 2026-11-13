@@ -284,6 +284,123 @@ it("returns qualified choices for ambiguous names and prefers an exact label ove
     ).toBe(true);
   }));
 
+it("requires clarification when a truncated name search contains one exact label", async () =>
+  shop(async ({ query, graph, calls }) => {
+    const response = await answerRequest(
+      { message: "dependencies of ShopClient", analysisId: graph.analysisId },
+      {
+        query: async (q) => {
+          const result = await query(q);
+          return q.op === "search"
+            ? {
+                ...result,
+                meta: {
+                  ...result.meta,
+                  truncated: true,
+                  omittedCounts: { nodes: 10 },
+                },
+              }
+            : result;
+        },
+      },
+    );
+    expect(response.text).toMatch(/choose|qualified/i);
+    expect(response.cards.some((card) => card.label === "ShopClient")).toBe(
+      true,
+    );
+    expect(calls.every((q) => q.op === "search")).toBe(true);
+    expect(response.warnings.join(" ")).toMatch(/bounded|omitted/i);
+  }));
+
+it("uses the selected node when an action ends in punctuation", async () =>
+  shop(async ({ query, graph, calls }) => {
+    const selectedId = graph.nodes.find(
+      (node) => node.label === "ShopClient.BuySword",
+    )!.id;
+    const response = await answerRequest(
+      {
+        message: "impact of selected node?",
+        analysisId: graph.analysisId,
+        selectedId,
+      },
+      { query },
+    );
+    expect(response.cards.length).toBeGreaterThan(0);
+    expect(
+      calls.some((q) => q.op === "impact" && q.nodeId === selectedId),
+    ).toBe(true);
+    expect(calls.some((q) => q.op === "search")).toBe(false);
+  }));
+
+it("preserves an explicit configuration influence trace goal and request view", async () =>
+  shop(async ({ query, graph, calls }) => {
+    await answerRequest(
+      {
+        message:
+          "trace configuration influence from ShopClient.BuySword to ShopConfig.Prices.Sword",
+        analysisId: graph.analysisId,
+        view: "code",
+      },
+      { query },
+    );
+    expect(calls.find((q) => q.op === "trace")).toMatchObject({
+      analysisId: graph.analysisId,
+      view: "code",
+      traceGoal: "influence",
+      fromId: graph.nodes.find((node) => node.label === "ShopClient.BuySword")!
+        .id,
+      toId: graph.nodes.find(
+        (node) => node.label === "ShopConfig.Prices.Sword",
+      )!.id,
+    });
+  }));
+
+it("finds function and config nodes from Gameplay with canonical Code navigation", async () =>
+  shop(async ({ query, graph, calls }) => {
+    for (const label of ["ShopClient.BuySword", "ShopConfig.Prices.Sword"]) {
+      const response = await answerRequest(
+        {
+          message: `find ${label}`,
+          analysisId: graph.analysisId,
+          view: "gameplay",
+        },
+        { query },
+      );
+      expect(
+        response.cards.find((card) => card.label === label)?.query,
+      ).toMatchObject({
+        op: "inspect",
+        analysisId: graph.analysisId,
+        nodeId: graph.nodes.find((node) => node.label === label)!.id,
+        view: "code",
+      });
+    }
+    expect(calls.every((q) => q.op === "search" && q.view === "code")).toBe(
+      true,
+    );
+  }));
+
+it("resolves traversal names in Code while preserving requested Gameplay traversal", async () =>
+  shop(async ({ query, graph, calls }) => {
+    await answerRequest(
+      {
+        message:
+          "trace configuration influence from ShopClient.BuySword to ShopConfig.Prices.Sword",
+        analysisId: graph.analysisId,
+        view: "gameplay",
+      },
+      { query },
+    );
+    expect(
+      calls.filter((q) => q.op === "search").every((q) => q.view === "code"),
+    ).toBe(true);
+    expect(calls.find((q) => q.op === "trace")).toMatchObject({
+      view: "gameplay",
+      traceGoal: "influence",
+      analysisId: graph.analysisId,
+    });
+  }));
+
 it("never traces unverified endpoint names or candidate IDs", async () =>
   shop(async ({ query, graph, calls }) => {
     const response = await answerRequest(

@@ -29,6 +29,17 @@ function unquote(text: string): string {
 }
 
 function deterministic(message: string): AssistantIntent | undefined {
+  const goalTrace =
+    /^(?:trace|(?:find|show)\s+(?:(?:a|the)\s+)?path)\s+(?:configuration\s+)?(flow|influence)\s+(?:from\s+)?(.+?)\s+to\s+(.+)$/i.exec(
+      message,
+    );
+  if (goalTrace)
+    return {
+      op: "trace",
+      traceGoal: goalTrace[1].toLowerCase() as "flow" | "influence",
+      from: unquote(goalTrace[2]),
+      to: unquote(goalTrace[3]),
+    };
   const trace =
     /^(?:(?:find|show|trace)\s+(?:(?:a|the)\s+)?(?:path|flow)|trace)\s+(?:from\s+)?(.+?)\s+to\s+(.+)$/i.exec(
       message,
@@ -47,6 +58,7 @@ function deterministic(message: string): AssistantIntent | undefined {
     );
   if (action) {
     const name = action[1].toLowerCase();
+    const text = action[2] ? unquote(action[2]) : undefined;
     const op = /^(dependencies|dependency|deps)$/.test(name)
       ? "dependencies"
       : /^(impact|dependents)$/.test(name)
@@ -56,12 +68,10 @@ function deterministic(message: string): AssistantIntent | undefined {
           : (name as "connections" | "inspect");
     return {
       op,
-      text: action[2] ? unquote(action[2]) : undefined,
+      text,
       useSelection:
-        !action[2] ||
-        /^(the )?(selected( node)?|selection|this( node)?|it)$/i.test(
-          action[2],
-        ),
+        !text ||
+        /^(the )?(selected( node)?|selection|this( node)?|it)$/i.test(text),
     };
   }
   if (
@@ -205,7 +215,7 @@ export async function answerRequest(
     services.signal?.throwIfAborted();
     if (++count > 6) throw Error("Assistant query budget exhausted");
     const result = await services.query(
-      { ...query, analysisId, view, limit: 60 },
+      { ...query, analysisId, view: query.view ?? view, limit: 60 },
       services.signal,
     );
     if (result.analysisId !== analysisId)
@@ -225,7 +235,12 @@ export async function answerRequest(
     id: node.id,
     label: node.label,
     detail: qualified(node),
-    query: { op: "inspect", analysisId, nodeId: node.id, view },
+    query: {
+      op: "inspect",
+      analysisId,
+      nodeId: node.id,
+      view: node.kind === "instance" ? view : "code",
+    },
   });
   const locator = (evidence: Evidence): Query | undefined =>
     evidence.sourceId && evidence.span
@@ -283,7 +298,11 @@ export async function answerRequest(
       response.text = "Choose a node or provide its exact name.";
       return;
     }
-    const result = await run({ op: "search", text: name.slice(0, 256) });
+    const result = await run({
+      op: "search",
+      text: name.slice(0, 256),
+      view: "code",
+    });
     const candidates = result.nodes.filter(concrete);
     const exact = candidates.filter(
       (node) =>
@@ -292,8 +311,7 @@ export async function answerRequest(
         node.attributes.path === name,
     );
     const matches = exact.length ? exact : candidates;
-    if (matches.length === 1 && (!result.meta.truncated || exact.length === 1))
-      return matches[0];
+    if (matches.length === 1 && !result.meta.truncated) return matches[0];
     response.cards.push(...matches.slice(0, 20).map(nodeCard));
     response.text = matches.length
       ? `Choose a path/class-qualified match for “${name}” before continuing.`
@@ -303,7 +321,7 @@ export async function answerRequest(
   try {
     if (intent.op === "search") {
       const text = (intent.text ?? request.message).slice(0, 256);
-      const result = await run({ op: "search", text });
+      const result = await run({ op: "search", text, view: "code" });
       response.cards.push(...result.nodes.slice(0, 20).map(nodeCard));
       response.text = response.cards.length
         ? `Found ${result.nodes.length} matching nodes. Select a node to inspect its evidence.`

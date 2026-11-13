@@ -1,4 +1,10 @@
-import type { AssistantResponse } from "../../contracts/src/assistant.js";
+import {
+  helpFileSchema,
+  type AssistantResponse,
+} from "../../contracts/src/assistant.js";
+import { spanSchema } from "../../contracts/src/model.js";
+import { querySchema } from "../../core/src/query.js";
+import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -19,6 +25,92 @@ export interface AssistantHistory {
     response: AssistantResponse,
   ): Promise<void>;
   clear(scope: string): Promise<void>;
+}
+
+const evidenceSchema = z
+  .object({
+    id: z.string(),
+    relationId: z.string(),
+    siteId: z.string().optional(),
+    sourceId: z.string().optional(),
+    span: spanSchema.optional(),
+    instanceId: z.string().optional(),
+    propertyName: z.string().optional(),
+    rule: z.string(),
+    status: z.enum(["saved", "resolved", "candidate", "unresolved"]),
+    assumptions: z.array(z.string()),
+    mechanism: z.string().optional(),
+    contexts: z.array(z.enum(["client", "server", "unknown"])),
+  })
+  .strict()
+  .refine(
+    (evidence) =>
+      Boolean(evidence.sourceId && evidence.span) !==
+      Boolean(evidence.instanceId && evidence.propertyName),
+  );
+const turnSchema = z
+  .object({
+    message: z.string().trim().min(1).max(8000),
+    response: z
+      .object({
+        id: z.string().min(1),
+        conversationId: z.string().min(1),
+        analysisId: z.string().min(1).optional(),
+        text: z.string(),
+        modelUsed: z.boolean(),
+        warnings: z.array(z.string()),
+        helpIdentity: z
+          .object({
+            appVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+            sha256: z.string().regex(/^[a-f0-9]{64}$/),
+          })
+          .strict(),
+        cards: z.array(
+          z
+            .object({
+              kind: z.enum(["node", "connection", "path", "help", "notice"]),
+              id: z.string(),
+              label: z.string(),
+              detail: z.string().optional(),
+              query: querySchema.strict().optional(),
+              source: z
+                .object({
+                  analysisId: z.string().min(1),
+                  evidence: evidenceSchema,
+                })
+                .strict()
+                .optional(),
+              feature: helpFileSchema.shape.features.element.optional(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+  })
+  .strict();
+
+function validTurn(value: unknown, scope: string): HistoryTurn | undefined {
+  const parsed = turnSchema.safeParse(value);
+  if (!parsed.success) return undefined;
+  const turn = parsed.data;
+  if (
+    turn.response.analysisId !== undefined &&
+    turn.response.analysisId !== scope
+  )
+    return undefined;
+  if (
+    turn.response.cards.some(
+      (card) =>
+        (card.query &&
+          (card.query.analysisId !== scope ||
+            turn.response.analysisId !== scope)) ||
+        (card.source &&
+          (card.source.analysisId !== scope ||
+            turn.response.analysisId !== scope)),
+    )
+  )
+    return undefined;
+  return turn;
 }
 /** Private local history; scope strings never become paths or file names. */
 export async function createHistory(root: string): Promise<AssistantHistory> {
@@ -48,25 +140,24 @@ export async function createHistory(root: string): Promise<AssistantHistory> {
     pending = operation.catch(() => {});
     return operation;
   };
-  const read = async (id: string): Promise<HistoryTurn[]> => {
+  const read = async (id: string, scope: string): Promise<HistoryTurn[]> => {
     try {
       const parsed: unknown = JSON.parse(
         await readFile(join(root, `${id}.json`), "utf8"),
       );
-      if (
-        !Array.isArray(parsed) ||
-        parsed.some(
-          (turn) =>
-            !turn ||
-            typeof turn.message !== "string" ||
-            !turn.response ||
-            typeof turn.response.text !== "string",
-        )
-      )
-        throw Error("Invalid assistant history");
-      return (parsed as HistoryTurn[]).slice(-20);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .flatMap((value) => {
+          const turn = validTurn(value, scope);
+          return turn ? [turn] : [];
+        })
+        .slice(-20);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if (
+        error instanceof SyntaxError ||
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+      )
+        return [];
       throw error;
     }
   };
@@ -91,7 +182,7 @@ export async function createHistory(root: string): Promise<AssistantHistory> {
     list: async (scope) => {
       const id = key(scope);
       await pending;
-      return read(id);
+      return read(id, scope);
     },
     append: async (scope, message, response) => {
       const id = key(scope),
@@ -103,7 +194,7 @@ export async function createHistory(root: string): Promise<AssistantHistory> {
       )
         throw Error("Invalid history message");
       await enqueue(async () => {
-        const turns = [...(await read(id)), turn].slice(-20);
+        const turns = [...(await read(id, scope)), turn].slice(-20);
         await save(id, turns);
       });
     },
