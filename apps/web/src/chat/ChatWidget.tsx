@@ -76,6 +76,7 @@ export function ChatWidget(props: ChatWidgetProps) {
   const [error, setError] = useState(""),
     [status, setStatus] = useState<ModelStatus>();
   const [settingsBusy, setSettingsBusy] = useState(false);
+  const [statusRevision, setStatusRevision] = useState(0);
   const panel = useRef<HTMLDivElement>(null),
     launcher = useRef<HTMLButtonElement>(null),
     input = useRef<HTMLTextAreaElement>(null);
@@ -145,7 +146,7 @@ export function ChatWidget(props: ChatWidgetProps) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [open, status?.download?.id]);
+  }, [open, scopeKey, status?.download?.id, statusRevision]);
   useEffect(() => {
     const current = ++generation.current;
     cancelPending();
@@ -232,6 +233,8 @@ export function ChatWidget(props: ChatWidgetProps) {
       if (pending.current?.id === id) {
         pending.current = undefined;
         setBusy(false);
+        if (current === generation.current && !controller.signal.aborted)
+          setStatusRevision((revision) => revision + 1);
       }
     }
   };
@@ -463,7 +466,10 @@ export function ChatWidget(props: ChatWidgetProps) {
               type="button"
               aria-label="Model settings"
               aria-expanded={settings}
-              onClick={() => setSettings(!settings)}
+              onClick={() => {
+                if (!settings) setStatusRevision((revision) => revision + 1);
+                setSettings(!settings);
+              }}
             >
               Model settings
             </button>
@@ -562,6 +568,15 @@ export function ChatWidget(props: ChatWidgetProps) {
                             : "Download"}{" "}
                         {model.label}
                       </button>
+                      {status.installed.includes(model.id) && (
+                        <button
+                          type="button"
+                          disabled={settingsBusy || activeDownload(status)}
+                          onClick={() => void install(model.id)}
+                        >
+                          Reinstall {model.parameters} weights
+                        </button>
+                      )}
                     </article>
                   ))}
                   {status.download && (

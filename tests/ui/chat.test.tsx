@@ -336,3 +336,194 @@ it("keeps keyboard movement and resizing in the viewport", async () => {
   expect(dialog.style.top).toBe("8px");
   expect(dialog.style.height).toBe("334px");
 });
+it.each([false, true])(
+  "refreshes runtime status after a turn (failed=%s)",
+  async (failed) => {
+    let current: ModelStatus = { ...status, runtimeState: "idle" };
+    let statusReads = 0;
+    const original = fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/api/assistant/status") {
+          statusReads++;
+          return Promise.resolve(new Response(JSON.stringify(current)));
+        }
+        if (url === "/api/chat/turns") {
+          current = {
+            ...status,
+            actualBackend: "cpu",
+            runtimeState: failed ? "error" : "ready",
+            runtimeError: failed
+              ? "GPU failed; CPU fallback unavailable"
+              : undefined,
+          };
+          return Promise.resolve(
+            new Response(
+              JSON.stringify(
+                failed ? { error: { message: "Inference failed" } } : response,
+              ),
+              { status: failed ? 500 : 200 },
+            ),
+          );
+        }
+        return original(url, init);
+      }),
+    );
+    render(<ChatWidget {...props} analysisId="a" />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Open RoGraph assistant" }),
+    );
+    await waitFor(() => expect(statusReads).toBe(1));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "Ask RoGraph" }),
+      "shop",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(statusReads).toBe(2));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Model settings" }),
+    );
+    expect(
+      await screen.findByText(
+        new RegExp(
+          `Actual backend: CPU.*Runtime: ${failed ? "error" : "ready"}`,
+        ),
+      ),
+    ).toBeTruthy();
+    if (failed)
+      expect(
+        screen.getByText("GPU failed; CPU fallback unavailable"),
+      ).toBeTruthy();
+  },
+);
+it("refreshes status when model settings opens", async () => {
+  let current = status;
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) =>
+      url === "/api/assistant/status"
+        ? Promise.resolve(new Response(JSON.stringify(current)))
+        : original(url, init),
+    ),
+  );
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  expect(await screen.findByText(/Actual backend: Not running/)).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  current = { ...status, runtimeState: "ready", actualBackend: "gpu" };
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  expect(
+    await screen.findByText(/Actual backend: GPU.*Runtime: ready/),
+  ).toBeTruthy();
+});
+it("reinstalls installed weights and prevents another repair during download", async () => {
+  let current: ModelStatus = {
+    ...status,
+    installed: ["small"],
+    selectedId: "small",
+  };
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/assistant/status")
+        return Promise.resolve(new Response(JSON.stringify(current)));
+      if (url === "/api/assistant/models/install") {
+        requests.push({ url, init });
+        current = {
+          ...current,
+          download: {
+            id: "d",
+            modelId: "small",
+            status: "downloading",
+            receivedBytes: 100,
+            totalBytes: 1000,
+          },
+        };
+        return Promise.resolve(new Response(JSON.stringify(current.download)));
+      }
+      return original(url, init);
+    }),
+  );
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  const repair = await screen.findByRole("button", {
+    name: "Reinstall 0.8B weights",
+  });
+  await userEvent.click(repair);
+  await waitFor(() =>
+    expect(
+      requests.find((r) => r.url === "/api/assistant/models/install")?.init
+        ?.body,
+    ).toBe('{"modelId":"small"}'),
+  );
+  await waitFor(() =>
+    expect((repair as HTMLButtonElement).disabled).toBe(true),
+  );
+});
+it("aborts a status refresh and ignores its late result after a snapshot change", async () => {
+  let statusReads = 0;
+  let release!: (r: Response) => void;
+  let signal: AbortSignal | undefined;
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/assistant/status") {
+        statusReads++;
+        if (statusReads === 2) {
+          signal = init?.signal ?? undefined;
+          return new Promise<Response>((resolve) => {
+            release = resolve;
+          });
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ...status,
+              runtimeState: "ready",
+              actualBackend: "cpu",
+            }),
+          ),
+        );
+      }
+      return original(url, init);
+    }),
+  );
+  const view = render(<ChatWidget {...props} analysisId="a" />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Ask RoGraph" }),
+    "shop",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(release).toBeTruthy());
+  view.rerender(<ChatWidget {...props} analysisId="b" />);
+  expect(signal?.aborted).toBe(true);
+  await act(async () => {
+    release(
+      new Response(
+        JSON.stringify({
+          ...status,
+          runtimeError: "Stale runtime failure",
+          runtimeState: "error",
+        }),
+      ),
+    );
+  });
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  expect(
+    await screen.findByText(/Actual backend: CPU.*Runtime: ready/),
+  ).toBeTruthy();
+  expect(screen.queryByText("Stale runtime failure")).toBeNull();
+});
