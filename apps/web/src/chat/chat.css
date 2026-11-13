@@ -1,0 +1,185 @@
+.rg-chat-root {
+  color: #e7edf6;
+  font:
+    14px/1.45 system-ui,
+    sans-serif;
+}
+.rg-chat-root * {
+  box-sizing: border-box;
+}
+.rg-chat-root button,
+.rg-chat-root select,
+.rg-chat-root textarea {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #526276;
+  border-radius: 7px;
+  background: #202d3c;
+  padding: 7px 10px;
+  min-height: 36px;
+  max-width: 100%;
+}
+.rg-chat-root button {
+  cursor: pointer;
+  white-space: normal;
+}
+.rg-chat-root button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.rg-chat-root :focus-visible {
+  outline: 3px solid #84dfbf;
+  outline-offset: 2px;
+}
+.rg-chat-root .rg-chat-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  width: 52px;
+  height: 52px;
+  padding: 10px;
+  border-radius: 17px;
+  color: #92e3c8;
+  background: #162a2a;
+  border-color: #73b9a6;
+  box-shadow: 0 5px 22px #0008;
+}
+.rg-chat-root .rg-chat-window {
+  position: fixed;
+  z-index: 101;
+  width: min(420px, calc(100vw - 16px));
+  height: min(650px, calc(100dvh - 16px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #536375;
+  border-radius: 13px;
+  background: #15212e;
+  box-shadow: 0 10px 45px #0009;
+}
+.rg-chat-root .rg-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid #3d4c60;
+  flex-shrink: 0;
+}
+.rg-chat-root .rg-chat-drag {
+  flex: 1;
+  min-width: 0;
+  cursor: move;
+  touch-action: none;
+  padding: 3px;
+}
+.rg-chat-root .rg-chat-drag small {
+  display: block;
+  color: #afbdce;
+  font-size: 11px;
+}
+.rg-chat-root .rg-chat-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  align-items: end;
+  flex-shrink: 0;
+}
+.rg-chat-root label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.rg-chat-root .rg-chat-toolbar label {
+  flex: 1;
+}
+.rg-chat-root .rg-chat-transcript,
+.rg-chat-root .rg-chat-settings {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 12px;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+.rg-chat-root p {
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+.rg-chat-root h3 {
+  margin: 10px 0;
+  font-size: 16px;
+}
+.rg-chat-root small {
+  font-size: 11px;
+  color: #afbdce;
+}
+.rg-chat-root .rg-chat-card {
+  border: 1px solid #425367;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 9px 0;
+  background: #1b2a3a;
+}
+.rg-chat-root .rg-chat-card ol,
+.rg-chat-root .rg-chat-card ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.rg-chat-root .rg-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.rg-chat-root .rg-chat-question {
+  border-radius: 8px;
+  background: #293c50;
+  padding: 8px;
+}
+.rg-chat-root .rg-chat-turn {
+  margin-bottom: 18px;
+}
+.rg-chat-root .rg-chat-error {
+  color: #ffb4ad;
+  padding: 8px 12px;
+  margin: 0;
+  max-height: 90px;
+  overflow: auto;
+}
+.rg-chat-root .rg-chat-warning {
+  color: #f5d58d;
+}
+.rg-chat-root .rg-chat-composer {
+  padding: 10px 12px;
+  border-top: 1px solid #3d4c60;
+  flex-shrink: 0;
+}
+.rg-chat-root textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  max-height: 110px;
+  min-height: 50px;
+  margin-top: 4px;
+}
+.rg-chat-root progress {
+  width: 100%;
+  accent-color: #84dfbf;
+}
+@media (max-height: 440px) {
+  .rg-chat-root .rg-chat-drag small {
+    display: none;
+  }
+  .rg-chat-root .rg-chat-toolbar {
+    padding: 5px 10px;
+  }
+  .rg-chat-root .rg-chat-composer {
+    padding: 5px 10px;
+  }
+  .rg-chat-root textarea {
+    min-height: 36px;
+    height: 36px;
+  }
+}
