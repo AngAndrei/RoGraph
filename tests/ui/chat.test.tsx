@@ -527,3 +527,55 @@ it("aborts a status refresh and ignores its late result after a snapshot change"
   ).toBeTruthy();
   expect(screen.queryByText("Stale runtime failure")).toBeNull();
 });
+it("minimizes source-query cards before navigating to the source window", async () => {
+  const query = {
+    op: "source" as const,
+    analysisId: "a",
+    sourceId: "source-1",
+    startByte: 10,
+    endByte: 25,
+  };
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) =>
+      url === "/api/chat/turns"
+        ? Promise.resolve(
+            new Response(
+              JSON.stringify({
+                ...response,
+                cards: [
+                  {
+                    kind: "notice",
+                    id: "source-only",
+                    label: "Source match",
+                    query,
+                  },
+                ],
+              }),
+            ),
+          )
+        : original(url, init),
+    ),
+  );
+  const onNavigate = vi.fn();
+  render(<ChatWidget {...props} analysisId="a" onNavigate={onNavigate} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Ask RoGraph" }),
+    "open source",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Inspect Source match" }),
+  );
+  expect(onNavigate).toHaveBeenCalledWith(query);
+  expect(
+    screen.queryByRole("dialog", { name: "RoGraph assistant" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  ).toBeTruthy();
+});

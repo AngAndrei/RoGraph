@@ -290,7 +290,13 @@ export function ChatWidget(props: ChatWidgetProps) {
       <div className="rg-chat-actions">
         {card.query && card.query.analysisId === props.analysisId && (
           <>
-            <button type="button" onClick={() => props.onNavigate(card.query!)}>
+            <button
+              type="button"
+              onClick={() => {
+                if (card.query!.op === "source") setOpen(false);
+                props.onNavigate(card.query!);
+              }}
+            >
               {card.kind === "path" ? "Show path" : "Inspect"} {card.label}
             </button>
             <button
