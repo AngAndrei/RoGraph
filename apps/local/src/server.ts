@@ -17,6 +17,7 @@ import { querySchema } from "../../../packages/core/src/query.js";
 import { projectRoot } from "../../../packages/adapters/src/native.js";
 import { createJobs } from "./jobs.js";
 import { watchProject } from "../../../packages/core/src/watch.js";
+import { createAssistantRoutes } from "./assistant/routes.js";
 const json = async (req: IncomingMessage) => {
   let bytes = 0;
   const chunks: Buffer[] = [];
@@ -44,6 +45,7 @@ export async function startServer(
   const store = await openWorkerStore(join(workspace, "graph.db")),
     jobs = createJobs(store, workspace),
     sessionToken = randomBytes(32).toString("hex");
+  const assistant = await createAssistantRoutes(workspace, store);
   let url = "",
     closing = false,
     uploading = false;
@@ -120,6 +122,7 @@ export async function startServer(
             "A same-origin local session is required",
           );
         if (closing) throw new RoGraphError("CLOSING", "RoGraph is stopping");
+        if (await assistant.handle(req, res, path, method, () => json(req))) return;
         if (method === "GET" && path === "/api/workspace") {
           const list = await store.listAnalyses(100);
           send(res, 200, {
@@ -150,6 +153,7 @@ export async function startServer(
             })
             .strict()
             .parse(await json(req));
+          await assistant.deleteAnalysis(analysisId);
           await store.deleteAnalysis(analysisId);
           send(res, 200, { deleted: true });
           return;
@@ -407,6 +411,7 @@ export async function startServer(
   const close = () =>
     (closePromise ??= (async () => {
       closing = true;
+      await assistant.close();
       watchController?.abort();
       await jobs.close();
       await stopWatch();

@@ -4,6 +4,7 @@ import type {
   ContextPack,
 } from "../../../packages/contracts/src/query.js";
 import { api } from "./api.js";
+import { compactContext } from "./chat-context.js";
 export function ContextExport({
   query,
   onClose,
@@ -30,7 +31,7 @@ export function ContextExport({
   function download(format: "json" | "markdown") {
     if (!pack) return;
     const blob = new Blob(
-        [format === "json" ? JSON.stringify(pack) : pack.markdown],
+        [format === "json" ? JSON.stringify(compactContext(pack)) : pack.markdown],
         {
           type:
             format === "json"

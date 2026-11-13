@@ -1,0 +1,50 @@
+import { test, expect } from "./support.js";
+import { fixturePath } from "../support/fixtures.js";
+
+test("floating assistant provides help, moves, finds a node and exports its context", async ({ page, app }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(app.url + "/#session=" + app.sessionToken);
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  const panel = page.getByRole("dialog", { name: "RoGraph assistant", exact: true });
+  await expect(panel).toBeVisible();
+  await page.getByLabel("Assistant mode").selectOption("help");
+  await page.getByLabel("Ask RoGraph").fill("How do I find text inside a script?");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(panel.getByText("Find in source", { exact: true }).first()).toBeVisible();
+  const before = (await panel.boundingBox())!;
+  await page.getByRole("button", { name: "Move assistant window" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  expect((await panel.boundingBox())!.x).toBeLessThan(before.x);
+  await page.getByRole("button", { name: "Minimize assistant" }).click();
+  await page.getByLabel("Place file").setInputFiles(fixturePath("shop/place.rbxlx"));
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Coverage", exact: true })).toBeVisible({ timeout: 90000 });
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  await page.getByLabel("Assistant mode").selectOption("game");
+  await page.getByLabel("Ask RoGraph").fill("Find ShopClient.BuySword");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(panel.getByRole("button", { name: "Inspect ShopClient.BuySword", exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "Export context for ShopClient.BuySword", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Export agent context" })).toBeVisible();
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download JSON", exact: true }).click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toMatch(/\.json$/);
+  expect(errors).toEqual([]);
+});
+
+test("assistant remains reachable on a narrow viewport and offers all model sizes", async ({ page, app }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto(app.url + "/#session=" + app.sessionToken);
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  const panel = page.getByRole("dialog", { name: "RoGraph assistant", exact: true });
+  await page.getByRole("button", { name: "Model settings", exact: true }).click();
+  await expect(panel.getByText("Local models", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Inference backend")).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Qwen3.5 0.8B/ })).toBeVisible();
+  expect(await panel.getByRole("button", { name: /Qwen3.5/ }).count()).toBe(4);
+  const box = (await panel.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(740);
+});

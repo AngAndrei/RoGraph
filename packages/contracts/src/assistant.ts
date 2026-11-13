@@ -1,5 +1,5 @@
 import { z } from "zod";
-import packageInfo from "../../../package.json";
+import packageInfo from "../../../package.json" with { type: "json" };
 import type { Evidence } from "./model.js";
 import type { Query } from "./query.js";
 

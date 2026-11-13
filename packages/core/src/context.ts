@@ -1,5 +1,6 @@
 import type { QueryResult, ContextPack } from "../../contracts/src/query.js";
 import { RoGraphError } from "./util.js";
+import { indexSource } from "./source-index.js";
 function markdown(r: QueryResult) {
   const labels = new Map(r.nodes.map((n) => [n.id, n.label]));
   const lines = [
@@ -264,10 +265,33 @@ export function createContext(
       if (!fits()) json.paths.pop();
     }
   if (result.projection?.view === "gameplay") addSites();
+  // A source-only or isolated-node result is still useful external context.
+  if (!result.relations.length) {
+    for (const node of result.nodes) {
+      if (json.nodes.some((n) => n.id === node.id)) continue;
+      json.nodes.push(node);
+      if (!fits()) json.nodes.pop();
+    }
+    for (const source of result.sources) {
+      const old = json.sources.length;
+      addSource(source.id);
+      if (!fits()) json.sources.splice(old);
+    }
+  }
   for (const source of json.sources) {
     const original = result.sources.find((s) => s.id === source.id)!;
-    for (const excerpt of original.excerpts) {
-      if (Buffer.byteLength(excerpt.text) > 1500) continue;
+    for (const originalExcerpt of original.excerpts) {
+      let excerpt = originalExcerpt;
+      if (Buffer.byteLength(excerpt.text) > 1500) {
+        const bytes = Buffer.from(excerpt.text);
+        let end = 1500;
+        while (end > 0 && (bytes[end] & 192) === 128) end--;
+        const text = bytes.subarray(0, end).toString("utf8");
+        const local = indexSource(text).span(0, end);
+        excerpt = { text, span: { ...excerpt.span, endByte: excerpt.span.startByte + end,
+          endLine: excerpt.span.startLine + local.endLine - 1,
+          endColumn: local.endLine === 1 ? excerpt.span.startColumn + local.endColumn - 1 : local.endColumn } };
+      }
       source.excerpts.push(excerpt);
       source.omittedBytes -= Buffer.byteLength(excerpt.text);
       if (!fits()) {

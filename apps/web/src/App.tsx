@@ -18,6 +18,8 @@ import { Inspector } from "./Inspector.js";
 import { TraceView, TraceControls } from "./TraceView.js";
 import { GameOrientation } from "./GameOrientation.js";
 import { SourceView } from "./SourceView.js";
+import { ChatWidget } from "./chat/ChatWidget.js";
+import { ContextExport } from "./ContextExport.js";
 function Brand() {
   return (
     <div className="brand">
@@ -75,6 +77,8 @@ export default function App() {
   const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
+  const assistantNavigation = useRef<Query | undefined>(undefined);
+  const [assistantContext, setAssistantContext] = useState<Query>();
   useEffect(() => {
     const narrow = window.matchMedia?.("(max-width: 760px)");
     if (!narrow) return;
@@ -171,23 +175,21 @@ export default function App() {
     }
     const request = ++graphRequest.current;
     if (changed) requestRef.current++;
+    const requested = assistantNavigation.current;
+    assistantNavigation.current = undefined;
+    const nextQuery: Query = requested?.analysisId === analysisId ? requested : {
+      op: "overview", analysisId, limit: 300, ...graphFilters,
+    };
     void api
-      .run({
-        op: "overview",
-        analysisId,
-        limit: 300,
-        ...graphFilters,
-      })
+      .run(nextQuery)
       .then((r) => {
         if (alive && request === graphRequest.current) {
           setResult(r);
-          setTraceResult(undefined);
-          setActiveQuery({
-            op: "overview",
-            analysisId,
-            limit: 300,
-            ...graphFilters,
-          });
+          setTraceResult(["trace", "dependencies", "impact"].includes(nextQuery.op) ? r : undefined);
+          setActiveQuery(nextQuery);
+          if (nextQuery.nodeId && r.nodes.some((n) => n.id === nextQuery.nodeId)) {
+            setSelected(nextQuery.nodeId); setSelection(r);
+          }
         }
       })
       .catch((e) => {
@@ -861,6 +863,21 @@ export default function App() {
           />
         </div>
       )}
+      <ChatWidget
+        analysisId={analysisId || undefined} view={view} selectedId={selectedId || undefined}
+        onNavigate={(query) => {
+          if (query.analysisId !== analysisId) { setError("Select the cited snapshot before opening this result."); return; }
+          assistantNavigation.current = query;
+          setView(query.view ?? view); setDetails((query.view ?? view) === "code");
+          closeInspector(); setOverviewRevision((revision) => revision + 1);
+        }}
+        onSource={(source) => {
+          if (source.analysisId === analysisId) setSourceEvidence(source.evidence);
+          else setError("This source belongs to another snapshot.");
+        }}
+        onContext={(query) => { if (query.analysisId === analysisId) setAssistantContext(query); }}
+      />
+      {assistantContext?.analysisId === analysisId && <ContextExport query={assistantContext} onClose={() => setAssistantContext(undefined)} />}
     </div>
   );
 }

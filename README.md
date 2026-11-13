@@ -1,5 +1,7 @@
 # RoGraph
 
+On the `chat_bot_RAG` feature branch, the lower-right robot button opens a movable local assistant for finding game objects/connections/paths and app help. **Model settings** offers optional 0.8B, 2B, 4B and 9B downloads plus Auto/CPU/GPU execution. GitHub and release ZIPs ship without weights; help, deterministic navigation and MCP/context export work before installation. See [assistant validation and setup](docs/assistant-validation.md). This preview is not merged into main.
+
 Understand how a Roblox game connects, with evidence that humans and AI agents can inspect.
 
 RoGraph reads a saved **`.rbxlx` XML or `.rbxl` binary place** or a **Rojo project**. **Gameplay** connects actual models, tools, GUI controls, scripts and configurations through supported interactions and effects. **Code** retains function/module dependencies and configuration inspection. Both views share one revision-pinned graph and source evidence.

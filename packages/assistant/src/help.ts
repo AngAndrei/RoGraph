@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import maintainedHelp from "../../../docs/app-functionalities.json";
+import maintainedHelp from "../../../docs/app-functionalities.json" with { type: "json" };
 import {
   helpFileSchema,
   type HelpFeature,

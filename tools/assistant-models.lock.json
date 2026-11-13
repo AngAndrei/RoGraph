@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "runtimeVersion": "b12359",
+  "runtimes": [
+    {
+      "id": "cpu",
+      "fileName": "llama-b12359-bin-win-cpu-x64.zip",
+      "bytes": 25097509,
+      "sha256": "837c1655e87df3b66989f4be33a792a1399c785bf259038dc75c900096683e69",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cpu-x64.zip"
+    },
+    {
+      "id": "vulkan",
+      "fileName": "llama-b12359-bin-win-vulkan-x64.zip",
+      "bytes": 38090643,
+      "sha256": "e8d18c6e4210cca87e7307c2ea78363ac8d158e4e1397358ec96ab70b53a0d5e",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-vulkan-x64.zip"
+    }
+  ],
+  "models": [
+    {
+      "id": "qwen3.5-0.8b",
+      "label": "Qwen3.5 0.8B · Q4_K_M",
+      "parameters": "0.8B",
+      "description": "Smallest download, basic navigation",
+      "fileName": "Qwen3.5-0.8B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/Qwen3.5-0.8B-Q4_K_M.gguf",
+      "bytes": 532517120,
+      "sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+      "recommendedRamGiB": 8,
+      "license": "Apache-2.0",
+      "upstream": "https://huggingface.co/Qwen/Qwen3.5-0.8B"
+    },
+    {
+      "id": "qwen3.5-2b",
+      "label": "Qwen3.5 2B · Q4_K_M",
+      "parameters": "2B",
+      "description": "Balanced local navigation and help",
+      "fileName": "Qwen3.5-2B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
+      "bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "recommendedRamGiB": 12,
+      "license": "Apache-2.0",
+      "upstream": "https://huggingface.co/Qwen/Qwen3.5-2B"
+    },
+    {
+      "id": "qwen3.5-4b",
+      "label": "Qwen3.5 4B · Q4_K_M",
+      "parameters": "4B",
+      "description": "More capable interpretation, higher memory",
+      "fileName": "Qwen3.5-4B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+      "bytes": 2740937888,
+      "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+      "recommendedRamGiB": 16,
+      "license": "Apache-2.0",
+      "upstream": "https://huggingface.co/Qwen/Qwen3.5-4B"
+    },
+    {
+      "id": "qwen3.5-9b",
+      "label": "Qwen3.5 9B · Q4_K_M",
+      "parameters": "9B",
+      "description": "Larger optional model for powerful hardware",
+      "fileName": "Qwen3.5-9B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_M.gguf",
+      "bytes": 5680522464,
+      "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+      "recommendedRamGiB": 24,
+      "license": "Apache-2.0",
+      "upstream": "https://huggingface.co/Qwen/Qwen3.5-9B"
+    }
+  ]
+}
