@@ -1,0 +1,939 @@
+{
+  "appVersion": "0.2.0",
+  "features": [
+    {
+      "id": "import-place",
+      "label": "Import a saved place",
+      "purpose": "Analyze a saved Roblox place without editing the original or executing game code.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "How do I import my rbxl place?",
+        "Open a saved Roblox game"
+      ],
+      "synonyms": [
+        "import place",
+        "rbxl",
+        "rbxlx",
+        "analyze saved game",
+        "upload place"
+      ],
+      "steps": [
+        "Save the place from Roblox Studio as .rbxlx or .rbxl.",
+        "Choose the place file in RoGraph and select Analyze.",
+        "Open the completed snapshot and inspect Coverage for import limitations."
+      ],
+      "availability": [
+        "Portable app or development local service",
+        "A readable saved place file"
+      ],
+      "limitations": [
+        "Direct import expects a place; model files are supported through Rojo.",
+        "Analysis models supported potential behavior, not a recorded play session."
+      ],
+      "navigationAction": "import"
+    },
+    {
+      "id": "import-rojo",
+      "label": "Import a Rojo project",
+      "purpose": "Capture project source, build and sourcemap together into an immutable analysis.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Analyze default.project.json",
+        "Import my Rojo project"
+      ],
+      "synonyms": [
+        "rojo project",
+        "default project json",
+        "rojo import",
+        "project mounts"
+      ],
+      "steps": [
+        "Choose Rojo project and enter the path to default.project.json.",
+        "Keep game source outside the dedicated analysis workspace.",
+        "Analyze and inspect the new snapshot; retry after saving finishes if capture reports mixed revisions."
+      ],
+      "availability": ["A Rojo project declaring a DataModel root"],
+      "limitations": [
+        "Symlinks and mounts escaping the selected project root are rejected.",
+        "A build and sourcemap from different revisions are never combined."
+      ],
+      "navigationAction": "import"
+    },
+    {
+      "id": "rojo-watch",
+      "label": "Watch for saved Rojo changes",
+      "purpose": "Create new immutable snapshots when saved project files change.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Watch saved changes in a Rojo project",
+        "Refresh analysis when I save code"
+      ],
+      "synonyms": [
+        "watch",
+        "watch saved changes",
+        "watch for saved changes",
+        "auto refresh",
+        "live reload"
+      ],
+      "steps": [
+        "Choose Rojo project and enable Watch for saved changes.",
+        "Save the project files and wait for a consistent capture.",
+        "Select Open new snapshot when ready to switch evidence."
+      ],
+      "availability": ["Rojo project import with watch enabled"],
+      "limitations": [
+        "The displayed analysis stays pinned until you explicitly open the new snapshot.",
+        "Watch observes saved files, not unsaved editor buffers."
+      ],
+      "navigationAction": "import"
+    },
+    {
+      "id": "gameplay-view",
+      "label": "Gameplay view",
+      "purpose": "Explore named objects, scripts and configuration through supported gameplay interactions.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Understand what happens in the game",
+        "Show gameplay objects and connections"
+      ],
+      "synonyms": [
+        "gameplay",
+        "game map",
+        "object interactions",
+        "game behavior"
+      ],
+      "steps": [
+        "Open a completed snapshot; new analyses start in Gameplay.",
+        "Select an object or connection to inspect actions, conditions and retained evidence.",
+        "Select Gameplay again to return to its overview."
+      ],
+      "availability": ["A snapshot advertising Gameplay support"],
+      "limitations": [
+        "Older snapshots need reimporting before Gameplay becomes available.",
+        "Connections describe potential behavior and do not establish runtime execution order."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "code-view",
+      "label": "Code and implementation view",
+      "purpose": "Explore script dependencies and supporting implementation around an object.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Switch to Code view",
+        "Show implementation for an object"
+      ],
+      "synonyms": [
+        "code view",
+        "show implementation",
+        "script dependencies",
+        "implementation"
+      ],
+      "steps": [
+        "Choose Code to inspect script dependencies.",
+        "Select Show implementation for the selected object's supporting code.",
+        "Select Code again to return to the Code overview."
+      ],
+      "availability": [
+        "An indexed analysis, including older Code-only snapshots"
+      ],
+      "limitations": [
+        "Static analysis does not execute Luau or resolve every dynamic pattern."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "methods-config",
+      "label": "Methods & config",
+      "purpose": "Display indexed functions and fields alongside the Code map.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Show functions and config fields",
+        "Where is Methods & config?"
+      ],
+      "synonyms": [
+        "methods config",
+        "functions",
+        "fields",
+        "configuration fields"
+      ],
+      "steps": [
+        "Switch to Code.",
+        "Enable Methods & config.",
+        "Select a function or field to inspect its supported relationships and source."
+      ],
+      "availability": ["Code view of an indexed snapshot"],
+      "limitations": [
+        "Computed exports, metatables and unsupported patterns can remain unresolved."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "start-here",
+      "label": "Start here",
+      "purpose": "Find connected scripts that provide useful entry points for understanding an unfamiliar game.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "I am new to this game; where should I start?",
+        "Find a useful first script"
+      ],
+      "synonyms": [
+        "start here",
+        "getting started",
+        "entry points",
+        "starting guide"
+      ],
+      "steps": [
+        "Open Start here.",
+        "Review saved class, execution context, connected-object count and example relationship.",
+        "Choose a suggestion to select its connected script."
+      ],
+      "availability": [
+        "Loaded gameplay map; the guide can collapse on narrow screens"
+      ],
+      "limitations": [
+        "Suggestions describe the loaded map, not startup order or the complete game."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "project-search",
+      "label": "Search the project",
+      "purpose": "Find indexed objects, scripts, methods and fields across the pinned snapshot beyond the current canvas.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Find a script anywhere in the project",
+        "Search all indexed objects",
+        "Find something missing from the current map"
+      ],
+      "synonyms": [
+        "project search",
+        "search project",
+        "anywhere in the project",
+        "all indexed",
+        "find script",
+        "project navigator"
+      ],
+      "steps": [
+        "Use the project navigator's search in the left panel.",
+        "Enter an object, method or field name.",
+        "Choose the matching result and check its path when names repeat."
+      ],
+      "availability": [
+        "An indexed snapshot; project navigator may collapse on narrow screens"
+      ],
+      "limitations": [
+        "Search covers indexed content, not every possible runtime object or arbitrary source text."
+      ],
+      "navigationAction": "search"
+    },
+    {
+      "id": "canvas-search",
+      "label": "Search nodes on the canvas",
+      "purpose": "Find and center a displayed node while retaining its visible connections.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Search nodes on the current canvas",
+        "Center a visible node by its personal label"
+      ],
+      "synonyms": [
+        "search nodes",
+        "canvas search",
+        "current canvas",
+        "visible node",
+        "displayed labels"
+      ],
+      "steps": [
+        "Type a full or partial displayed label in Search nodes.",
+        "Select a result to select and center the node.",
+        "Clear the field to close the results."
+      ],
+      "availability": ["Current graph, including personal renames"],
+      "limitations": [
+        "Matching ignores case but covers only the current graph; use project search for content outside it."
+      ],
+      "navigationAction": "search"
+    },
+    {
+      "id": "hierarchy-filters",
+      "label": "Hierarchy, groups and filters",
+      "purpose": "Explore saved structure and narrow the graph by group, class and depth.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Filter the map by class or folder",
+        "Expand the hierarchy for geometry"
+      ],
+      "synonyms": [
+        "hierarchy",
+        "group by",
+        "visible group",
+        "classes",
+        "depth",
+        "filters",
+        "folder",
+        "service"
+      ],
+      "steps": [
+        "Expand the project hierarchy to explore saved structure.",
+        "Use Group by to organize by service or folder and Visible group to focus one group.",
+        "Set Classes and Depth to narrow the graph; graph actions and context exports retain these filters."
+      ],
+      "availability": ["Current snapshot and graph view"],
+      "limitations": [
+        "Filters can hide content; structural containment is not a dependency."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "inspector",
+      "label": "Inspect an object or relationship",
+      "purpose": "Review incoming and outgoing connections, assumptions and retained evidence.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Explain this connection",
+        "See an object's incoming and outgoing actions"
+      ],
+      "synonyms": [
+        "inspector",
+        "at a glance",
+        "connection details",
+        "relationship card",
+        "assumptions",
+        "evidence page"
+      ],
+      "steps": [
+        "Select a node for At a glance and links to connected objects.",
+        "Select a line and expand its relationship card for mechanism, conditions, assumptions and source occurrences.",
+        "Use Next evidence page or First evidence page for large inspections."
+      ],
+      "availability": ["A selected node or connection in an indexed snapshot"],
+      "limitations": [
+        "One displayed line can aggregate several canonical actions.",
+        "Unresolved or candidate sites describe analysis limits rather than generic gameplay objects."
+      ],
+      "navigationAction": "source"
+    },
+    {
+      "id": "source-inspection",
+      "label": "Inspect saved and original source",
+      "purpose": "Read retained source evidence even after the original input is moved or edited.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Open the source for a relationship",
+        "Show original Rojo code instead of generated Luau"
+      ],
+      "synonyms": [
+        "source inspector",
+        "source excerpt",
+        "saved source",
+        "original file",
+        "source evidence",
+        "byte offsets"
+      ],
+      "steps": [
+        "Select Source on a retained occurrence or path hop.",
+        "For Rojo, choose saved Luau or the available original-file variant.",
+        "Page source excerpts independently of relationship evidence and inspect the displayed source revision hash."
+      ],
+      "availability": ["Retained readable script or original text evidence"],
+      "limitations": [
+        "Excerpts are bounded and marked partial; SHA-256 identifies the complete source revision.",
+        "Offsets address decoded UTF-8 Luau text; lines and Unicode columns are one-based.",
+        "Generated JSON/TOML/model statements do not claim original line coordinates without a mapping; binary blobs are not displayed as UTF-8 text."
+      ],
+      "navigationAction": "source"
+    },
+    {
+      "id": "source-find",
+      "label": "Find in source",
+      "purpose": "Search literal text through the complete retained source file or selected original-file variant.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Find text inside the saved source file",
+        "CTRL+F then next match in source",
+        "Search beyond the displayed source excerpt"
+      ],
+      "synonyms": [
+        "find in source",
+        "source search",
+        "find text",
+        "ctrl f",
+        "cmd f",
+        "next match",
+        "previous match",
+        "source file",
+        "inside a script",
+        "search string",
+        "script text"
+      ],
+      "steps": [
+        "Open source and press Ctrl+F or Cmd+F to focus Find in source.",
+        "Type literal text; matching ignores case and searches the complete selected saved file.",
+        "Use the arrows or Enter and Shift+Enter to move through wrapping matches; Escape closes Find while leaving source open."
+      ],
+      "availability": ["An open source inspector with retained text"],
+      "limitations": [
+        "Search is literal, not a regular expression or project-wide source scan.",
+        "Source is still delivered in bounded excerpts around the current orange match; other loaded matches are yellow."
+      ],
+      "navigationAction": "source"
+    },
+    {
+      "id": "trace-flow",
+      "label": "Trace potential gameplay flow",
+      "purpose": "Find an evidence-backed route between two different components in the pinned snapshot.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Trace a path from a button to its server handler",
+        "Follow potential gameplay flow"
+      ],
+      "synonyms": [
+        "trace a path",
+        "trace flow",
+        "gameplay flow",
+        "path endpoints",
+        "route",
+        "remote handler"
+      ],
+      "steps": [
+        "Choose Trace a path and search for the start and destination components.",
+        "Choose two different components and potential gameplay flow in Gameplay.",
+        "Inspect each returned hop and select Source for its exact saved expression."
+      ],
+      "availability": [
+        "Indexed analysis; endpoint search covers the pinned snapshot beyond the canvas"
+      ],
+      "limitations": [
+        "The flow policy excludes configuration reads and shared config/utility shortcuts.",
+        "Communication hops are potential and do not establish runtime execution order or observed data flow."
+      ],
+      "navigationAction": "trace"
+    },
+    {
+      "id": "trace-influence",
+      "label": "Trace configuration influence",
+      "purpose": "Include configuration associations when tracing how a value can influence a component.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Trace configuration influence",
+        "Trace ShopClient.BuySword to ShopConfig.Prices.Sword"
+      ],
+      "synonyms": [
+        "configuration influence",
+        "trace influence",
+        "config influence",
+        "configuration option",
+        "price read"
+      ],
+      "steps": [
+        "Choose Trace a path in Gameplay and set distinct start and destination components.",
+        "Choose the configuration influence trace question to include configuration associations.",
+        "Inspect each hop's source and conditional alternatives."
+      ],
+      "availability": [
+        "Gameplay-capable snapshot with supported configuration relationships"
+      ],
+      "limitations": [
+        "A configuration association is potential influence, not an execution sequence or proof of a final runtime value."
+      ],
+      "navigationAction": "trace"
+    },
+    {
+      "id": "dependencies",
+      "label": "Dependencies",
+      "purpose": "Follow modeled uses outward from the selected component to what it depends on.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Which components does this script depend on?",
+        "What does this component use?"
+      ],
+      "synonyms": [
+        "dependencies",
+        "depends on",
+        "depend on",
+        "modeled uses",
+        "what does it use",
+        "outgoing uses",
+        "uses of component"
+      ],
+      "steps": [
+        "Select the component whose dependencies you want to inspect.",
+        "Choose Dependencies and check that the scope names the original selection.",
+        "Inspect the returned relationships and use Back to overview to restore the overview."
+      ],
+      "availability": ["Selected component in an indexed analysis"],
+      "limitations": [
+        "Containment is excluded from dependencies.",
+        "Bounded static results can omit content and cannot resolve all runtime behavior."
+      ],
+      "navigationAction": "dependencies"
+    },
+    {
+      "id": "impact",
+      "label": "Impact",
+      "purpose": "Follow reverse modeled uses to investigate what may be affected by changing the selected component.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "What breaks if I change this component?",
+        "What uses this script?",
+        "Who depends on this config value?"
+      ],
+      "synonyms": [
+        "impact",
+        "what breaks",
+        "affected by",
+        "change this",
+        "reverse uses",
+        "what uses this",
+        "who depends on",
+        "dependents",
+        "potential channel effects"
+      ],
+      "steps": [
+        "Select the component you plan to change.",
+        "Choose Impact and inspect reverse uses and separately labeled potential channel effects.",
+        "Check the original component named in the scope and inspect supporting evidence."
+      ],
+      "availability": ["Selected component in an indexed analysis"],
+      "limitations": [
+        "No modeled dependent does not prove a change is safe.",
+        "Structural containment is excluded and dynamic or missing code can hide effects."
+      ],
+      "navigationAction": "impact"
+    },
+    {
+      "id": "coverage",
+      "label": "Coverage and analysis limits",
+      "purpose": "Distinguish imported objects, parsed scripts, resolved and candidate sites, and unknowns.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Why are connections missing?",
+        "Check partial import and unresolved behavior"
+      ],
+      "synonyms": [
+        "coverage",
+        "partial import",
+        "missing connections",
+        "unknowns",
+        "unresolved",
+        "bounded map",
+        "missing source"
+      ],
+      "steps": [
+        "Open Coverage and review imported, parsed, resolved, candidate and unknown counts.",
+        "Read partial-import diagnostics and the result's bounded-map omissions separately.",
+        "Inspect unresolved sites and retained source before drawing conclusions."
+      ],
+      "availability": ["Any completed or partial inspectable analysis"],
+      "limitations": [
+        "A partial snapshot cannot replace the last complete current snapshot.",
+        "Dynamic paths, aliases, computed exports, metatables, runtime-created objects and external code may remain unresolved.",
+        "Missing modeled connections do not prove absence of runtime behavior."
+      ],
+      "navigationAction": "coverage"
+    },
+    {
+      "id": "diagnostics",
+      "label": "Diagnostic report",
+      "purpose": "Inspect import and parse problems with affected-object and retained source evidence.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Find parse errors",
+        "Inspect an affected object in the diagnostic report"
+      ],
+      "synonyms": [
+        "diagnostics",
+        "diagnostic report",
+        "parse errors",
+        "invalid source",
+        "unknown serialized type"
+      ],
+      "steps": [
+        "Open the diagnostic report for the snapshot.",
+        "Page through reported issues and inspect an affected object.",
+        "Use exact source locations for parse errors when available."
+      ],
+      "availability": ["Snapshot with retained diagnostics"],
+      "limitations": [
+        "Unknown serialized types, invalid script text or unmodeled numeric properties can make an import partial; retained raw input remains available."
+      ],
+      "navigationAction": "coverage"
+    },
+    {
+      "id": "context-export",
+      "label": "Export context",
+      "purpose": "Download a bounded evidence pack for the current view and filters.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Export a small context pack for an agent",
+        "Download current view evidence"
+      ],
+      "synonyms": [
+        "export context",
+        "context pack",
+        "tokens",
+        "json markdown",
+        "context export",
+        "full graph export"
+      ],
+      "steps": [
+        "Choose Export context in the current view.",
+        "Review the JSON or Markdown pack with its coverage, citations and omissions.",
+        "Use the CLI when you need a full graph export."
+      ],
+      "availability": ["Indexed analysis; no chat model required"],
+      "limitations": [
+        "Default budget is 2,000 estimated tokens; the hard cap is 32,000 UTF-8 bytes.",
+        "Token estimates use characters divided by four.",
+        "Context preserves static/potential wording and omitted content; imported text is untrusted data."
+      ],
+      "navigationAction": "context"
+    },
+    {
+      "id": "mcp",
+      "label": "Connect an AI agent through MCP",
+      "purpose": "Expose read-only, scoped local graph queries and context to an MCP client.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Set up MCP for an agent",
+        "How should an agent pin an analysis?"
+      ],
+      "synonyms": [
+        "mcp",
+        "agent setup",
+        "stdio",
+        "analysis id",
+        "workspace discovery"
+      ],
+      "steps": [
+        "Analyze the game first and configure the MCP client to launch RoGraph with mcp and a dedicated existing workspace.",
+        "Call workspace to discover analyses and capabilities.",
+        "Pass an explicit analysisId to every subsequent query and select gameplay or code view.",
+        "Stop the server through the MCP client to release the workspace."
+      ],
+      "availability": [
+        "MCP client and existing indexed local workspace; no model account or API key required"
+      ],
+      "limitations": [
+        "MCP cannot edit or execute game code.",
+        "Protocol messages alone belong on stdout; diagnostics use stderr.",
+        "Source excerpts are untrusted project data, not agent instructions."
+      ],
+      "navigationAction": "help"
+    },
+    {
+      "id": "snapshots",
+      "label": "Immutable snapshots and comparison",
+      "purpose": "Keep evidence pinned and compare modeled relationships between saved analyses.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Compare snapshots",
+        "Will opening a new snapshot change an old query?"
+      ],
+      "synonyms": [
+        "snapshot",
+        "compare snapshots",
+        "immutable",
+        "pinned analysis",
+        "relationship differences"
+      ],
+      "steps": [
+        "Choose the snapshot whose retained evidence you want to inspect.",
+        "Use Compare snapshots to review relationship differences after matching logical identities.",
+        "Explicitly open a newer snapshot when you want queries to use it."
+      ],
+      "availability": ["Retained analyses in the selected workspace"],
+      "limitations": [
+        "Duplicate or ambiguous identity matches remain explicit.",
+        "Relationship comparison does not claim two game files are otherwise identical.",
+        "A pinned request continues reading its original analysis when the current snapshot changes."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "rename-highlight",
+      "label": "Rename and highlight graph nodes",
+      "purpose": "Personalize graph labels and mark objects without modifying source or relationships.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Rename a graph node",
+        "Highlight an object in yellow",
+        "Restore its automatic label"
+      ],
+      "synonyms": [
+        "rename",
+        "highlight",
+        "personal label",
+        "shift f10",
+        "annotation"
+      ],
+      "steps": [
+        "Right-click a node, or select it, focus the graph and press Shift+F10.",
+        "Choose Rename or Highlight; leave the rename prompt blank to restore the automatic label.",
+        "Press Escape to close the menu."
+      ],
+      "availability": ["Graph node in the current browser and analysis"],
+      "limitations": [
+        "Annotations persist in browser storage for that analysis; another browser or local app address has separate storage.",
+        "Personal names preserve source, relationships, positions and camera."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "graph-layout",
+      "label": "Layout and graph navigation",
+      "purpose": "Arrange the map, retain manual placements and navigate repeated object labels.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Why does the initial layout take a few seconds?",
+        "Keep dragged node positions",
+        "Read a full label"
+      ],
+      "synonyms": [
+        "layout",
+        "drag nodes",
+        "camera",
+        "arrangement",
+        "hover label",
+        "renderer unavailable"
+      ],
+      "steps": [
+        "Allow the background layout to optimize crossings and edge clearance.",
+        "Drag nodes to set manual placement constraints and hover to read full labels.",
+        "Reopen an unchanged view in the same browser session to restore its arrangement and camera."
+      ],
+      "availability": [
+        "Graph view; a node list remains available when the renderer is unavailable"
+      ],
+      "limitations": [
+        "Other nodes can move when the visible graph changes.",
+        "If layout fails, basic positions remain and reopening retries optimization.",
+        "Placement and arrow layout do not establish execution order."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "focus-neighborhood",
+      "label": "Focus selected neighborhood",
+      "purpose": "Concentrate the current graph on the selected node and its direct neighbors.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Focus a selected object's neighbors",
+        "Show whole graph again"
+      ],
+      "synonyms": [
+        "focus selected neighborhood",
+        "neighbors",
+        "show whole graph",
+        "hidden nodes",
+        "hidden connections"
+      ],
+      "steps": [
+        "Select a node and choose Focus selected neighborhood.",
+        "Check the hidden-node and hidden-connection counts.",
+        "Choose Show whole graph to return to the current filtered overview."
+      ],
+      "availability": ["Selected node on the current graph"],
+      "limitations": [
+        "Focus does not automatically load project content omitted by a partial query."
+      ],
+      "navigationAction": "overview"
+    },
+    {
+      "id": "stop-app",
+      "label": "Stop the local app",
+      "purpose": "Close the owned local service and helpers while preserving snapshots and caches.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Stop RoGraph safely",
+        "Can I move the workspace after closing the tab?"
+      ],
+      "synonyms": [
+        "stop app",
+        "shutdown",
+        "close service",
+        "move workspace",
+        "close browser"
+      ],
+      "steps": [
+        "Choose Stop app to close the local service.",
+        "Wait for RoGraph to stop before moving or deleting the dedicated workspace.",
+        "Keep original game files outside the analysis workspace."
+      ],
+      "availability": ["Running local app"],
+      "limitations": [
+        "Closing the browser tab alone does not stop an analysis.",
+        "Snapshots and caches remain on disk after shutdown."
+      ],
+      "navigationAction": "settings"
+    },
+    {
+      "id": "launch-session",
+      "label": "Launch the portable app and local session",
+      "purpose": "Open a credentialed local browser session with the packaged runtime and helpers.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "The app does not open",
+        "The browser says a local session is required"
+      ],
+      "synonyms": [
+        "launch",
+        "portable",
+        "session required",
+        "extract zip",
+        "default browser",
+        "app does not open"
+      ],
+      "steps": [
+        "Extract the entire Windows ZIP into a writable folder and keep runtime, dist and build/bin next to RoGraph.exe.",
+        "Set a default Windows browser and open RoGraph.exe.",
+        "Reopen through the launcher if a bare copied address lacks the tab's local session credential."
+      ],
+      "availability": [
+        "Windows portable package; Windows 11 x64 has been exercised"
+      ],
+      "limitations": [
+        "Another app instance may hold the same workspace; stop it before rebuilding.",
+        "Separate clean-machine validation remains outstanding."
+      ],
+      "navigationAction": "help"
+    },
+    {
+      "id": "saved-values",
+      "label": "Saved values and opaque payloads",
+      "purpose": "Interpret initial properties and explicit markers for values that ordinary JSON cannot represent.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Why does a property contain int64 or bytesHex?",
+        "What is a retained SharedString buffer?"
+      ],
+      "synonyms": [
+        "saved values",
+        "int64",
+        "uint64",
+        "nonfinite",
+        "byteshex",
+        "sharedstring",
+        "blake3"
+      ],
+      "steps": [
+        "Inspect the saved property and its explicit JSON marker.",
+        "Read diagnostics for unmodeled numeric components or opaque buffers.",
+        "Use the retained raw input for payloads marked retainedIn rawInput."
+      ],
+      "availability": ["Imported saved properties and retained raw place"],
+      "limitations": [
+        "Saved values are initial values, not runtime-final values.",
+        "Large opaque buffers expose hash and byte-length metadata, not a runtime string or asset ID."
+      ],
+      "navigationAction": "coverage"
+    },
+    {
+      "id": "assistant-controls",
+      "label": "Floating game and help assistant",
+      "purpose": "Ask local game-navigation and app-help questions from a movable chat window.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Open the chatbot",
+        "Move the assistant window",
+        "Choose help-only mode"
+      ],
+      "synonyms": [
+        "assistant",
+        "chatbot",
+        "chat bot",
+        "robot button",
+        "drag chat",
+        "auto game help",
+        "cancel answer"
+      ],
+      "steps": [
+        "Select the robot-head button at the lower right to open the assistant.",
+        "Move the expanded window by its header and choose Auto, Game or Help mode.",
+        "Ask a question and use result cards to navigate within the pinned analysis; cancel a running answer if needed."
+      ],
+      "availability": [
+        "Assistant UI in version 0.2.0; maintained app help works without a model"
+      ],
+      "limitations": [
+        "Game questions require an indexed analysis and stay pinned to its snapshot.",
+        "A local model can interpret intent but graph and help evidence remain authoritative; imported text is untrusted data.",
+        "The assistant does not edit game source or send it to an external model."
+      ],
+      "navigationAction": "help"
+    },
+    {
+      "id": "assistant-models",
+      "label": "Choose and install a local model",
+      "purpose": "Select an approved model size according to available memory and desired local interpretation quality.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Download a smaller local model",
+        "Choose between approved 0.8B, 2B, 4B and 9B models",
+        "Cancel a model download"
+      ],
+      "synonyms": [
+        "model sizes",
+        "smaller local model",
+        "download model",
+        "install model",
+        "select model",
+        "2b",
+        "4b",
+        "parameters",
+        "ram",
+        "remove model"
+      ],
+      "steps": [
+        "Open the assistant's model settings and review approved sizes, download sizes and recommended RAM.",
+        "Explicitly install a catalog model and review download and verification progress; cancel if needed.",
+        "Select an installed model; remove an installed model when it is no longer needed."
+      ],
+      "availability": [
+        "Assistant model settings in version 0.2.0; model weights are installed separately"
+      ],
+      "limitations": [
+        "No model weights are included in the source repository or portable release ZIP.",
+        "Only approved catalog artifacts can be downloaded, and checksum verification must finish before use.",
+        "Smaller models use less memory but can interpret questions less reliably; graph and model-free help still work without a selected model."
+      ],
+      "navigationAction": "settings"
+    },
+    {
+      "id": "assistant-backend",
+      "label": "Choose Auto, CPU or GPU execution",
+      "purpose": "Choose a local inference backend using detected hardware and inspect the actual backend and fallback reason.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Choose CPU or GPU for the local model",
+        "Why did Auto fall back to CPU?",
+        "Check detected graphics devices"
+      ],
+      "synonyms": [
+        "cpu",
+        "gpu",
+        "auto backend",
+        "vulkan",
+        "graphics",
+        "hardware",
+        "offload",
+        "fallback",
+        "backend"
+      ],
+      "steps": [
+        "Open assistant model settings and inspect CPU, memory and detected GPU information.",
+        "Choose Auto, CPU or GPU.",
+        "Check the reported actual backend, runtime state and any fallback or GPU error reason."
+      ],
+      "availability": [
+        "Assistant runtime settings in version 0.2.0; installed runtime and selected model for inference"
+      ],
+      "limitations": [
+        "A GPU name or memory size alone does not prove supported offload; device probing and runtime loading decide availability.",
+        "Auto can fall back to CPU with a visible reason; explicit GPU failures remain visible.",
+        "Recommended memory is guidance, not a guarantee that every model fits."
+      ],
+      "navigationAction": "settings"
+    }
+  ]
+}
