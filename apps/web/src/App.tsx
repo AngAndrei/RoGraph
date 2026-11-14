@@ -1,4 +1,3 @@
-import { DiffView } from "./DiffView.js";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { DiagnosticView } from "./DiagnosticView.js";
 import type {
@@ -16,10 +15,11 @@ import { GraphView } from "./GraphView.js";
 import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceView, TraceControls } from "./TraceView.js";
-import { GameOrientation } from "./GameOrientation.js";
 import { SourceView, type SourceLocation } from "./SourceView.js";
 import { ChatWidget } from "./chat/ChatWidget.js";
 import { ContextExport } from "./ContextExport.js";
+import { ThemeSwitch } from "./ThemeSwitch.js";
+import { useAppLifetime } from "./app-lifetime.js";
 function Brand() {
   return (
     <div className="brand">
@@ -40,6 +40,7 @@ function Brand() {
   );
 }
 export default function App() {
+  useAppLifetime();
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]),
     [analysisId, setAnalysis] = useState(""),
     [deletingSnapshot, setDeletingSnapshot] = useState(false),
@@ -167,7 +168,8 @@ export default function App() {
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
-      setSourceEvidence(undefined); setAssistantContext(undefined);
+      setSourceEvidence(undefined);
+      setAssistantContext(undefined);
       setSearch("");
       setNodeSearch("");
       setNewSnapshot(undefined);
@@ -180,18 +182,32 @@ export default function App() {
     if (changed) requestRef.current++;
     const requested = assistantNavigation.current;
     assistantNavigation.current = undefined;
-    const nextQuery: Query = requested?.analysisId === analysisId ? requested : {
-      op: "overview", analysisId, limit: 300, ...graphFilters,
-    };
+    const nextQuery: Query =
+      requested?.analysisId === analysisId
+        ? requested
+        : {
+            op: "overview",
+            analysisId,
+            limit: 300,
+            ...graphFilters,
+          };
     void api
       .run(nextQuery)
       .then((r) => {
         if (alive && request === graphRequest.current) {
           setResult(r);
-          setTraceResult(["trace", "dependencies", "impact"].includes(nextQuery.op) ? r : undefined);
+          setTraceResult(
+            ["trace", "dependencies", "impact"].includes(nextQuery.op)
+              ? r
+              : undefined,
+          );
           setActiveQuery(nextQuery);
-          if (nextQuery.nodeId && r.nodes.some((n) => n.id === nextQuery.nodeId)) {
-            setSelected(nextQuery.nodeId); setSelection(r);
+          if (
+            nextQuery.nodeId &&
+            r.nodes.some((n) => n.id === nextQuery.nodeId)
+          ) {
+            setSelected(nextQuery.nodeId);
+            setSelection(r);
           }
         }
       })
@@ -358,26 +374,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <Brand />
-        <div className="breadcrumb">
-          Workspace <span>/</span>{" "}
-          <strong>{analysisId ? "Game explorer" : "New project"}</strong>
-        </div>
-        <span className="offline">
-          <i /> On your computer
-        </span>
+        <ThemeSwitch />
         <button className="secondary" onClick={() => setImporting(true)}>
           ＋ Import project
-        </button>
-        <button
-          className="text-button"
-          onClick={() =>
-            void api
-              .stop()
-              .then(() => setStopped(true))
-              .catch((e) => setError(e.message))
-          }
-        >
-          Stop app
         </button>
       </header>
       <div className="workspace">
@@ -505,13 +504,6 @@ export default function App() {
                       analysisId={analysisId}
                       onSelect={(id) => void select(id)}
                     />
-                    {analyses.length > 1 && (
-                      <DiffView
-                        key={`diff:${analysisId}`}
-                        analysisId={analysisId}
-                        analyses={analyses}
-                      />
-                    )}
                   </>
                 )}
               </>
@@ -686,38 +678,6 @@ export default function App() {
                   Trace a path
                 </button>
               </div>
-              <div className="map-scope" role="status">
-                <span>
-                  <strong>
-                    {activeQuery?.op === "dependencies"
-                      ? `Dependencies of ${explorationLabel}`
-                      : activeQuery?.op === "impact"
-                        ? `Potential impact of ${explorationLabel}`
-                        : activeQuery?.op === "trace"
-                          ? "Potential connection path"
-                          : `${view === "gameplay" ? "Gameplay" : "Code"} overview`}
-                  </strong>{" "}
-                  · Static saved-file analysis
-                </span>
-                {activeQuery?.op !== "overview" && (
-                  <button
-                    onClick={() => {
-                      closeInspector();
-                      openOverview(view);
-                    }}
-                  >
-                    Back to overview
-                  </button>
-                )}
-                {(result.meta.truncated || result.coverage.partialImport) && (
-                  <span className="map-limits">
-                    {result.meta.truncated &&
-                      "Bounded map: some records are omitted. "}
-                    {result.coverage.partialImport && "Partial import. "}Search
-                    the whole project to inspect beyond this map.
-                  </span>
-                )}
-              </div>
               {tracing && (
                 <TraceControls
                   key={analysisId + view}
@@ -732,16 +692,6 @@ export default function App() {
                     setTraceResult(r);
                     setActiveQuery(q);
                     setTracing(false);
-                  }}
-                />
-              )}
-              {view === "gameplay" && activeQuery?.op === "overview" && (
-                <GameOrientation
-                  key={analysisId}
-                  result={result}
-                  onSelect={(id) => {
-                    setEdgeId(undefined);
-                    void select(id);
                   }}
                 />
               )}
@@ -867,33 +817,52 @@ export default function App() {
         </div>
       )}
       <ChatWidget
-        analysisId={analysisId || undefined} view={view} selectedId={selectedId || undefined}
+        analysisId={analysisId || undefined}
+        view={view}
+        selectedId={selectedId || undefined}
         onNavigate={(query) => {
-          if (query.analysisId !== analysisId) { setError("Select the cited snapshot before opening this result."); return; }
+          if (query.analysisId !== analysisId) {
+            setError("Select the cited snapshot before opening this result.");
+            return;
+          }
           if (query.op === "source") {
             // Resolve a source-only locator without creating relationship evidence or replacing the graph.
-            void api.run(query).then((r) => {
-              if (currentAnalysis.current !== query.analysisId) return;
-              const source = r.sources[0], excerpt = source?.excerpts[0];
-              if (!source || !excerpt) throw Error("Source location is unavailable.");
-              setSourceEvidence({ sourceId: source.id, span: excerpt.span });
-            }).catch((e) => setError(e.message));
+            void api
+              .run(query)
+              .then((r) => {
+                if (currentAnalysis.current !== query.analysisId) return;
+                const source = r.sources[0],
+                  excerpt = source?.excerpts[0];
+                if (!source || !excerpt)
+                  throw Error("Source location is unavailable.");
+                setSourceEvidence({ sourceId: source.id, span: excerpt.span });
+              })
+              .catch((e) => setError(e.message));
             return;
           }
           assistantNavigation.current = query;
-          setView(query.view ?? view); setDetails((query.view ?? view) === "code");
-          closeInspector(); setOverviewRevision((revision) => revision + 1);
+          setView(query.view ?? view);
+          setDetails((query.view ?? view) === "code");
+          closeInspector();
+          setOverviewRevision((revision) => revision + 1);
         }}
         onSource={(source) => {
           if (source.analysisId === analysisId) {
             if (source.evidence.sourceId) setSourceEvidence(source.evidence);
-            else if (source.evidence.instanceId) void select(source.evidence.instanceId);
-          }
-          else setError("This source belongs to another snapshot.");
+            else if (source.evidence.instanceId)
+              void select(source.evidence.instanceId);
+          } else setError("This source belongs to another snapshot.");
         }}
-        onContext={(query) => { if (query.analysisId === analysisId) setAssistantContext(query); }}
+        onContext={(query) => {
+          if (query.analysisId === analysisId) setAssistantContext(query);
+        }}
       />
-      {assistantContext?.analysisId === analysisId && <ContextExport query={assistantContext} onClose={() => setAssistantContext(undefined)} />}
+      {assistantContext?.analysisId === analysisId && (
+        <ContextExport
+          query={assistantContext}
+          onClose={() => setAssistantContext(undefined)}
+        />
+      )}
     </div>
   );
 }

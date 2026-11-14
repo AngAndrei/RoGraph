@@ -1,3 +1,4 @@
+import { createUiLifetime } from "./ui-lifetime.js";
 import {
   createServer,
   type IncomingMessage,
@@ -94,6 +95,9 @@ export async function startServer(
       watchError = e.message;
     });
   };
+  const uiLifetime = createUiLifetime(() => {
+    void close();
+  });
   const server = createServer(async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
@@ -122,7 +126,8 @@ export async function startServer(
             "A same-origin local session is required",
           );
         if (closing) throw new RoGraphError("CLOSING", "RoGraph is stopping");
-        if (await assistant.handle(req, res, path, method, () => json(req))) return;
+        if (await assistant.handle(req, res, path, method, () => json(req)))
+          return;
         if (method === "GET" && path === "/api/workspace") {
           const list = await store.listAnalyses(100);
           send(res, 200, {
@@ -316,6 +321,15 @@ export async function startServer(
           send(res, 200, createContext(await store.query(body.query), body));
           return;
         }
+        if (method === "POST" && path === "/api/ui-session") {
+          const body = z
+            .object({ id: z.string().uuid(), active: z.boolean() })
+            .strict()
+            .parse(await json(req));
+          uiLifetime.update(body.id, body.active);
+          send(res, 200, { ok: true });
+          return;
+        }
         if (method === "POST" && path === "/api/shutdown") {
           send(res, 200, { stopping: true });
           setImmediate(() => {
@@ -411,6 +425,7 @@ export async function startServer(
   const close = () =>
     (closePromise ??= (async () => {
       closing = true;
+      uiLifetime.dispose();
       await assistant.close();
       watchController?.abort();
       await jobs.close();
