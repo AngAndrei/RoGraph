@@ -16,6 +16,7 @@ import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceView, TraceControls } from "./TraceView.js";
 import { SourceView } from "./SourceView.js";
+import { ContextExport, type ExportScope } from "./ContextExport.js";
 import { ThemeSwitch } from "./ThemeSwitch.js";
 import { useAppLifetime } from "./app-lifetime.js";
 function Brand() {
@@ -76,6 +77,8 @@ export default function App() {
   const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
+  const [exportQuery, setExportQuery] = useState<Query>();
+  const [exportScopes, setExportScopes] = useState<ExportScope[]>();
   useEffect(() => {
     const narrow = window.matchMedia?.("(max-width: 760px)");
     if (!narrow) return;
@@ -162,6 +165,8 @@ export default function App() {
     previousView.current = view;
     previousAnalysis.current = analysisId;
     if (changed) {
+      setExportQuery(undefined);
+      setExportScopes(undefined);
       setSearch("");
       setNodeSearch("");
       setNewSnapshot(undefined);
@@ -355,6 +360,59 @@ export default function App() {
       <header className="topbar">
         <Brand />
         <ThemeSwitch />
+        {analysisId &&
+          result?.analysisId === analysisId &&
+          activeQuery?.analysisId === analysisId && (
+            <button
+              className="secondary"
+              onClick={() => {
+                const overview: Query = {
+                  op: "overview",
+                  analysisId,
+                  view,
+                  limit: 300,
+                };
+                setExportScopes([
+                  {
+                    id: "overview",
+                    label: "Game overview (bounded)",
+                    query: overview,
+                    description:
+                      "Overview of the selected game and graph mode, without the current class or depth filters.",
+                  },
+                  {
+                    id: "current",
+                    label: "Current graph query",
+                    query: activeQuery,
+                    description:
+                      "Retains the active overview, dependency, impact, or trace query and its filters. Canvas label search and hidden nodes only affect display.",
+                  },
+                  ...(node && selection?.analysisId === analysisId
+                    ? [
+                        {
+                          id: "selection",
+                          label: "Selected node neighborhood",
+                          query: {
+                            op: "inspect" as const,
+                            analysisId,
+                            nodeId: node.id,
+                            view,
+                            limit: 300,
+                          },
+                          description:
+                            "Direct modeled connections for " +
+                            node.label +
+                            " in the selected graph mode.",
+                        },
+                      ]
+                    : []),
+                ]);
+                setExportQuery(overview);
+              }}
+            >
+              Export for AI
+            </button>
+          )}
         <button className="secondary" onClick={() => setImporting(true)}>
           ＋ Import project
         </button>
@@ -806,6 +864,19 @@ export default function App() {
             onClose={() => setImporting(false)}
           />
         </div>
+      )}
+      {exportQuery?.analysisId === analysisId && (
+        <ContextExport
+          query={exportQuery}
+          scopes={exportScopes}
+          snapshotLabel={
+            selectedSnapshot &&
+            selectedSnapshot.displayName +
+              " · Import " +
+              selectedSnapshot.importNumber
+          }
+          onClose={() => setExportQuery(undefined)}
+        />
       )}
     </div>
   );

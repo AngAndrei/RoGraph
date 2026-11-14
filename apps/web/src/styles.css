@@ -1643,6 +1643,24 @@ small {
   max-height: 42dvh;
   overflow: auto;
 }
+.export-query,
+.full-graph-export {
+  margin: 16px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.export-query summary,
+.full-graph-export summary {
+  cursor: pointer;
+}
+.export-query pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.full-graph-export {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
 .context-actions {
   display: flex;
   gap: 10px;
