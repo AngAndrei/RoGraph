@@ -678,13 +678,6 @@ export function ChatWidget(props: ChatWidgetProps) {
                 aria-label="Assistant conversation"
                 aria-live="polite"
               >
-                {!turns.length && (
-                  <p>
-                    {scope
-                      ? "Find game objects, inspect connections, or ask how RoGraph works."
-                      : "Ask how RoGraph works. Import a snapshot to search your game."}
-                  </p>
-                )}
                 {turns.map((turn, i) => (
                   <section
                     className="rg-chat-turn"
@@ -715,10 +708,10 @@ export function ChatWidget(props: ChatWidgetProps) {
                   void send();
                 }}
               >
-                <label htmlFor="rg-chat-input">Ask RoGraph</label>
                 <textarea
                   id="rg-chat-input"
                   aria-label="Ask RoGraph"
+                  placeholder="Ask about game objects, inspect connections, or how RoGraph works."
                   ref={input}
                   maxLength={8000}
                   rows={2}

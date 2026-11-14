@@ -237,3 +237,8 @@ html[data-theme="dark"] .rg-chat-root {
     height: 36px;
   }
 }
+
+.rg-chat-root textarea::placeholder {
+  color: var(--chat-muted);
+  opacity: 1;
+}
