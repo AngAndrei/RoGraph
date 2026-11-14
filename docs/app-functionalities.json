@@ -14,12 +14,15 @@
         "import place",
         "rbxl",
         "rbxlx",
+        "rbxm",
+        "rbxmx",
         "analyze saved game",
-        "upload place"
+        "upload place",
+        "studio place"
       ],
       "steps": [
         "Save the place from Roblox Studio as .rbxlx or .rbxl.",
-        "Choose the place file in RoGraph and select Analyze.",
+        "Choose Import project, select Saved place, choose a .rbxlx or .rbxl file and select Analyze.",
         "Open the completed snapshot and inspect Coverage for import limitations."
       ],
       "availability": [
@@ -27,7 +30,7 @@
         "A readable saved place file"
       ],
       "limitations": [
-        "Direct import expects a place; model files are supported through Rojo.",
+        "Direct import expects a place up to 512 MiB; .rbxm and .rbxmx model files are supported through Rojo rather than the place picker.",
         "Analysis models supported potential behavior, not a recorded play session."
       ],
       "navigationAction": "import"
@@ -45,7 +48,8 @@
         "rojo project",
         "default project json",
         "rojo import",
-        "project mounts"
+        "project mounts",
+        "project jsonc"
       ],
       "steps": [
         "Choose Rojo project and enter the path to default.project.json.",
@@ -72,13 +76,18 @@
         "watch",
         "watch saved changes",
         "watch for saved changes",
+        "stop watching",
         "auto refresh",
-        "live reload"
+        "live reload",
+        "update automatically",
+        "automatically when I save",
+        "saved rojo files",
+        "refresh analysis"
       ],
       "steps": [
         "Choose Rojo project and enable Watch for saved changes.",
         "Save the project files and wait for a consistent capture.",
-        "Select Open new snapshot when ready to switch evidence."
+        "Select Open new snapshot when ready to switch evidence; use Stop watching to end file monitoring."
       ],
       "availability": ["Rojo project import with watch enabled"],
       "limitations": [
@@ -131,7 +140,7 @@
       ],
       "steps": [
         "Choose Code to inspect script dependencies.",
-        "Select Show implementation for the selected object's supporting code.",
+        "From a Gameplay object's inspector, select Show implementation to switch to the Code overview with Methods & config enabled.",
         "Select Code again to return to the Code overview."
       ],
       "availability": [
@@ -171,7 +180,7 @@
     {
       "id": "start-here",
       "label": "Start here",
-      "purpose": "Find connected scripts that provide useful entry points for understanding an unfamiliar game.",
+      "purpose": "Start exploring an unfamiliar imported game using the project navigator, Gameplay map and object inspector.",
       "implementedIn": "0.2.0",
       "exampleGoals": [
         "I am new to this game; where should I start?",
@@ -184,15 +193,16 @@
         "starting guide"
       ],
       "steps": [
-        "Open Start here.",
-        "Review saved class, execution context, connected-object count and example relationship.",
-        "Choose a suggestion to select its connected script."
+        "Open a snapshot and choose Gameplay to see supported game relationships.",
+        "Expand the project navigator and search for a familiar object or script, then select it.",
+        "Read At a glance and Relationships in the inspector; follow connected objects or open Source to check the retained evidence."
       ],
       "availability": [
-        "Loaded gameplay map; the guide can collapse on narrow screens"
+        "Loaded snapshot; the project navigator can collapse on narrow screens"
       ],
       "limitations": [
-        "Suggestions describe the loaded map, not startup order or the complete game."
+        "The current app does not expose a separate Start here suggestion panel.",
+        "The loaded map describes supported potential behavior, not startup order or the complete game."
       ],
       "navigationAction": "overview"
     },
@@ -212,10 +222,16 @@
         "anywhere in the project",
         "all indexed",
         "find script",
-        "project navigator"
+        "project navigator",
+        "search anything",
+        "search the whole game",
+        "search the entire project",
+        "outside the visible map",
+        "global search",
+        "look up names"
       ],
       "steps": [
-        "Use the project navigator's search in the left panel.",
+        "Expand the project navigator in the left panel if collapsed, then use Search project (the Search anything field).",
         "Enter an object, method or field name.",
         "Choose the matching result and check its path when names repeat."
       ],
@@ -298,6 +314,9 @@
         "at a glance",
         "connection details",
         "relationship card",
+        "line between nodes",
+        "incoming connections",
+        "outgoing connections",
         "assumptions",
         "evidence page"
       ],
@@ -328,6 +347,7 @@
         "saved source",
         "original file",
         "source evidence",
+        "lua source",
         "byte offsets"
       ],
       "steps": [
@@ -364,7 +384,9 @@
         "source file",
         "inside a script",
         "search string",
-        "script text"
+        "script text",
+        "regex",
+        "regular expression"
       ],
       "steps": [
         "Open source and press Ctrl+F or Cmd+F to focus Find in source.",
@@ -393,11 +415,13 @@
         "gameplay flow",
         "path endpoints",
         "route",
-        "remote handler"
+        "remote handler",
+        "what can trigger or affect this",
+        "trace between two nodes"
       ],
       "steps": [
         "Choose Trace a path and search for the start and destination components.",
-        "Choose two different components and potential gameplay flow in Gameplay.",
+        "Choose two different components. In Gameplay, set Trace question to What can trigger or affect this? for potential gameplay flow.",
         "Inspect each returned hop and select Source for its exact saved expression."
       ],
       "availability": [
@@ -423,11 +447,13 @@
         "trace influence",
         "config influence",
         "configuration option",
-        "price read"
+        "price read",
+        "config reads",
+        "including configuration"
       ],
       "steps": [
         "Choose Trace a path in Gameplay and set distinct start and destination components.",
-        "Choose the configuration influence trace question to include configuration associations.",
+        "Set Trace question to How is this connected, including configuration? to include configuration associations.",
         "Inspect each hop's source and conditional alternatives."
       ],
       "availability": [
@@ -454,11 +480,14 @@
         "modeled uses",
         "what does it use",
         "outgoing uses",
-        "uses of component"
+        "uses of component",
+        "selected script use",
+        "selected module use",
+        "component use"
       ],
       "steps": [
         "Select the component whose dependencies you want to inspect.",
-        "Choose Dependencies and check that the scope names the original selection.",
+        "Choose Dependencies in the selected component's inspector to follow its modeled uses outward.",
         "Inspect the returned relationships and use Back to overview to restore the overview."
       ],
       "availability": ["Selected component in an indexed analysis"],
@@ -487,12 +516,18 @@
         "what uses this",
         "who depends on",
         "dependents",
-        "potential channel effects"
+        "potential channel effects",
+        "scripts that use",
+        "scripts depend on",
+        "modules depend on",
+        "uses this module",
+        "dependencies backwards",
+        "reverse dependencies"
       ],
       "steps": [
         "Select the component you plan to change.",
         "Choose Impact and inspect reverse uses and separately labeled potential channel effects.",
-        "Check the original component named in the scope and inspect supporting evidence."
+        "Keep track of the component you chose and inspect supporting relationships and source evidence."
       ],
       "availability": ["Selected component in an indexed analysis"],
       "limitations": [
@@ -562,7 +597,7 @@
     {
       "id": "context-export",
       "label": "Export context",
-      "purpose": "Download a bounded evidence pack for the current view and filters.",
+      "purpose": "Download a bounded evidence pack for an assistant result or a scoped CLI query.",
       "implementedIn": "0.2.0",
       "exampleGoals": [
         "Export a small context pack for an agent",
@@ -574,18 +609,23 @@
         "tokens",
         "json markdown",
         "context export",
-        "full graph export"
+        "full graph export",
+        "download json",
+        "download markdown",
+        "token budget",
+        "evidence pack"
       ],
       "steps": [
-        "Choose Export context in the current view.",
-        "Review the JSON or Markdown pack with its coverage, citations and omissions.",
+        "Ask the assistant to find or inspect a game component, then choose Export context for that result card.",
+        "In Export agent context, choose the estimated token budget, review coverage and omissions, then choose Download JSON or Download Markdown.",
         "Use the CLI when you need a full graph export."
       ],
       "availability": ["Indexed analysis; no chat model required"],
       "limitations": [
         "Default budget is 2,000 estimated tokens; the hard cap is 32,000 UTF-8 bytes.",
         "Token estimates use characters divided by four.",
-        "Context preserves static/potential wording and omitted content; imported text is untrusted data."
+        "Context preserves static/potential wording and omitted content; imported text is untrusted data.",
+        "Assistant exports use the query attached to the result card, rather than every filter on the visible canvas."
       ],
       "navigationAction": "context"
     },
@@ -623,8 +663,8 @@
     },
     {
       "id": "snapshots",
-      "label": "Immutable snapshots and comparison",
-      "purpose": "Keep evidence pinned and compare modeled relationships between saved analyses.",
+      "label": "Choose and delete immutable snapshots",
+      "purpose": "Keep evidence pinned, switch between retained imports and delete an unwanted analysis.",
       "implementedIn": "0.2.0",
       "exampleGoals": [
         "Compare snapshots",
@@ -635,17 +675,25 @@
         "compare snapshots",
         "immutable",
         "pinned analysis",
-        "relationship differences"
+        "relationship differences",
+        "delete import",
+        "old import",
+        "delete snapshot",
+        "saved analyses",
+        "switch between snapshots",
+        "older import",
+        "previous import",
+        "erase snapshot"
       ],
       "steps": [
-        "Choose the snapshot whose retained evidence you want to inspect.",
-        "Use Compare snapshots to review relationship differences after matching logical identities.",
-        "Explicitly open a newer snapshot when you want queries to use it."
+        "Expand the project navigator and open the Snapshot list showing the current import.",
+        "Choose an import to inspect its retained evidence; explicitly open a newer snapshot when you want queries to use it.",
+        "To remove an analysis, choose Delete beside its import and confirm permanent deletion. Wait for any current analysis to finish first."
       ],
       "availability": ["Retained analyses in the selected workspace"],
       "limitations": [
-        "Duplicate or ambiguous identity matches remain explicit.",
-        "Relationship comparison does not claim two game files are otherwise identical.",
+        "Snapshot comparison is not currently exposed in the browser; choosing an import switches evidence without producing a comparison report.",
+        "Deleting a snapshot permanently removes that retained analysis and its associated assistant history; it does not delete the original game source.",
         "A pinned request continues reading its original analysis when the current snapshot changes."
       ],
       "navigationAction": "overview"
@@ -695,11 +743,15 @@
         "camera",
         "arrangement",
         "hover label",
-        "renderer unavailable"
+        "renderer unavailable",
+        "fit graph",
+        "zoom out",
+        "zoom in",
+        "pan"
       ],
       "steps": [
         "Allow the background layout to optimize crossings and edge clearance.",
-        "Drag nodes to set manual placement constraints and hover to read full labels.",
+        "Use the graph's zoom controls or Fit graph to see the whole displayed map. Drag nodes to set manual placement constraints and hover to read full labels.",
         "Reopen an unchanged view in the same browser session to restore its arrangement and camera."
       ],
       "availability": [
@@ -726,7 +778,9 @@
         "neighbors",
         "show whole graph",
         "hidden nodes",
-        "hidden connections"
+        "hidden connections",
+        "less cluttered",
+        "declutter"
       ],
       "steps": [
         "Select a node and choose Focus selected neighborhood.",
@@ -756,13 +810,14 @@
         "close browser"
       ],
       "steps": [
-        "Choose Stop app to close the local service.",
+        "Close all RoGraph browser tabs to end the local UI session; the service shuts down after a short reload grace period.",
         "Wait for RoGraph to stop before moving or deleting the dedicated workspace.",
         "Keep original game files outside the analysis workspace."
       ],
       "availability": ["Running local app"],
       "limitations": [
-        "Closing the browser tab alone does not stop an analysis.",
+        "Other open RoGraph tabs keep the service running. If a tab disappears without its close notification, session expiry can take about two minutes.",
+        "Closing the last tab can cancel ongoing analysis or model work; wait for work to finish if you want to retain its result.",
         "Snapshots and caches remain on disk after shutdown."
       ],
       "navigationAction": "settings"
@@ -780,6 +835,8 @@
         "launch",
         "portable",
         "session required",
+        "copied url",
+        "local session",
         "extract zip",
         "default browser",
         "app does not open"
@@ -844,19 +901,29 @@
         "chat bot",
         "robot button",
         "drag chat",
+        "resize assistant",
+        "clear history",
+        "chat messages",
+        "app help",
+        "app help mode",
+        "find in game",
         "auto game help",
-        "cancel answer"
+        "cancel answer",
+        "minimize",
+        "chat history",
+        "switching snapshots"
       ],
       "steps": [
         "Select the robot-head button below Fit graph to open AI Assistant (lower-right floating button before a graph is loaded).",
-        "Drag the window header to move it, or resize from its lower-right corner. The window follows the current light or dark theme.",
-        "Ask a question and use result cards to navigate within the pinned analysis; cancel a running answer if needed."
+        "Drag the window header to move it, or focus Move assistant window and use arrow keys. Resize from the lower-right corner. The window follows the current light or dark theme.",
+        "Choose Mode: Auto for mixed questions, Find in game for game navigation, or App help for maintained app instructions without a snapshot or model.",
+        "Ask a question and use result cards to navigate within the pinned analysis. Use Cancel response to stop a running answer, Clear history to erase the current chat scope, or Minimize assistant to close the window."
       ],
       "availability": [
         "Assistant UI in version 0.2.0; maintained app help works without a model"
       ],
       "limitations": [
-        "Game questions require an indexed analysis and stay pinned to its snapshot.",
+        "Game questions require an indexed analysis and stay pinned to its snapshot. Chat history is separate for each snapshot; App help has its own history.",
         "A local model can interpret intent but graph and help evidence remain authoritative; imported text is untrusted data.",
         "The assistant does not edit game source or send it to an external model."
       ],
@@ -870,7 +937,8 @@
       "exampleGoals": [
         "Download a smaller local model",
         "Choose between approved 0.8B, 2B, 4B and 9B models",
-        "Cancel a model download"
+        "Cancel a model download",
+        "Use the assistant without downloading a model"
       ],
       "synonyms": [
         "model sizes",
@@ -882,12 +950,16 @@
         "4b",
         "parameters",
         "ram",
-        "remove model"
+        "remove model",
+        "reinstall weights",
+        "model downloading",
+        "0 8b",
+        "9b"
       ],
       "steps": [
-        "Open the assistant's model settings and review approved sizes, download sizes and recommended RAM.",
+        "Open the assistant and choose Model settings to review approved 0.8B, 2B, 4B and 9B sizes, download sizes and recommended RAM.",
         "Explicitly install a catalog model and review download and verification progress; cancel if needed.",
-        "Select an installed model; remove an installed model when it is no longer needed."
+        "Choose Select for an installed model. Use Reinstall weights for an installed model if its local artifact is damaged."
       ],
       "availability": [
         "Assistant model settings in version 0.2.0; model weights are installed separately"
@@ -895,7 +967,8 @@
       "limitations": [
         "No model weights are included in the source repository or portable release ZIP.",
         "Only approved catalog artifacts can be downloaded, and checksum verification must finish before use.",
-        "Smaller models use less memory but can interpret questions less reliably; graph and model-free help still work without a selected model."
+        "Smaller models use less memory but can interpret questions less reliably; graph and model-free help still work without a selected model.",
+        "There is no remove-model control in the current browser UI."
       ],
       "navigationAction": "settings"
     },
@@ -934,6 +1007,62 @@
         "Recommended memory is guidance, not a guarantee that every model fits."
       ],
       "navigationAction": "settings"
+    },
+    {
+      "id": "theme",
+      "label": "Switch light and dark themes",
+      "purpose": "Change the app and assistant between light and dark appearance.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": ["Use dark mode", "Switch back to the light theme"],
+      "synonyms": [
+        "dark mode",
+        "light mode",
+        "theme",
+        "appearance",
+        "dark theme",
+        "light theme"
+      ],
+      "steps": [
+        "Use the Dark mode switch in the top bar to toggle the app's appearance.",
+        "The graph, source inspector and assistant follow the selected light or dark theme."
+      ],
+      "availability": ["Current browser session"],
+      "limitations": [
+        "The preference is stored in this browser; another browser or app address has separate storage."
+      ],
+      "navigationAction": "settings"
+    },
+    {
+      "id": "local-privacy",
+      "label": "Local processing, accounts and API keys",
+      "purpose": "Understand where game analysis and assistant inference run and which actions need internet access.",
+      "implementedIn": "0.2.0",
+      "exampleGoals": [
+        "Does RoGraph send my code to the cloud?",
+        "Do I need an API key or an account?",
+        "Is my Roblox source uploaded anywhere?"
+      ],
+      "synonyms": [
+        "privacy",
+        "cloud",
+        "upload code",
+        "send code",
+        "api key",
+        "account",
+        "offline",
+        "internet access",
+        "local processing"
+      ],
+      "steps": [
+        "Import a saved place or Rojo project for analysis on your computer; no RoGraph account or model API key is required.",
+        "App help and deterministic game searches work without model weights. Install an approved model through Model settings if you want local intent interpretation."
+      ],
+      "availability": ["Local app and maintained assistant help"],
+      "limitations": [
+        "Downloading model weights requires network access; the assistant does not send game source to an external model.",
+        "Exporting a context pack gives you a file to share yourself; an external MCP client or agent follows its own data-handling settings."
+      ],
+      "navigationAction": "help"
     }
   ]
 }

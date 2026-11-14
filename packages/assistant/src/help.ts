@@ -34,31 +34,45 @@ const stopWords = new Set([
   "be",
   "by",
   "can",
+  "could",
   "do",
   "does",
   "for",
   "from",
   "how",
+  "help",
   "i",
   "if",
   "in",
   "is",
   "it",
+  "its",
   "me",
   "my",
   "of",
   "on",
   "or",
+  "please",
+  "s",
+  "see",
+  "should",
+  "some",
+  "that",
   "the",
   "their",
   "then",
   "this",
   "to",
+  "use",
   "what",
   "when",
   "where",
   "which",
+  "why",
   "with",
+  "would",
+  "you",
+  "your",
 ]);
 
 function normalize(text: string): string {
@@ -97,7 +111,13 @@ const index = features.map((feature) => {
   return {
     feature,
     weights,
-    phrases: [feature.label, ...feature.synonyms].map(normalize),
+    phrases: [
+      ...new Set(
+        [feature.label, ...feature.synonyms, ...feature.exampleGoals].map(
+          normalize,
+        ),
+      ),
+    ],
   };
 });
 
@@ -115,8 +135,15 @@ export function searchHelp(text: string, limit = 3): HelpFeature[] {
   const query = ` ${normalize(text)} `;
   const terms = new Set(tokens(text));
   if (terms.size === 0) return [];
+  // Generic verbs alone (for example "install Python") must not turn an
+  // unrelated question into app instructions. An explicit task alias can
+  // survive conversational wording; otherwise require most meaningful terms
+  // to occur in task metadata, rather than incidental limitations.
   return index
     .map((item) => {
+      const supportedTerms = [...terms].filter(
+        (term) => (item.weights.get(term) ?? 0) >= 2,
+      );
       let score = 0;
       for (const term of terms) {
         const weight = item.weights.get(term) ?? 0;
@@ -124,10 +151,15 @@ export function searchHelp(text: string, limit = 3): HelpFeature[] {
           weight *
           Math.log(1 + features.length / (documentFrequency.get(term) ?? 1));
       }
+      let phraseMatched = false;
       for (const phrase of item.phrases) {
         const length = tokens(phrase).length;
-        if (length > 0 && query.includes(` ${phrase} `)) score += 12 * length;
+        if (length > 0 && query.includes(` ${phrase} `)) {
+          phraseMatched = true;
+          score += 12 * length;
+        }
       }
+      if (!phraseMatched && supportedTerms.length <= terms.size / 2) score = 0;
       return { feature: item.feature, score };
     })
     .filter((item) => item.score > 0)
