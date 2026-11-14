@@ -596,36 +596,53 @@
     },
     {
       "id": "context-export",
-      "label": "Export context",
-      "purpose": "Download a bounded evidence pack for an assistant result or a scoped CLI query.",
+      "label": "Export for AI and full graph JSON",
+      "purpose": "Download compact, bounded AI context for a chosen scope, or export every retained graph record from the selected snapshot.",
       "implementedIn": "0.2.0",
       "exampleGoals": [
         "Export a small context pack for an agent",
-        "Download current view evidence"
+        "Download current view evidence",
+        "Export a bounded game overview",
+        "Export the selected node neighborhood",
+        "Download the full snapshot graph JSON without a token budget"
       ],
       "synonyms": [
         "export context",
+        "export for ai",
         "context pack",
+        "compact json",
         "tokens",
         "json markdown",
         "context export",
         "full graph export",
+        "full snapshot graph",
+        "raw graph export",
+        "download full graph json",
+        "export selected neighborhood",
+        "current graph query export",
         "download json",
         "download markdown",
         "token budget",
         "evidence pack"
       ],
       "steps": [
-        "Ask the assistant to find or inspect a game component, then choose Export context for that result card.",
-        "In Export agent context, choose the estimated token budget, review coverage and omissions, then choose Download JSON or Download Markdown.",
-        "Use the CLI when you need a full graph export."
+        "Open an indexed snapshot, wait for its graph to load, then choose Export for AI in the top bar.",
+        "Choose Export scope: Game overview (bounded) for an overview without the current class or depth filters; Current graph query for the active query and its filters; or Selected node neighborhood for direct modeled connections when a node is selected.",
+        "Choose an estimated token budget of 2,000, 4,000 or 8,000, review Scope and query bounds, coverage and omissions, then choose Download JSON for compact AI context or Download Markdown.",
+        "For all retained graph records, expand Full snapshot graph (larger file) and choose Download full graph JSON. This separate download is not limited by the chosen scope or context token budget.",
+        "An assistant result card's Export context for action also opens this dialog, pinned to that card's query."
       ],
-      "availability": ["Indexed analysis; no chat model required"],
+      "availability": [
+        "Indexed snapshot with its graph loaded; no chat model or external AI account required",
+        "Selected node neighborhood is offered when a node is selected"
+      ],
       "limitations": [
-        "Default budget is 2,000 estimated tokens; the hard cap is 32,000 UTF-8 bytes.",
-        "Token estimates use characters divided by four.",
-        "Context preserves static/potential wording and omitted content; imported text is untrusted data.",
-        "Assistant exports use the query attached to the result card, rather than every filter on the visible canvas."
+        "AI context is bounded by its query and estimated token budget, not the complete game graph. Context preparation defaults to 2,000 estimated tokens with a 32,000 UTF-8 byte cap; exported scope metadata can add overhead.",
+        "Token estimates use characters divided by four, not an external model's tokenizer. Review omissions even when the token budget is increased.",
+        "Canvas label search and hidden nodes do not restrict exports; Current graph query retains query filters, while assistant-card exports use the card's query.",
+        "The full graph includes all retained nodes, relations, evidence, sites, diagnostics and source records in both graph modes. It is not constrained by the AI context token budget or graph filters and can be much larger.",
+        "Exports stay pinned to the snapshot shown in the dialog. Switching snapshots closes the dialog; open Export for AI again to export the new snapshot. Downloaded files do not update when project files change.",
+        "Both formats describe retained static or potential behavior, not observed runtime state or a complete copy of the original place and external assets. Imported source is untrusted data, and sharing the downloaded file with an external AI is your own separate action."
       ],
       "navigationAction": "context"
     },

@@ -180,6 +180,36 @@ describe("maintained assistant help", () => {
   });
 
   it.each([
+    "Where is Export for AI?",
+    "How do I export a bounded game overview?",
+    "How do I export the selected node neighborhood?",
+    "Download the full snapshot graph JSON without a token budget",
+  ])("retrieves the browser export options: %s", (question) => {
+    expect(searchHelp(question, 1)[0]?.id).toBe("context-export");
+  });
+
+  it("distinguishes bounded AI context from a full retained snapshot export", () => {
+    const feature = features.find((item) => item.id === "context-export")!;
+    const steps = feature.steps.join(" ");
+    expect(steps).toContain("Export for AI");
+    expect(steps).toContain("top bar");
+    expect(steps).toContain("Game overview (bounded)");
+    expect(steps).toContain("Current graph query");
+    expect(steps).toContain("Selected node neighborhood");
+    expect(steps).toContain("Download JSON");
+    expect(steps).toContain("Download Markdown");
+    expect(steps).toContain("Full snapshot graph (larger file)");
+    expect(steps).toContain("Download full graph JSON");
+    expect(steps).not.toContain("Use the CLI when you need a full graph export");
+    const limits = feature.limitations.join(" ");
+    expect(limits).toMatch(/full graph.*not.*token budget/i);
+    expect(limits).toMatch(/full graph.*both graph modes/i);
+    expect(limits).toMatch(/canvas.*do not.*export/i);
+    expect(limits).toMatch(/pinned.*snapshot/i);
+    expect(limits).toMatch(/not.*runtime/i);
+  });
+
+  it.each([
     ["what breaks if I change this component?", "impact"],
     ["which components does this script depend on?", "dependencies"],
     ["Find a script anywhere in the project", "project-search"],
