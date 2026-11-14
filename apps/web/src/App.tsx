@@ -578,9 +578,6 @@ export default function App() {
               <div className="view-header">
                 <div>
                   <span className="eyebrow">GAME KNOWLEDGE GRAPH</span>
-                  <h1>
-                    Explore your connections<span className="dot">.</span>
-                  </h1>
                 </div>
                 <div className="segmented">
                   <button
