@@ -274,6 +274,68 @@ it("renders structured HTTP errors clearly", async () => {
     "Snapshot was deleted. Import it again.",
   );
 });
+it("preserves a draft edited while an answer is pending", async () => {
+  let release!: (result: Response) => void;
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) =>
+      url === "/api/chat/turns"
+        ? new Promise<Response>((resolve) => {
+            release = resolve;
+          })
+        : original(url, init),
+    ),
+  );
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  const composer = screen.getByRole("textbox", { name: "Ask RoGraph" });
+  await userEvent.type(composer, "How do I search?");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await userEvent.clear(composer);
+  await userEvent.type(composer, "How do I export the result?");
+  await act(async () => release(new Response(JSON.stringify(response))));
+  expect(await screen.findByText("Use the search field")).toBeTruthy();
+  expect(composer).toHaveProperty("value", "How do I export the result?");
+});
+it("ignores status fetched before a backend setting is saved", async () => {
+  let reads = 0;
+  let release!: (result: Response) => void;
+  let current = status;
+  const original = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/assistant/status") {
+        if (++reads === 2)
+          return new Promise<Response>((resolve) => {
+            release = resolve;
+          });
+        return Promise.resolve(new Response(JSON.stringify(current)));
+      }
+      if (url === "/api/assistant/settings") {
+        current = { ...current, backend: "cpu" };
+        return Promise.resolve(new Response(JSON.stringify(current)));
+      }
+      return original(url, init);
+    }),
+  );
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  await waitFor(() => expect(reads).toBe(1));
+  await userEvent.click(screen.getByRole("button", { name: "Model settings" }));
+  await waitFor(() => expect(release).toBeTruthy());
+  const backend = screen.getByRole("combobox", { name: "Inference backend" });
+  await userEvent.selectOptions(backend, "cpu");
+  await waitFor(() => expect(backend).toHaveProperty("disabled", false));
+  expect(backend).toHaveProperty("value", "cpu");
+  await act(async () => release(new Response(JSON.stringify(status))));
+  expect(backend).toHaveProperty("value", "cpu");
+});
 it("aborts and deletes the active turn when the snapshot changes", async () => {
   let signal: AbortSignal | undefined;
   let release!: (r: Response) => void;

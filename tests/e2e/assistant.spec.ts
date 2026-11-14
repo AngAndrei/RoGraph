@@ -95,3 +95,37 @@ test("assistant remains reachable on a narrow viewport and offers all model size
   expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(740);
 });
+
+test("assistant keeps the latest reply visible in a long conversation", async ({ page, app }) => {
+  let turn = 0;
+  let releaseReply!: () => void;
+  const delayedReply = new Promise<void>((resolve) => { releaseReply = resolve; });
+  await page.route("**/api/chat/turns", async (route) => {
+    turn++;
+    if (turn === 6) await delayedReply;
+    return route.fulfill({ json: {
+      id: `reply-${turn}`, conversationId: "help", text: `Answer ${turn}`,
+      cards: [], warnings: [], modelUsed: false,
+      helpIdentity: { appVersion: "0.2.0", sha256: "test" },
+    } });
+  });
+  await page.goto(app.url + "/#session=" + app.sessionToken);
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  const panel = page.getByRole("dialog", { name: "RoGraph assistant", exact: true });
+  for (let question = 1; question <= 5; question++) {
+    await page.getByLabel("Ask RoGraph").fill(`Question ${question}`);
+    await page.getByLabel("Ask RoGraph").press("Enter");
+    await expect(panel.getByText(`Answer ${question}`, { exact: true })).toBeAttached();
+  }
+  await expect(panel.getByText("Answer 5", { exact: true })).toBeInViewport();
+  await page.getByLabel("Ask RoGraph").fill("Question 6");
+  await page.getByLabel("Ask RoGraph").press("Enter");
+  const transcript = panel.getByRole("log", { name: "Assistant conversation" });
+  await expect(transcript.getByRole("status")).toBeInViewport();
+  await transcript.evaluate((element) => element.scrollTop = 0);
+  await expect(panel.getByText("Answer 1", { exact: true })).toBeInViewport();
+  releaseReply();
+  await expect(panel.getByText("Answer 6", { exact: true })).toBeAttached();
+  await expect(panel.getByText("Answer 1", { exact: true })).toBeInViewport();
+  await expect(panel.getByText("Answer 6", { exact: true })).not.toBeInViewport();
+});

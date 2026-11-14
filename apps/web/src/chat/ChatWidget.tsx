@@ -103,7 +103,9 @@ export function ChatWidget(props: ChatWidgetProps) {
   const [statusRevision, setStatusRevision] = useState(0);
   const panel = useRef<HTMLDivElement>(null),
     launcher = useRef<HTMLButtonElement>(null),
-    input = useRef<HTMLTextAreaElement>(null);
+    input = useRef<HTMLTextAreaElement>(null),
+    transcript = useRef<HTMLDivElement>(null);
+  const followConversation = useRef(true);
   const pending = useRef<
     { id: string; controller: AbortController } | undefined
   >(undefined);
@@ -192,7 +194,7 @@ export function ChatWidget(props: ChatWidgetProps) {
     };
   }, []);
   useEffect(() => {
-    if (!open) return;
+    if (!open || settingsBusy) return;
     move(position);
     input.current?.focus();
     const controller = new AbortController();
@@ -214,10 +216,11 @@ export function ChatWidget(props: ChatWidgetProps) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [open, scopeKey, status?.download?.id, statusRevision]);
+  }, [open, scopeKey, status?.download?.id, statusRevision, settingsBusy]);
   useEffect(() => {
     const current = ++generation.current;
     cancelPending();
+    followConversation.current = true;
     setBusy(false);
     setError("");
     setMessage("");
@@ -246,6 +249,10 @@ export function ChatWidget(props: ChatWidgetProps) {
       cancelPending();
     };
   }, [scopeKey, open, cancelPending]);
+  useEffect(() => {
+    if (transcript.current && followConversation.current)
+      transcript.current.scrollTop = transcript.current.scrollHeight;
+  }, [turns, busy, open, settings]);
   useEffect(() => () => cancelPending(), [cancelPending]);
   const minimize = () => {
     setOpen(false);
@@ -262,6 +269,7 @@ export function ChatWidget(props: ChatWidgetProps) {
       id = crypto.randomUUID();
     const controller = new AbortController();
     pending.current = { id, controller };
+    followConversation.current = true;
     setBusy(true);
     setError("");
     try {
@@ -293,7 +301,7 @@ export function ChatWidget(props: ChatWidgetProps) {
           { message: text, response },
         ].slice(-HISTORY_LIMIT),
       }));
-      setMessage("");
+      setMessage((draft) => (draft === message ? "" : draft));
     } catch (e) {
       if (current === generation.current && !controller.signal.aborted)
         setError(errorText(e));
@@ -677,6 +685,12 @@ export function ChatWidget(props: ChatWidgetProps) {
                 role="log"
                 aria-label="Assistant conversation"
                 aria-live="polite"
+                ref={transcript}
+                onScroll={(event) => {
+                  const log = event.currentTarget;
+                  followConversation.current =
+                    log.scrollHeight - log.clientHeight - log.scrollTop < 24;
+                }}
               >
                 {turns.map((turn, i) => (
                   <section
