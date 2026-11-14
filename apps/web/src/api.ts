@@ -3,6 +3,7 @@ import type {
   QueryResult,
   ContextPack,
   AnalysisSummary,
+  Graph,
 } from "../../../packages/contracts/src/query.js";
 import type { Job } from "../../local/src/jobs.js";
 import type { GraphDiff } from "../../../packages/core/src/diff.js";
@@ -63,6 +64,8 @@ export const api = {
     post<Job>("/api/rojo-imports", { projectPath, watch }),
   job: (id: string) => request<Job>("/api/jobs/" + id),
   cancel: (id: string) => request<Job>("/api/jobs/" + id, { method: "DELETE" }),
+  exportGraph: (analysisId: string) =>
+    post<Graph>("/api/export/graph", { analysisId }),
   context: (query: Query, budget = 2000) =>
     post<ContextPack>("/api/context", {
       query,

@@ -304,6 +304,14 @@ export async function startServer(
           send(res, 200, await store.query(q));
           return;
         }
+        if (method === "POST" && path === "/api/export/graph") {
+          const { analysisId } = z
+            .object({ analysisId: z.string().min(1).max(128) })
+            .strict()
+            .parse(await json(req));
+          send(res, 200, await store.readGraph(analysisId));
+          return;
+        }
         if (method === "POST" && path === "/api/context") {
           const body = z
             .object({

@@ -39,7 +39,11 @@ For Rojo, choose **Rojo project**, paste the path to `default.project.json`, and
 
 Original Rojo code/config text is stored separately from generated Luau. Source inspection offers both views. Generated JSON/TOML/model statements do not claim original line coordinates when no mapping exists.
 
-**Export context** downloads a bounded pack for the current view. The default is 2,000 estimated tokens; the hard cap is 32,000 UTF-8 bytes. Estimates use characters/4. Read the included omissions and coverage. Full graph export is available from the CLI; the normal browser never needs the complete graph download. See `agent-setup.md` for MCP.
+**Export for AI** is in the top bar after a game loads. It opens without using chat. Choose **Game overview (bounded)** for the selected game and graph mode without canvas filters, **Current graph query** to retain query filters and a dependency/impact/trace query, or **Selected node neighborhood** after selecting a node. Canvas label search, hidden nodes, and collapsed groups affect display only.
+
+**Download JSON** is the recommended compact format for an external AI: one graph representation with the pinned analysis ID, exact query scope, source provenance, unknowns, coverage, and omissions. **Download Markdown** includes the same scope with readable evidence and source excerpts. The default preparation budget is 2,000 estimated tokens, adjustable to 4,000 or 8,000; the hard preparation cap is 32,000 UTF-8 bytes. Estimates use characters/4. These packs are bounded and can omit parts of even a small game.
+
+For the entire indexed game, expand **Full snapshot graph (larger file)** and choose **Download full graph JSON**. It exports every retained graph fact and source record from the selected saved snapshot, across both modes, with no context token budget; the scope and filters above do not limit it. It can be much larger than a compact pack and may exceed an external AI's context window. This is saved-file static analysis, not an observed runtime trace. The CLI also supports full graph export. See `agent-setup.md` for MCP.
 
 
 Close the last RoGraph tab or browser window to stop the local service. A short grace period allows page reloads; other open RoGraph tabs keep it running. If a browser crashes without delivering its close event, an inactive-session timeout stops the service. Original game files and saved snapshots remain on disk.
