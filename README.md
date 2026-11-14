@@ -12,11 +12,10 @@ Extract the portable package into a writable folder and open **RoGraph.exe**. Yo
 
 - Search scripts, functions, fields, or any saved object; expand the hierarchy for geometry.
 - Select a node to inspect its incoming/outgoing relationships and retained occurrences.
-- Use **Start here** for connected scripts and example actions; **Trace a path** follows supported gameplay or configuration connections with source evidence.
 - Open **Source** for exact decoded code and revision/byte/line locators.
 - Switch to **Code** and trace `ShopClient.BuySword` to `ShopConfig.Prices.Sword` to follow a potential client → remote → server-handler → method → configuration path.
 - Export a bounded JSON/Markdown context pack, or connect an agent through read-only MCP.
-- Use **Stop app** to stop the service and its owned workers. Closing a browser tab alone leaves the local app running.
+Close the last RoGraph tab or browser window to stop the local service. A short grace period allows page reloads; other open RoGraph tabs keep it running. If a browser crashes without delivering its close event, an inactive-session timeout stops the service. Original game files and saved snapshots remain on disk.
 
 This is static saved-file analysis. It does not execute game code or prove runtime behavior. Studio runtime capture is deferred. Rojo imports cover their configured project; Studio-only objects are outside that input.
 
@@ -67,3 +66,5 @@ The optional local assistant/model weights and Studio observations remain future
 - `native/launcher`: Windows launcher, bundled runtime, safe argument forwarding, and owned process cleanup.
 
 The design drew inspiration from [Graphify](https://github.com/dobbo-ca/graphify-go) and [GitNexus](https://github.com/abhigyanpatwari/GitNexus). Their implementations are not bundled. Optional Rojo uses the unmodified pinned [Rojo 7.7.1](https://github.com/rojo-rbx/rojo/tree/v7.7.1) CLI. Component notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Use the sun/moon switch beside **Import project** to change between light and dark mode. The choice is remembered in this browser.

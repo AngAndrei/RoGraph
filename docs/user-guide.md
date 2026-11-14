@@ -12,7 +12,6 @@ In Roblox Studio, save your place as **Roblox Place (.rbxlx or .rbxl)**. Choose 
 
 The center opens in **Gameplay**. Its nodes use actual model, tool, GUI, script and config names; connections describe supported triggers, configuration reads, cloning, movement, state changes and transfers. Clones use the real template node, with the creation site and copy identity in edge details. Players are represented through the actual Players service and explicit runtime role paths.
 
-New to the game? Open **Start here** and choose a connected script. Each suggestion shows its saved class, retained execution context, connected-object count and an example relationship. Suggestions are based on the loaded map; they are not a claim about startup order or the complete game. The inspector's **At a glance** section separates incoming and outgoing connections and links to the other objects. The guide and project navigator collapse on narrow screens so the graph remains available.
 
 The graph reports its visible nodes and connections. A line can contain several canonical actions; select it for the details. A **Bounded map** notice means records were omitted from this result. **Partial import** describes a separate input/analysis limitation. Search the project to inspect beyond the current map; neither a sparse map nor an absent link proves that no runtime connection exists.
 
@@ -38,9 +37,8 @@ Original Rojo code/config text is stored separately from generated Luau. Source 
 
 **Export context** downloads a bounded pack for the current view. The default is 2,000 estimated tokens; the hard cap is 32,000 UTF-8 bytes. Estimates use characters/4. Read the included omissions and coverage. Full graph export is available from the CLI; the normal browser never needs the complete graph download. See `agent-setup.md` for MCP.
 
-**Compare snapshots** compares modeled relationships after matching logical identities. Duplicate/ambiguous matches remain explicit. These are relationship differences, not a claim that two game files are otherwise identical.
 
-Use **Stop app** to close the local service. The portable launcher owns its Node process and helpers. Closing the browser tab alone does not stop an in-progress analysis. Snapshots and caches remain on disk; stop RoGraph before moving or deleting a workspace. Keep your original game files outside the dedicated workspace.
+Close the last RoGraph tab or browser window to stop the local service. A short grace period allows page reloads; other open RoGraph tabs keep it running. If a browser crashes without delivering its close event, an inactive-session timeout stops the service. Original game files and saved snapshots remain on disk.
 
 Use **Group by** to organize the canvas by service or folder; **Visible group** focuses one group. **Classes** and **Depth** control the graph scope. **Search nodes** matches full or partial displayed labels in the current graph, ignoring case and including personal renames. Click a result to select and center that node while retaining its connections; clear the field to close the results. Graph actions and context exports retain the selected filters. Trace endpoint search covers the pinned snapshot beyond the current canvas. The diagnostic report supports paging, affected-object inspection, and exact source locations for parse errors. Original binary Rojo models are retained as verified blobs and are never displayed as UTF-8 text.
 
@@ -51,3 +49,5 @@ Select a node and choose **Focus selected neighborhood** to inspect its direct n
 Arrows preserve the original relationship directions, including connections that contain actions in both directions. Graph placement does not establish runtime execution order. Use **Trace a path** to follow a particular supported route with source evidence.
 
 Hover reveals the full node label. Selected nodes remain highlighted, and repeated names include available parent/path context. **Search nodes**, project search, starting-guide buttons and inspector connections provide keyboard-accessible selection. If the renderer is unavailable, a node list remains available; if background layout fails, the graph keeps basic positions and reopening the view retries optimization.
+
+Use the sun/moon switch beside **Import project** to change between light and dark mode. The choice is remembered in this browser.
