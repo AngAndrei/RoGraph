@@ -329,8 +329,8 @@ it("keeps keyboard movement and resizing in the viewport", async () => {
   const header = screen.getByRole("button", { name: "Move assistant window" });
   fireEvent.keyDown(header, { key: "ArrowRight" });
   const dialog = screen.getByRole("dialog");
-  expect(dialog.style.left).toBe("8px");
-  expect(dialog.style.width).toBe("374px");
+  expect(dialog.style.left).toBe("32px");
+  expect(dialog.style.width).toBe("350px");
   vi.stubGlobal("innerHeight", 350);
   fireEvent(window, new Event("resize"));
   expect(dialog.style.top).toBe("8px");
@@ -578,4 +578,125 @@ it("minimizes source-query cards before navigating to the source window", async 
   expect(
     screen.getByRole("button", { name: "Open RoGraph assistant" }),
   ).toBeTruthy();
+});
+it("uses the compact AI Assistant header without a reset-position control", async () => {
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Move assistant window" }).textContent,
+  ).toBe("AI Assistant");
+  expect(
+    screen.queryByRole("button", { name: "Reset assistant position" }),
+  ).toBeNull();
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.style.width).toBe("350px");
+  expect(dialog.style.height).toBe("440px");
+  expect(screen.getByRole("button", { name: "Send message" }).textContent).toBe(
+    "",
+  );
+});
+it("moves the minimized launcher into the graph slot and restores fallback when it unmounts", async () => {
+  render(<ChatWidget {...props} />);
+  const controls = document.createElement("div");
+  controls.className = "graph-controls";
+  const fit = document.createElement("button");
+  fit.setAttribute("aria-label", "Fit graph");
+  const slot = document.createElement("span");
+  slot.id = "rograph-assistant-under-fit";
+  controls.append(fit, slot);
+  await act(async () => {
+    document.body.append(controls);
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Open RoGraph assistant" })
+        .parentElement,
+    ).toBe(slot),
+  );
+  expect(fit.nextElementSibling).toBe(slot);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  expect(slot.childElementCount).toBe(0);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Minimize assistant" }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Open RoGraph assistant" })
+      .parentElement,
+  ).toBe(slot);
+  await act(async () => {
+    controls.remove();
+  });
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "Open RoGraph assistant" })
+        .closest(".rg-chat-root"),
+    ).toBeTruthy(),
+  );
+});
+it("persists user-resized dimensions while preserving them through viewport clamps", async () => {
+  let notify!: ResizeObserverCallback;
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        notify = callback;
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    },
+  );
+  const view = render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  const dialog = screen.getByRole("dialog");
+  const measured = vi
+    .spyOn(dialog, "getBoundingClientRect")
+    .mockReturnValue({ width: 480, height: 510 } as DOMRect);
+  await act(async () => {
+    notify(
+      [
+        {
+          target: dialog,
+          contentRect: dialog.getBoundingClientRect(),
+          borderBoxSize: [],
+          contentBoxSize: [],
+          devicePixelContentBoxSize: [],
+        },
+      ],
+      {} as ResizeObserver,
+    );
+  });
+  measured.mockRestore();
+  expect(dialog.style.width).toBe("480px");
+  expect(dialog.style.height).toBe("510px");
+  vi.stubGlobal("innerWidth", 390);
+  vi.stubGlobal("innerHeight", 400);
+  fireEvent(window, new Event("resize"));
+  expect(dialog.style.width).toBe("374px");
+  expect(dialog.style.height).toBe("384px");
+  const clampedMeasurement = vi
+    .spyOn(dialog, "getBoundingClientRect")
+    .mockReturnValue({ width: 374, height: 384 } as DOMRect);
+  await act(async () => {
+    notify([], {} as ResizeObserver);
+  });
+  clampedMeasurement.mockRestore();
+  vi.stubGlobal("innerWidth", 1024);
+  vi.stubGlobal("innerHeight", 768);
+  fireEvent(window, new Event("resize"));
+  expect(dialog.style.width).toBe("480px");
+  expect(dialog.style.height).toBe("510px");
+  view.unmount();
+  render(<ChatWidget {...props} />);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open RoGraph assistant" }),
+  );
+  expect(screen.getByRole("dialog").style.width).toBe("480px");
 });

@@ -822,6 +822,7 @@ export function GraphView({
           >
             ⌖
           </button>
+          <span id="rograph-assistant-under-fit" />
         </div>
       </div>
       <div className="graph-legend">

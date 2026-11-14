@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   AssistantCard,
   AssistantMode,
@@ -8,7 +9,12 @@ import type {
 import type { Evidence } from "../../../../packages/contracts/src/model.js";
 import type { Query } from "../../../../packages/contracts/src/query.js";
 import { chatClient, type ChatTurn } from "./client.js";
-import { clampPosition, type Position } from "./position.js";
+import {
+  clampPosition,
+  clampSize,
+  type Position,
+  type Size,
+} from "./position.js";
 import "./chat.css";
 
 export interface ChatWidgetProps {
@@ -20,6 +26,8 @@ export interface ChatWidgetProps {
   onContext: (query: Query) => void;
 }
 const POSITION_KEY = "rograph-assistant-position";
+const SIZE_KEY = "rograph-assistant-size";
+const LAUNCHER_SLOT_ID = "rograph-assistant-under-fit";
 const HISTORY_LIMIT = 30;
 function viewport() {
   return {
@@ -27,16 +35,25 @@ function viewport() {
     height: window.visualViewport?.height ?? window.innerHeight,
   };
 }
-function windowSize() {
-  const v = viewport();
-  return {
-    width: Math.min(420, Math.max(0, v.width - 16)),
-    height: Math.min(650, Math.max(0, v.height - 16)),
-  };
+function preferredWindowSize(): Size {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "null");
+    if (
+      stored &&
+      Number.isFinite(stored.width) &&
+      Number.isFinite(stored.height) &&
+      stored.width > 0 &&
+      stored.height > 0
+    )
+      return stored;
+  } catch {
+    /* Size persistence is optional. */
+  }
+  return { width: 350, height: 440 };
 }
 function initialPosition(): Position {
   const v = viewport(),
-    size = windowSize();
+    size = clampSize(preferredWindowSize(), v);
   try {
     const stored = JSON.parse(localStorage.getItem(POSITION_KEY) ?? "null");
     if (stored) return clampPosition(stored, v, size);
@@ -62,7 +79,14 @@ export function ChatWidget(props: ChatWidgetProps) {
   const [open, setOpen] = useState(false),
     [settings, setSettings] = useState(false);
   const [position, setPosition] = useState(initialPosition);
-  const [size, setSize] = useState(windowSize);
+  const [preferredSize, setPreferredSize] = useState(preferredWindowSize);
+  const [availableViewport, setAvailableViewport] = useState(viewport);
+  const size = clampSize(preferredSize, availableViewport);
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const preferredSizeRef = useRef(preferredSize);
+  preferredSizeRef.current = preferredSize;
+  const [launcherSlot, setLauncherSlot] = useState<HTMLElement | null>(null);
   const [mode, setMode] = useState<AssistantMode>("auto"),
     [message, setMessage] = useState("");
   const scope = mode === "help" ? undefined : props.analysisId;
@@ -91,7 +115,7 @@ export function ChatWidget(props: ChatWidgetProps) {
   const move = useCallback((next: Position) => {
     const size = panel.current?.getBoundingClientRect();
     setPosition(
-      clampPosition(next, viewport(), size?.width ? size : windowSize()),
+      clampPosition(next, viewport(), size?.width ? size : sizeRef.current),
     );
   }, []);
   const cancelPending = useCallback(() => {
@@ -111,10 +135,54 @@ export function ChatWidget(props: ChatWidgetProps) {
     }
   }, [position]);
   useEffect(() => {
-    const resize = () => {
-      const next = windowSize();
-      setSize(next);
+    const findSlot = () =>
+      setLauncherSlot(document.getElementById(LAUNCHER_SLOT_ID));
+    findSlot();
+    const observer = new MutationObserver(findSlot);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIZE_KEY, JSON.stringify(preferredSize));
+    } catch {
+      /* Size persistence is optional. */
+    }
+  }, [preferredSize]);
+  useEffect(() => {
+    if (!open || !panel.current || typeof ResizeObserver === "undefined")
+      return;
+    const observer = new ResizeObserver(() => {
+      const bounds = panel.current?.getBoundingClientRect();
+      if (!bounds?.width || !bounds.height) return;
+      const current = sizeRef.current;
+      // Viewport clamps are temporary. Only remember dimensions changed by the user.
+      if (
+        Math.abs(bounds.width - current.width) < 1 &&
+        Math.abs(bounds.height - current.height) < 1
+      )
+        return;
+      const next = clampSize(
+        { width: Math.round(bounds.width), height: Math.round(bounds.height) },
+        viewport(),
+      );
+      setPreferredSize(next);
       setPosition((p) => clampPosition(p, viewport(), next));
+    });
+    observer.observe(panel.current);
+    return () => observer.disconnect();
+  }, [open]);
+  useEffect(() => {
+    const resize = () => {
+      const available = viewport();
+      setAvailableViewport(available);
+      setPosition((p) =>
+        clampPosition(
+          p,
+          available,
+          clampSize(preferredSizeRef.current, available),
+        ),
+      );
     };
     window.addEventListener("resize", resize);
     window.visualViewport?.addEventListener("resize", resize);
@@ -324,31 +392,39 @@ export function ChatWidget(props: ChatWidgetProps) {
       </div>
     </article>
   );
+  const launcherButton = (
+    <button
+      className={
+        launcherSlot
+          ? "rg-chat-launcher rg-chat-launcher-docked"
+          : "rg-chat-launcher"
+      }
+      type="button"
+      aria-label="Open RoGraph assistant"
+      ref={launcher}
+      onClick={() => setOpen(true)}
+    >
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+        <path
+          d="M16 3v5m-9 3h18v15H7zM3 15v7m26-7v7M12 22h8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="12" cy="16" r="2" fill="currentColor" />
+        <circle cx="20" cy="16" r="2" fill="currentColor" />
+        <circle cx="16" cy="3" r="2" fill="currentColor" />
+      </svg>
+    </button>
+  );
   return (
     <div className="rg-chat-root">
-      {!open && (
-        <button
-          className="rg-chat-launcher"
-          type="button"
-          aria-label="Open RoGraph assistant"
-          ref={launcher}
-          onClick={() => setOpen(true)}
-        >
-          <svg width="29" height="29" viewBox="0 0 32 32" aria-hidden="true">
-            <path
-              d="M16 3v5m-9 3h18v15H7zM3 15v7m26-7v7M12 22h8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="12" cy="16" r="2" fill="currentColor" />
-            <circle cx="20" cy="16" r="2" fill="currentColor" />
-            <circle cx="16" cy="3" r="2" fill="currentColor" />
-          </svg>
-        </button>
-      )}
+      {!open &&
+        (launcherSlot
+          ? createPortal(launcherButton, launcherSlot)
+          : launcherButton)}
       {open && (
         <div
           className="rg-chat-window"
@@ -360,6 +436,10 @@ export function ChatWidget(props: ChatWidgetProps) {
             top: position.y,
             width: size.width,
             height: size.height,
+            minWidth: Math.min(280, availableViewport.width - 16),
+            minHeight: Math.min(300, availableViewport.height - 16),
+            maxWidth: availableViewport.width - 16,
+            maxHeight: availableViewport.height - 16,
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -414,38 +494,8 @@ export function ChatWidget(props: ChatWidgetProps) {
                 drag.current = undefined;
               }}
             >
-              <strong>RoGraph assistant</strong>
-              <small>Local help & game navigation</small>
+              <strong>AI Assistant</strong>
             </div>
-            <button
-              type="button"
-              aria-label="Reset assistant position"
-              title="Reset position"
-              onClick={() => {
-                const v = viewport(),
-                  s = windowSize();
-                move({
-                  x: v.width - s.width - 20,
-                  y: v.height - s.height - 20,
-                });
-              }}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 10a8 8 0 1 1 1 7M4 4v6h6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
             <button
               type="button"
               aria-label="Minimize assistant"
@@ -688,10 +738,25 @@ export function ChatWidget(props: ChatWidgetProps) {
                 <div className="rg-chat-actions">
                   <button
                     type="submit"
+                    className="rg-chat-send"
                     aria-label="Send message"
                     disabled={busy || !historyReady || !message.trim()}
                   >
-                    Send
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M12 18V6m-5 5 5-5 5 5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
                   {busy && (
                     <button
