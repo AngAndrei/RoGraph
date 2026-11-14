@@ -10,6 +10,7 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1440, height: 960 },
     launchOptions: {
+      executablePath: process.env.ROGRAPH_EDGE_EXECUTABLE,
       args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
     },
     screenshot: "only-on-failure",
