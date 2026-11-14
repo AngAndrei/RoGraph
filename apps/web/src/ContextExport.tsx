@@ -103,7 +103,7 @@ export function ContextExport({
     }
   }
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop context-export-backdrop">
       <section
         className="context-panel"
         role="dialog"
