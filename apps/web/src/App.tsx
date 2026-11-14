@@ -488,12 +488,16 @@ export default function App() {
                   </div>
                 ) : (
                   <>
-                    <div className="tree-heading">ALL SAVED OBJECTS</div>
-                    <Hierarchy
-                      key={analysisId}
-                      analysisId={analysisId}
-                      onSelect={(id) => void select(id)}
-                    />
+                    <details className="saved-objects" open>
+                      <summary className="tree-heading">
+                        All Saved Objects
+                      </summary>
+                      <Hierarchy
+                        key={analysisId}
+                        analysisId={analysisId}
+                        onSelect={(id) => void select(id)}
+                      />
+                    </details>
                   </>
                 )}
                 {result?.analysisId === analysisId && (
