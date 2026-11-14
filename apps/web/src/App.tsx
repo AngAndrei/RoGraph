@@ -677,6 +677,16 @@ export default function App() {
                 >
                   Trace a path
                 </button>
+                {activeQuery?.op !== "overview" && (
+                  <button
+                    onClick={() => {
+                      closeInspector();
+                      openOverview(view);
+                    }}
+                  >
+                    Back to overview
+                  </button>
+                )}
               </div>
               {tracing && (
                 <TraceControls
