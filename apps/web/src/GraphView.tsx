@@ -825,9 +825,6 @@ export function GraphView({
         </div>
       </div>
       <div className="graph-legend">
-        <span className="graph-direction-key">
-          → direction · select a line for its actions
-        </span>
         {[
           ["#669bea", "Client"],
           ["#55ad99", "Server"],
