@@ -8,6 +8,33 @@ test("floating assistant provides help, moves, finds a node and exports its cont
   await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
   const panel = page.getByRole("dialog", { name: "RoGraph assistant", exact: true });
   await expect(panel).toBeVisible();
+  const initialBox = (await panel.boundingBox())!;
+  expect(initialBox.width).toBeLessThanOrEqual(360);
+  expect(initialBox.height).toBeLessThanOrEqual(450);
+  const panelColors: string[] = [];
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
+    panelColors.push(await panel.evaluate(el => getComputedStyle(el).backgroundColor));
+    await page.screenshot({ path: `build/assistant-${theme}.png` });
+  }
+  expect(panelColors[0]).not.toBe(panelColors[1]);
+  await expect(page.getByRole("button", { name: "Send message" }).locator("svg")).toHaveCount(1);
+  const header = await page.getByRole("button", { name: "Move assistant window" }).boundingBox();
+  await page.mouse.move(header!.x + 35, header!.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(650, 170, { steps: 8 });
+  await page.mouse.up();
+  const beforeResize = (await panel.boundingBox())!;
+  await page.mouse.move(beforeResize.x + beforeResize.width - 3, beforeResize.y + beforeResize.height - 3);
+  await page.mouse.down();
+  await page.mouse.move(beforeResize.x + beforeResize.width + 57, beforeResize.y + beforeResize.height + 37, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await panel.boundingBox())!.width).toBeGreaterThan(beforeResize.width + 30);
+  const resized = (await panel.boundingBox())!;
+  await page.getByRole("button", { name: "Minimize assistant" }).click();
+  await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
+  expect((await panel.boundingBox())!.width).toBe(resized.width);
+  expect((await panel.boundingBox())!.height).toBe(resized.height);
   await page.getByLabel("Assistant mode").selectOption("help");
   await page.getByLabel("Ask RoGraph").fill("How do I find text inside a script?");
   await page.getByRole("button", { name: "Send message" }).click();
@@ -20,9 +47,23 @@ test("floating assistant provides help, moves, finds a node and exports its cont
   await page.getByLabel("Place file").setInputFiles(fixturePath("shop/place.rbxlx"));
   await page.getByRole("button", { name: "Analyze", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Coverage", exact: true })).toBeVisible({ timeout: 90000 });
+  const fit = page.getByRole("button", { name: "Fit graph", exact: true });
+  const robot = page.getByRole("button", { name: "Open RoGraph assistant" });
+  await expect(robot).toBeVisible();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
+    const fitBox = (await fit.boundingBox())!, robotBox = (await robot.boundingBox())!;
+    expect(Math.abs(robotBox.width - fitBox.width)).toBeLessThan(1);
+    expect(Math.abs(robotBox.x - fitBox.x)).toBeLessThan(1);
+    expect(robotBox.y).toBeGreaterThanOrEqual(fitBox.y + fitBox.height);
+    expect(await robot.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(await fit.evaluate(el => getComputedStyle(el).backgroundColor));
+  }
   await page.getByRole("button", { name: "Open RoGraph assistant" }).click();
   await page.getByLabel("Assistant mode").selectOption("game");
   await page.getByLabel("Ask RoGraph").fill("Find ShopClient.BuySword");
+  await expect(panel.getByText("AI Assistant", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset assistant position" })).toHaveCount(0);
+  expect(await panel.evaluate(el => getComputedStyle(el).resize)).toBe("both");
   await page.getByRole("button", { name: "Send message" }).click();
   await expect(panel.getByRole("button", { name: "Inspect ShopClient.BuySword", exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Export context for ShopClient.BuySword", exact: true }).click();

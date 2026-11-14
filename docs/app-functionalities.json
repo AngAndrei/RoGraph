@@ -848,8 +848,8 @@
         "cancel answer"
       ],
       "steps": [
-        "Select the robot-head button at the lower right to open the assistant.",
-        "Move the expanded window by its header and choose Auto, Game or Help mode.",
+        "Select the robot-head button below Fit graph to open AI Assistant (lower-right floating button before a graph is loaded).",
+        "Drag the window header to move it, or resize from its lower-right corner. The window follows the current light or dark theme.",
         "Ask a question and use result cards to navigate within the pinned analysis; cancel a running answer if needed."
       ],
       "availability": [
