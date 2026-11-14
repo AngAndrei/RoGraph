@@ -2,6 +2,8 @@
 
 Implementation branch: `chat_bot_RAG`. This feature is not merged into main.
 
+Latest: [15 November real-game QA and model selection](assistant-multigame-qa.md) compares three model sizes across four actual games and documents the shared Export for AI controls.
+
 The broader 14 November QA pass, fixes, per-request latency records and current regression evidence are in [assistant-qa.md](assistant-qa.md). Counts below describe the initial preview checks.
 
 The assistant locates objects, connections and paths using revision-pinned graph operations, and retrieves app guidance from `docs/app-functionalities.json`. The optional model interprets natural-language requests; returned facts/actions are built from canonical queries. External context/MCP works without installing a model.

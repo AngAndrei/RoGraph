@@ -42,6 +42,30 @@ function deterministic(message: string): AssistantIntent | undefined {
     .replace(/^(show|find|locate|search for) me\s+/i, "$1 ")
     .replace(/\s+(?:for me|please)[?.!]?$/i, "")
     .replace(/[?.!]$/, "");
+  // These word orders have explicit direction; do not ask a model to reverse it.
+  const callers =
+    /^(?:identify|list|show|find)\s+(?:the\s+)?(?:routines?|scripts?|modules?|components?|nodes?)\s+(?:that\s+)?(?:rely on|depend on|use|call)\s+(.+)$/i.exec(
+      message,
+    );
+  if (callers)
+    return {
+      op: "impact",
+      text: unquote(callers[1]),
+      useSelection:
+        /^(?:the )?(?:selected(?: node)?|this(?: node| object)?|it)$/i.test(
+          callers[1],
+        ),
+    };
+  const reachable =
+    /^is\s+(.+?)\s+reachable(?:\s+through\s+(?:the\s+)?graph)?\s+from\s+(.+)$/i.exec(
+      message,
+    );
+  if (reachable)
+    return {
+      op: "trace",
+      from: unquote(reachable[2]),
+      to: unquote(reachable[1]),
+    };
   const uses =
     /^(?:what|which (?:nodes|objects|components|scripts))\s+(?:uses?|depends? on)\s+(.+)$/i.exec(
       message,
@@ -131,6 +155,9 @@ function deterministic(message: string): AssistantIntent | undefined {
 
 function isHelp(message: string): boolean {
   return (
+    (/^where (?:is|are)\b/i.test(message) &&
+      /\b(?:export|import)\b/i.test(message) &&
+      /\b(?:button|control|option|menu)\b/i.test(message)) ||
     /^(?:help|what can (?:you|rograph) do)[?.!]?$/i.test(message) ||
     (/^(?:help\b|how (?:do|can|to)\b|where (?:do|can) i\b)/i.test(message) &&
       /\b(?:find|text|import|export|rograph|context|mcp|search|trace|dependencies|impact|source|settings|model|snapshot|coverage|graph|rojo|assistant|gpu|cpu|navigate|filter|code view|gameplay view)\b/i.test(
@@ -218,21 +245,22 @@ export async function answerRequest(
       "import saved place",
       "Import or select an analysis snapshot before asking about game objects. App help works without a snapshot.",
     );
+  let intent = deterministic(request.message);
   if (
-    /\b(runtime|lag(?:ging)?|fps|memory leak|live (?:game|players)|playing now)\b/i.test(
+    !intent &&
+    (/\b(at runtime|runtime behavior|lag(?:ging)?|memory leak|live (?:game|players)|playing now)\b/i.test(
       request.message,
     ) ||
-    /^(?:why|debug|fix|rewrite|implement|design)\b/i.test(request.message) ||
-    /\b(?:delete|remove|edit|rewrite|execute)\b.*\b(?:game files?|scripts?|source code|place files?)\b/i.test(
-      request.message,
-    )
+      /^(?:why|debug|fix|rewrite|implement|design)\b/i.test(request.message) ||
+      /\b(?:delete|remove|edit|rewrite|execute)\b.*\b(?:game files?|scripts?|source code|place files?)\b/i.test(
+        request.message,
+      ))
   ) {
     return help(
       "export context pack MCP",
       "I can navigate static snapshot evidence, not observe runtime behavior or diagnose the whole game. Export a context pack or use MCP for deeper investigation.",
     );
   }
-  let intent = deterministic(request.message);
   let modelAttempted = false;
   if (!intent && services.interpret) {
     modelAttempted = true;

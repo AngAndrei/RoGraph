@@ -1,0 +1,450 @@
+{
+  "evaluatedOn": "2026-11-15",
+  "timezone": "Europe/Bucharest",
+  "baselineAssistantCommit": "e6123da",
+  "comparison": "Same 72 questions per model; 40 model-required paraphrases and 32 fast commands; 10 paraphrase forms instantiated across four private games. No prompt tuning between model runs.",
+  "recommendedModel": "qwen3.5-2b",
+  "models": [
+    {
+      "modelId": "qwen3.5-0.8b",
+      "parameters": "0.8B",
+      "bytes": 532517120,
+      "sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+      "passed": 51,
+      "total": 72,
+      "modelRequired": {
+        "passed": 19,
+        "total": 40
+      },
+      "fastCommands": {
+        "passed": 32,
+        "total": 32
+      },
+      "coldResponseMs": 14718.65,
+      "warmResponseMs": {
+        "n": 39,
+        "min": 1215.06,
+        "median": 1899.85,
+        "p95": 6060.45,
+        "max": 9134.35
+      },
+      "warmInferenceOnlyMs": {
+        "n": 39,
+        "min": 1180.91,
+        "median": 1610.26,
+        "p95": 3650.7,
+        "max": 9129.7
+      },
+      "byOperation": [
+        {
+          "kind": "search",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "source",
+          "passed": 3,
+          "total": 8
+        },
+        {
+          "kind": "dependencies",
+          "passed": 2,
+          "total": 8
+        },
+        {
+          "kind": "impact",
+          "passed": 0,
+          "total": 8
+        },
+        {
+          "kind": "trace",
+          "passed": 6,
+          "total": 8
+        }
+      ],
+      "byGame": [
+        {
+          "game": "Bangla Battlegrounds",
+          "passed": 13,
+          "total": 18
+        },
+        {
+          "game": "Big Brain",
+          "passed": 14,
+          "total": 18
+        },
+        {
+          "game": "Broken PVP",
+          "passed": 12,
+          "total": 18
+        },
+        {
+          "game": "Photon",
+          "passed": 12,
+          "total": 18
+        }
+      ],
+      "scopeViolations": 0,
+      "queryBudgetViolations": 0,
+      "actualBackend": "cpu",
+      "hardware": {
+        "platform": "win32",
+        "arch": "x64",
+        "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+        "logicalCpus": 8,
+        "totalRamGiB": 15.703411102294922,
+        "freeRamGiB": 1.73004150390625,
+        "gpus": [
+          {
+            "id": "Vulkan0",
+            "name": "Intel(R) Iris(R) Xe Graphics",
+            "memoryMiB": 8040
+          }
+        ],
+        "gpuProbe": "available",
+        "notes": []
+      }
+    },
+    {
+      "modelId": "qwen3.5-2b",
+      "parameters": "2B",
+      "bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "passed": 68,
+      "total": 72,
+      "modelRequired": {
+        "passed": 36,
+        "total": 40
+      },
+      "fastCommands": {
+        "passed": 32,
+        "total": 32
+      },
+      "coldResponseMs": 19366.27,
+      "warmResponseMs": {
+        "n": 39,
+        "min": 1501.41,
+        "median": 2176.64,
+        "p95": 7170.21,
+        "max": 8469.87
+      },
+      "warmInferenceOnlyMs": {
+        "n": 39,
+        "min": 1242.05,
+        "median": 1881.61,
+        "p95": 4739.49,
+        "max": 6594.37
+      },
+      "byOperation": [
+        {
+          "kind": "search",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "source",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "dependencies",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "impact",
+          "passed": 5,
+          "total": 8
+        },
+        {
+          "kind": "trace",
+          "passed": 7,
+          "total": 8
+        }
+      ],
+      "byGame": [
+        {
+          "game": "Bangla Battlegrounds",
+          "passed": 16,
+          "total": 18
+        },
+        {
+          "game": "Big Brain",
+          "passed": 18,
+          "total": 18
+        },
+        {
+          "game": "Broken PVP",
+          "passed": 17,
+          "total": 18
+        },
+        {
+          "game": "Photon",
+          "passed": 17,
+          "total": 18
+        }
+      ],
+      "scopeViolations": 0,
+      "queryBudgetViolations": 0,
+      "actualBackend": "cpu",
+      "hardware": {
+        "platform": "win32",
+        "arch": "x64",
+        "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+        "logicalCpus": 8,
+        "totalRamGiB": 15.703411102294922,
+        "freeRamGiB": 1.6935081481933594,
+        "gpus": [
+          {
+            "id": "Vulkan0",
+            "name": "Intel(R) Iris(R) Xe Graphics",
+            "memoryMiB": 8040
+          }
+        ],
+        "gpuProbe": "available",
+        "notes": []
+      }
+    },
+    {
+      "modelId": "qwen3.5-4b",
+      "parameters": "4B",
+      "bytes": 2740937888,
+      "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+      "passed": 65,
+      "total": 72,
+      "modelRequired": {
+        "passed": 33,
+        "total": 40
+      },
+      "fastCommands": {
+        "passed": 32,
+        "total": 32
+      },
+      "coldResponseMs": 46650.81,
+      "warmResponseMs": {
+        "n": 39,
+        "min": 3327.05,
+        "median": 5821.91,
+        "p95": 8758.54,
+        "max": 8968.34
+      },
+      "warmInferenceOnlyMs": {
+        "n": 39,
+        "min": 2993.16,
+        "median": 5199.63,
+        "p95": 7968.1,
+        "max": 8737.65
+      },
+      "byOperation": [
+        {
+          "kind": "search",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "source",
+          "passed": 8,
+          "total": 8
+        },
+        {
+          "kind": "dependencies",
+          "passed": 4,
+          "total": 8
+        },
+        {
+          "kind": "impact",
+          "passed": 5,
+          "total": 8
+        },
+        {
+          "kind": "trace",
+          "passed": 8,
+          "total": 8
+        }
+      ],
+      "byGame": [
+        {
+          "game": "Bangla Battlegrounds",
+          "passed": 16,
+          "total": 18
+        },
+        {
+          "game": "Big Brain",
+          "passed": 17,
+          "total": 18
+        },
+        {
+          "game": "Broken PVP",
+          "passed": 16,
+          "total": 18
+        },
+        {
+          "game": "Photon",
+          "passed": 16,
+          "total": 18
+        }
+      ],
+      "scopeViolations": 0,
+      "queryBudgetViolations": 0,
+      "actualBackend": "cpu",
+      "hardware": {
+        "platform": "win32",
+        "arch": "x64",
+        "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+        "logicalCpus": 8,
+        "totalRamGiB": 15.703411102294922,
+        "freeRamGiB": 2.6049461364746094,
+        "gpus": [
+          {
+            "id": "Vulkan0",
+            "name": "Intel(R) Iris(R) Xe Graphics",
+            "memoryMiB": 8040
+          }
+        ],
+        "gpuProbe": "available",
+        "notes": []
+      }
+    }
+  ],
+  "games": [
+    {
+      "game": "Bangla Battlegrounds",
+      "nodes": 3515,
+      "relations": 4555,
+      "savedObjects": 1096,
+      "parsedScripts": 27,
+      "discoveredScripts": 27,
+      "resolver": "10",
+      "partialImport": true
+    },
+    {
+      "game": "Big Brain",
+      "nodes": 9298,
+      "relations": 13129,
+      "savedObjects": 8077,
+      "parsedScripts": 45,
+      "discoveredScripts": 46,
+      "resolver": "8",
+      "partialImport": true
+    },
+    {
+      "game": "Broken PVP",
+      "nodes": 73305,
+      "relations": 80322,
+      "savedObjects": 58870,
+      "parsedScripts": 163,
+      "discoveredScripts": 163,
+      "resolver": "10",
+      "partialImport": true
+    },
+    {
+      "game": "Photon",
+      "nodes": 509,
+      "relations": 665,
+      "savedObjects": 101,
+      "parsedScripts": 13,
+      "discoveredScripts": 13,
+      "resolver": "10",
+      "partialImport": false
+    }
+  ],
+  "afterRoutingFixes": {
+    "modelId": "qwen3.5-2b",
+    "passed": 72,
+    "total": 72,
+    "modelRequired": {
+      "passed": 32,
+      "total": 32
+    },
+    "fastCommands": {
+      "passed": 40,
+      "total": 40
+    },
+    "byGame": [
+      {
+        "game": "Bangla Battlegrounds",
+        "passed": 18,
+        "total": 18
+      },
+      {
+        "game": "Big Brain",
+        "passed": 18,
+        "total": 18
+      },
+      {
+        "game": "Broken PVP",
+        "passed": 18,
+        "total": 18
+      },
+      {
+        "game": "Photon",
+        "passed": 18,
+        "total": 18
+      }
+    ],
+    "coldResponseMs": 33166.97,
+    "warmResponseMs": {
+      "n": 31,
+      "min": 3276.6,
+      "median": 4127.38,
+      "p95": 7290.79,
+      "max": 7337.89
+    },
+    "note": "Known-case regression after adding caller and passive-reachability parsing, not a new unseen accuracy test."
+  },
+  "privacy": "Original databases opened read-only and backed up to ignored build paths. Private questions, symbols, source text, snapshots, and model weights are excluded from Git.",
+  "limitations": [
+    "One active Windows laptop; CPU execution only for this comparison. Low available RAM and concurrent desktop activity make timings indicative rather than controlled benchmarks.",
+    "Named-node navigation only, not deep open-ended game understanding.",
+    "Big Brain snapshot uses resolver 8; other selected snapshots use resolver 10. Three are partial imports.",
+    "No Qwen3.5-9B benchmark (catalog recommends 24 GiB RAM; machine has 15.7 GiB). No claim of best model across all hardware or model families."
+  ],
+  "verification": {
+    "typecheckChat": true,
+    "typecheckMain": true,
+    "buildChat": true,
+    "buildMain": true,
+    "mainScopedTests": {
+      "passed": 4,
+      "total": 4
+    },
+    "loadedSnapshotExportBrowserChat": true,
+    "loadedSnapshotExportBrowserMain": true,
+    "initialFullVitest": {
+      "passed": 539,
+      "total": 542,
+      "timeLimitFailures": 3
+    },
+    "unchangedIsolatedRerun": {
+      "noticeCheck": true,
+      "reviewControls13": true
+    },
+    "largeEvidenceDiagnostic": {
+      "passed": true,
+      "allowanceMs": 120000,
+      "ingestionMs": 38066,
+      "impactMs": 945.891,
+      "inspectPagesMs": 1072,
+      "originalDeadlineRestored": true
+    },
+    "importDependentBrowserSetup": "90-second Coverage wait exceeded on this desktop; loaded-snapshot export checked independently",
+    "finalFocusedAssistantTests": {
+      "passed": 31,
+      "total": 31
+    }
+  },
+  "method": {
+    "runtime": "llama.cpp b12359",
+    "quantization": "Q4_K_M",
+    "mode": "non-thinking structured JSON intent",
+    "temperature": 0.1,
+    "topP": 0.8,
+    "maxOutputTokens": 220,
+    "threads": 4,
+    "contextTokens": 4096,
+    "parallelRequests": 1,
+    "backend": "cpu",
+    "seed": "not fixed by the application",
+    "passesPerModel": 1
+  }
+}

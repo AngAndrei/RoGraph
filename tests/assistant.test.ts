@@ -636,3 +636,86 @@ it("searches bare multiword literal names before offering no-model guidance", as
     expect(calls[0]).toMatchObject({ op: "search", text: "Buy Sword" });
     expect(response.cards.some((c) => c.label === "Buy Sword")).toBe(true);
   }));
+
+it("keeps callers and passive reachability direction deterministic", async () =>
+  shop(async ({ query, graph, calls }) => {
+    const cases = [
+      ["Identify the routines that rely on ShopConfig", "impact", "ShopConfig"],
+      ["List scripts that depend on ShopConfig", "impact", "ShopConfig"],
+      ["Show components that use ShopConfig", "impact", "ShopConfig"],
+      [
+        "Is ShopConfig.Prices.Sword reachable through the graph from ShopClient.BuySword?",
+        "trace",
+        "ShopClient.BuySword",
+      ],
+    ] as const;
+    for (const [message, op, label] of cases) {
+      calls.length = 0;
+      let interpretations = 0;
+      const response = await answerRequest(
+        { message, analysisId: graph.analysisId },
+        {
+          query,
+          interpret: async () => {
+            interpretations++;
+            return { op: "dependencies", text: "ShopConfig" };
+          },
+        },
+      );
+      expect(interpretations, message).toBe(0);
+      const actual = calls.find((q) => q.op === op);
+      expect(actual, message).toBeDefined();
+      if (op === "impact")
+        expect(actual?.nodeId).toBe(
+          graph.nodes.find((n) => n.label === label)!.id,
+        );
+      else {
+        expect(actual?.fromId).toBe(
+          graph.nodes.find((n) => n.label === label)!.id,
+        );
+        expect(actual?.toId).toBe(
+          graph.nodes.find((n) => n.label === "ShopConfig.Prices.Sword")!.id,
+        );
+        expect(response.cards.some((c) => c.kind === "path")).toBe(true);
+      }
+    }
+  }));
+
+it("allows explicit graph lookups for runtime-themed object names", async () =>
+  shop(async ({ query, graph, calls }) => {
+    for (const [message, text] of [
+      ["find Runtime", "Runtime"],
+      ["find FPS", "FPS"],
+      ["source of Runtime.Controller", "Runtime.Controller"],
+    ]) {
+      calls.length = 0;
+      const response = await answerRequest(
+        { message, analysisId: graph.analysisId },
+        { query },
+      );
+      expect(calls[0], message).toMatchObject({
+        op: "search",
+        text,
+        analysisId: graph.analysisId,
+      });
+      expect(response.text, message).not.toMatch(
+        /not observe runtime|diagnose the whole game/i,
+      );
+    }
+  }));
+
+it("answers where-to-find export controls from maintained help without inference", async () => {
+  const response = await answerRequest(
+    { message: "Where is the Export for AI button?", analysisId: "snapshot" },
+    {
+      query: async () => {
+        throw Error("App controls must not query a game");
+      },
+    },
+  );
+  expect(
+    response.cards.flatMap((c) => c.feature?.steps ?? []).join(" "),
+  ).toContain("Export for AI");
+  expect(response.modelUsed).toBe(false);
+  expect(response.warnings).toEqual([]);
+});

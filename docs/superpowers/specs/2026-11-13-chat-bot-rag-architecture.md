@@ -499,3 +499,10 @@ The model continues to interpret intent only. Canonical graph queries and retain
 Handle cancellation and timeouts as normalized string application errors at the HTTP boundary; native DOMException numeric codes must not reach string status routing. Verify recovery and absence of cancelled answers in history. Runtime logging must include layer-placement diagnostics so CPU/GPU labels reflect execution rather than just device detection. The pinned llama.cpp runtime requires verbosity level 4 for these diagnostics.
 
 The conversation must preserve drafts edited while waiting, ignore status responses superseded by setting changes, and follow new replies only while the user is reading near the bottom. Evaluation scripts and measured results are documented in [the QA report](../../assistant-qa.md).
+
+
+## 22. Real-game evaluation and shared export, 15 November 2026
+
+Qwen3.5-2B Q4_K_M remains the recommended helper default after the same 72 questions were evaluated with 0.8B, 2B and 4B on four real saved games. Baseline model-required scores were 19/40, 36/40 and 33/40 respectively. This is local typed-intent performance, not a universal model ranking. Caller questions and passive reachability now preserve direction deterministically; 2B passed all 72 known-case regressions after those repairs. See [the measured comparison](../../assistant-multigame-qa.md).
+
+Export for AI is an app capability shared by main and chat_bot_RAG. It offers pinned overview/current-query/selected-neighborhood compact context plus a distinct full canonical snapshot JSON download. Bounded AI context must retain query provenance, unknowns, coverage and omissions; full graph export must not claim a context/token cap. Do not merge the chatbot into main merely to provide export.
