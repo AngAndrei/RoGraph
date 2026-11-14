@@ -31,18 +31,7 @@ export function CoverageView({ coverage: c }: { coverage: Coverage }) {
           <span>Candidate sites</span>
         </div>
       </div>
-      <details>
-        <summary>What this analysis can tell you</summary>
-        <p>
-          Connections come from the saved project and supported Luau patterns.
-          Potential paths do not prove runtime execution. Saved configuration
-          values may change while playing.
-        </p>
-        {c.limitations.map((s, i) => (
-          <p key={i}>{s}</p>
-        ))}
-        <p>No modeled dependent does not prove that a change is safe.</p>
-      </details>
+
     </section>
   );
 }
