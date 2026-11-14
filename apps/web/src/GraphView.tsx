@@ -102,6 +102,12 @@ export function GraphView({
   showClassMatches?: boolean;
   nodeSearch?: string;
 }) {
+  const [themeVersion, setThemeVersion] = useState(0);
+  useEffect(() => {
+    const update = () => setThemeVersion((v) => v + 1);
+    window.addEventListener("rograph-theme", update);
+    return () => window.removeEventListener("rograph-theme", update);
+  }, []);
   const container = useRef<HTMLDivElement>(null),
     renderer = useRef<Sigma | null>(null),
     [error, setError] = useState(""),
@@ -293,7 +299,9 @@ export function GraphView({
         size: 1.5,
         color: ["SENDS_VIA", "HANDLES"].includes(e.type)
           ? "#bea46c"
-          : "#bbc8d8",
+          : getComputedStyle(document.documentElement)
+              .getPropertyValue("--graph-edge")
+              .trim() || "#bbc8d8",
         head: "arrow",
         tail: e.bidirectional ? "arrow" : "none",
         originalId: e.originalId,
@@ -330,7 +338,10 @@ export function GraphView({
                 else: { attribute: "color" },
               },
             },
-            labelColor: "#526880",
+            labelColor:
+              getComputedStyle(document.documentElement)
+                .getPropertyValue("--graph-label")
+                .trim() || "#526880",
             labelVisibility: {
               whenState: "isHovered",
               then: "visible",
@@ -626,7 +637,7 @@ export function GraphView({
       renderer.current?.kill();
       renderer.current = null;
     };
-  }, [view, labels, arrangementScope]);
+  }, [view, labels, arrangementScope, themeVersion]);
   return (
     <div className="graph-area">
       <div className="graph-toolbar">
