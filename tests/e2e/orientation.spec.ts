@@ -18,18 +18,20 @@ test("orients a new developer, traces an evidenced gameplay path, and returns to
   await expect(page.getByLabel("Visible map size")).toContainText(
     "connections",
   );
-  const guide = page.locator(".game-orientation");
-  await expect(guide).toContainText("ChickenController");
-  await guide
-    .getByRole("button", { name: /^Inspect ChickenController/ })
+  const guide = page.locator(".sigma-container");
+  await page
+    .getByLabel("Search nodes", { exact: true })
+    .fill("ChickenController");
+  await page
+    .getByLabel("Node search results")
+    .getByRole("button")
+    .first()
     .click();
   await expect(page.getByLabel("Behavior at a glance")).toContainText(
     "Outgoing connections",
   );
   await page.getByRole("button", { name: "Dependencies", exact: true }).click();
-  await expect(page.locator(".map-scope")).toContainText(
-    "Dependencies of ChickenController",
-  );
+  await expect(page.locator(".map-scope")).toHaveCount(0);
   await expect(page.getByText("0 hops", { exact: true })).toHaveCount(0);
   await page
     .getByRole("button", { name: "Back to overview", exact: true })
@@ -44,9 +46,7 @@ test("orients a new developer, traces an evidenced gameplay path, and returns to
     .selectOption({ label: "Egg" });
   await page.getByRole("button", { name: "Find path", exact: true }).click();
   await expect(page.locator(".trace-hop").first()).toBeVisible();
-  await expect(page.locator(".map-scope")).toContainText(
-    "Potential connection path",
-  );
+  await expect(page.locator(".map-scope")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Back to overview", exact: true })
     .click();
@@ -79,9 +79,13 @@ test("keeps the graph reachable on a narrow screen and lets the developer close 
   const box = (await page.locator(".sigma-container").boundingBox())!;
   expect(box.width).toBeGreaterThan(300);
   expect(box.height).toBeGreaterThan(220);
-  await page.locator(".game-orientation summary").click();
   await page
-    .getByRole("button", { name: /^Inspect ChickenController/ })
+    .getByLabel("Search nodes", { exact: true })
+    .fill("ChickenController");
+  await page
+    .getByLabel("Node search results")
+    .getByRole("button")
+    .first()
     .click();
   await expect(page.getByLabel("Behavior at a glance")).toBeVisible();
   await page

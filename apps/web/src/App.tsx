@@ -1,4 +1,3 @@
-import { DiffView } from "./DiffView.js";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { DiagnosticView } from "./DiagnosticView.js";
 import type {
@@ -16,8 +15,9 @@ import { GraphView } from "./GraphView.js";
 import { snapshotDetails } from "./SnapshotOption.js";
 import { Inspector } from "./Inspector.js";
 import { TraceView, TraceControls } from "./TraceView.js";
-import { GameOrientation } from "./GameOrientation.js";
 import { SourceView } from "./SourceView.js";
+import { ThemeSwitch } from "./ThemeSwitch.js";
+import { useAppLifetime } from "./app-lifetime.js";
 function Brand() {
   return (
     <div className="brand">
@@ -38,6 +38,7 @@ function Brand() {
   );
 }
 export default function App() {
+  useAppLifetime();
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]),
     [analysisId, setAnalysis] = useState(""),
     [deletingSnapshot, setDeletingSnapshot] = useState(false),
@@ -353,26 +354,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <Brand />
-        <div className="breadcrumb">
-          Workspace <span>/</span>{" "}
-          <strong>{analysisId ? "Game explorer" : "New project"}</strong>
-        </div>
-        <span className="offline">
-          <i /> On your computer
-        </span>
+        <ThemeSwitch />
         <button className="secondary" onClick={() => setImporting(true)}>
           ＋ Import project
-        </button>
-        <button
-          className="text-button"
-          onClick={() =>
-            void api
-              .stop()
-              .then(() => setStopped(true))
-              .catch((e) => setError(e.message))
-          }
-        >
-          Stop app
         </button>
       </header>
       <div className="workspace">
@@ -500,13 +484,6 @@ export default function App() {
                       analysisId={analysisId}
                       onSelect={(id) => void select(id)}
                     />
-                    {analyses.length > 1 && (
-                      <DiffView
-                        key={`diff:${analysisId}`}
-                        analysisId={analysisId}
-                        analyses={analyses}
-                      />
-                    )}
                   </>
                 )}
               </>
@@ -680,20 +657,6 @@ export default function App() {
                 >
                   Trace a path
                 </button>
-              </div>
-              <div className="map-scope" role="status">
-                <span>
-                  <strong>
-                    {activeQuery?.op === "dependencies"
-                      ? `Dependencies of ${explorationLabel}`
-                      : activeQuery?.op === "impact"
-                        ? `Potential impact of ${explorationLabel}`
-                        : activeQuery?.op === "trace"
-                          ? "Potential connection path"
-                          : `${view === "gameplay" ? "Gameplay" : "Code"} overview`}
-                  </strong>{" "}
-                  · Static saved-file analysis
-                </span>
                 {activeQuery?.op !== "overview" && (
                   <button
                     onClick={() => {
@@ -703,14 +666,6 @@ export default function App() {
                   >
                     Back to overview
                   </button>
-                )}
-                {(result.meta.truncated || result.coverage.partialImport) && (
-                  <span className="map-limits">
-                    {result.meta.truncated &&
-                      "Bounded map: some records are omitted. "}
-                    {result.coverage.partialImport && "Partial import. "}Search
-                    the whole project to inspect beyond this map.
-                  </span>
                 )}
               </div>
               {tracing && (
@@ -727,16 +682,6 @@ export default function App() {
                     setTraceResult(r);
                     setActiveQuery(q);
                     setTracing(false);
-                  }}
-                />
-              )}
-              {view === "gameplay" && activeQuery?.op === "overview" && (
-                <GameOrientation
-                  key={analysisId}
-                  result={result}
-                  onSelect={(id) => {
-                    setEdgeId(undefined);
-                    void select(id);
                   }}
                 />
               )}

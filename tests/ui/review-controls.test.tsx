@@ -139,7 +139,7 @@ it("explains dependency scope and returns to overview without a false zero-hop p
   render(<App />);
   await user.click(await screen.findByRole("button", { name: "Choose start" }));
   await user.click(await screen.findByRole("button", { name: "Dependencies" }));
-  await screen.findByText("Dependencies of Start");
+  await screen.findByRole("button", { name: "Back to overview" });
   expect(
     screen.queryByText(/0 hops|No modeled path within these bounds/),
   ).toBeNull();

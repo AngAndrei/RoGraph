@@ -1,3 +1,4 @@
+import { createUiLifetime } from "./ui-lifetime.js";
 import {
   createServer,
   type IncomingMessage,
@@ -92,6 +93,9 @@ export async function startServer(
       watchError = e.message;
     });
   };
+  const uiLifetime = createUiLifetime(() => {
+    void close();
+  });
   const server = createServer(async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
@@ -312,6 +316,15 @@ export async function startServer(
           send(res, 200, createContext(await store.query(body.query), body));
           return;
         }
+        if (method === "POST" && path === "/api/ui-session") {
+          const body = z
+            .object({ id: z.string().uuid(), active: z.boolean() })
+            .strict()
+            .parse(await json(req));
+          uiLifetime.update(body.id, body.active);
+          send(res, 200, { ok: true });
+          return;
+        }
         if (method === "POST" && path === "/api/shutdown") {
           send(res, 200, { stopping: true });
           setImmediate(() => {
@@ -407,6 +420,7 @@ export async function startServer(
   const close = () =>
     (closePromise ??= (async () => {
       closing = true;
+      uiLifetime.dispose();
       watchController?.abort();
       await jobs.close();
       await stopWatch();
