@@ -486,3 +486,16 @@ Sources accessed 13 November 2026. Model/runtime facts are publisher/project sta
 Source IDs are retained from the first revision where applicable. The larger-model and GraphRAG-framework sources are no longer required decisions for this release.
 
 Local sources: `README.md`; `docs/user-guide.md`; `agent-setup.md`; `performance.md`; `qa-first-time-developer.md`; contracts/core query/store/traversal/context; local server/MCP/worker; web application state, annotations and `ContextExport.tsx`; launcher and build/package scripts. The current JSON-envelope duplication and bounded export behavior were checked in code. Historical performance observations were not rerun. This revision changes the architecture document only.
+
+
+## 21. QA-driven implementation refinements, 14 November 2026
+
+Implementation remains on `chat_bot_RAG`; do not merge it into main as part of this QA pass. The local Windows package is rebuilt separately and keeps its installed weights.
+
+Use literal retrieval and bounded command parsing for frequent requests, including polite named source/dependency/path requests. Preserve exact object names before removing prose wrappers. A failed prose search may invoke the optional model once; a failed interpretation must not trigger another attempt. The original request's snapshot and view take precedence; an interpreted view applies only when the request has no view. Multiword literal names must remain searchable without a model.
+
+The model continues to interpret intent only. Canonical graph queries and retained source evidence produce the factual reply and action cards. Do not replace these guarantees with free-form whole-game answers or mandatory embeddings. Maintained app instructions use task aliases and lexical relevance with explicit availability limits; unavailable UI controls must never appear as available steps. Keep the knowledge file synchronized with the app, not with model weights.
+
+Handle cancellation and timeouts as normalized string application errors at the HTTP boundary; native DOMException numeric codes must not reach string status routing. Verify recovery and absence of cancelled answers in history. Runtime logging must include layer-placement diagnostics so CPU/GPU labels reflect execution rather than just device detection. The pinned llama.cpp runtime requires verbosity level 4 for these diagnostics.
+
+The conversation must preserve drafts edited while waiting, ignore status responses superseded by setting changes, and follow new replies only while the user is reading near the bottom. Evaluation scripts and measured results are documented in [the QA report](../../assistant-qa.md).

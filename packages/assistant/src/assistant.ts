@@ -28,7 +28,49 @@ function unquote(text: string): string {
     .trim();
 }
 
+// Keep the literal target first; prose wrappers are only a fallback after no match.
+function targetName(text: string): string {
+  if (/^["'`]/.test(text)) return unquote(text);
+  return unquote(text)
+    .replace(/^(?:the|a|an)\s+/i, "")
+    .replace(/\s+(?:module|script|function|object|node|component)$/i, "");
+}
 function deterministic(message: string): AssistantIntent | undefined {
+  message = message
+    .trim()
+    .replace(/^(?:(?:can|could|would) you\s+(?:please\s+)?|please\s+)/i, "")
+    .replace(/^(show|find|locate|search for) me\s+/i, "$1 ")
+    .replace(/\s+(?:for me|please)[?.!]?$/i, "")
+    .replace(/[?.!]$/, "");
+  const uses =
+    /^(?:what|which (?:nodes|objects|components|scripts))\s+(?:uses?|depends? on)\s+(.+)$/i.exec(
+      message,
+    );
+  if (uses)
+    return {
+      op: "impact",
+      text: unquote(uses[1]),
+      useSelection:
+        /^(?:the )?(?:selected(?: node)?|this(?: node| object)?|it)$/i.test(
+          uses[1],
+        ),
+    };
+  const depends = /^what does\s+(.+?)\s+(?:use|depend on)$/i.exec(message);
+  if (depends)
+    return {
+      op: "dependencies",
+      text: unquote(depends[1]),
+      useSelection:
+        /^(?:the )?(?:selected(?: node)?|this(?: node| object)?|it)$/i.test(
+          depends[1],
+        ),
+    };
+  const reaches =
+    /^(?:trace|show) how\s+(.+?)\s+(?:reaches|connects to)\s+(.+)$/i.exec(
+      message,
+    );
+  if (reaches)
+    return { op: "trace", from: unquote(reaches[1]), to: unquote(reaches[2]) };
   const goalTrace =
     /^(?:trace|(?:find|show)\s+(?:(?:a|the)\s+)?path)\s+(?:configuration\s+)?(flow|influence)\s+(?:from\s+)?(.+?)\s+to\s+(.+)$/i.exec(
       message,
@@ -53,7 +95,7 @@ function deterministic(message: string): AssistantIntent | undefined {
   if (between)
     return { op: "trace", from: unquote(between[1]), to: unquote(between[2]) };
   const action =
-    /^(?:(?:find|show|list|open|explain)\s+)?(?:(?:the|its)\s+)?(dependencies|dependency|deps|impact|dependents|source(?: code)?|connections|inspect)(?:\s+(?:of|for|on))?\s*(.*)$/i.exec(
+    /^(?:(?:find|show|list|open|explain)\s+)?(?:(?:the|its)\s+)?(dependencies|dependency|deps|impact|dependents|source(?: code)?|connections|inspect)(?=\s|$)(?:\s+(?:of|for|on))?\s*(.*)$/i.exec(
       message,
     );
   if (action) {
@@ -80,7 +122,9 @@ function deterministic(message: string): AssistantIntent | undefined {
     )
   )
     return { op: "inspect", useSelection: true };
-  const search = /^(?:find|search(?: for)?|look up)\s+(.+)$/i.exec(message);
+  const search = /^(?:find|locate|search(?: for)?|look up)\s+(.+)$/i.exec(
+    message,
+  );
   if (search) return { op: "search", text: unquote(search[1]) };
   return undefined;
 }
@@ -89,7 +133,7 @@ function isHelp(message: string): boolean {
   return (
     /^(?:help|what can (?:you|rograph) do)[?.!]?$/i.test(message) ||
     (/^(?:help\b|how (?:do|can|to)\b|where (?:do|can) i\b)/i.test(message) &&
-      /\b(?:import|export|rograph|context|mcp|search|trace|dependencies|impact|source|settings|model|snapshot|coverage|graph|rojo|assistant|gpu|cpu|navigate|filter|code view|gameplay view)\b/i.test(
+      /\b(?:find|text|import|export|rograph|context|mcp|search|trace|dependencies|impact|source|settings|model|snapshot|coverage|graph|rojo|assistant|gpu|cpu|navigate|filter|code view|gameplay view)\b/i.test(
         message,
       ))
   );
@@ -154,7 +198,9 @@ export async function answerRequest(
     }));
     response.text =
       intro ??
-      "Use these RoGraph steps. Availability and limits are included with each feature.";
+      (matches.length
+        ? "Use these RoGraph steps. Availability and limits are included with each feature."
+        : "I could not find maintained RoGraph instructions for that request. I can help with app controls and navigating saved game snapshots; try one of these supported features.");
     return response;
   };
   if (
@@ -162,6 +208,11 @@ export async function answerRequest(
     (request.mode !== "game" && isHelp(request.message))
   )
     return help(request.message);
+  if (/^(?:hi|hello|hey|thanks|thank you)[!.?]?$/i.test(request.message))
+    return help(
+      "assistant-controls",
+      "I can help you use RoGraph or find objects, connections and paths in the selected game snapshot.",
+    );
   if (!request.analysisId)
     return help(
       "import saved place",
@@ -171,7 +222,10 @@ export async function answerRequest(
     /\b(runtime|lag(?:ging)?|fps|memory leak|live (?:game|players)|playing now)\b/i.test(
       request.message,
     ) ||
-    /^(?:why|debug|fix|rewrite|implement|design)\b/i.test(request.message)
+    /^(?:why|debug|fix|rewrite|implement|design)\b/i.test(request.message) ||
+    /\b(?:delete|remove|edit|rewrite|execute)\b.*\b(?:game files?|scripts?|source code|place files?)\b/i.test(
+      request.message,
+    )
   ) {
     return help(
       "export context pack MCP",
@@ -179,7 +233,9 @@ export async function answerRequest(
     );
   }
   let intent = deterministic(request.message);
+  let modelAttempted = false;
   if (!intent && services.interpret) {
+    modelAttempted = true;
     try {
       intent = intentSchema.parse(
         await services.interpret(
@@ -206,8 +262,8 @@ export async function answerRequest(
   response.warnings.push(
     "Static snapshot evidence describes potential behavior, not a recorded runtime session.",
   );
-  const analysisId = request.analysisId,
-    view = request.view ?? intent.view ?? "code";
+  const analysisId = request.analysisId;
+  let view = request.view ?? intent.view ?? "code";
   let count = 0;
   const run = async (
     query: Omit<Query, "analysisId">,
@@ -284,6 +340,17 @@ export async function answerRequest(
         });
     }
   };
+  const searchName = async (name: string): Promise<QueryResult> => {
+    const result = await run({
+      op: "search",
+      text: name.slice(0, 256),
+      view: "code",
+    });
+    const fallback = targetName(name);
+    if (!result.nodes.length && fallback && fallback !== name)
+      return run({ op: "search", text: fallback.slice(0, 256), view: "code" });
+    return result;
+  };
   const resolveName = async (
     name: string | undefined,
     selected?: string,
@@ -298,15 +365,12 @@ export async function answerRequest(
       response.text = "Choose a node or provide its exact name.";
       return;
     }
-    const result = await run({
-      op: "search",
-      text: name.slice(0, 256),
-      view: "code",
-    });
+    const result = await searchName(name);
     const candidates = result.nodes.filter(concrete);
     const exact = candidates.filter(
       (node) =>
         node.label.toLowerCase() === name.toLowerCase() ||
+        node.label.toLowerCase() === targetName(name).toLowerCase() ||
         node.id === name ||
         node.attributes.path === name,
     );
@@ -318,13 +382,43 @@ export async function answerRequest(
       : `No verified node matches “${name}” in this snapshot.`;
     return undefined;
   };
-  try {
+  const execute = async (intent: AssistantIntent): Promise<void> => {
+    if (intent.op === "help") {
+      help(intent.text ?? request.message);
+      return;
+    }
     if (intent.op === "search") {
       const text = (intent.text ?? request.message).slice(0, 256);
-      const result = await run({ op: "search", text, view: "code" });
+      const result = await searchName(text);
+      // Literal retrieval stays fast. Only failed prose lookups need the optional model.
+      if (
+        !result.nodes.length &&
+        /\s/.test(text) &&
+        !modelAttempted &&
+        services.interpret
+      ) {
+        modelAttempted = true; // Bound recovery even if interpretation fails.
+        try {
+          const recovered = intentSchema.parse(
+            await services.interpret(
+              request.message,
+              { view: request.view, selectedId: request.selectedId },
+              services.signal,
+            ),
+          );
+          response.modelUsed = true;
+          view = request.view ?? recovered.view ?? view;
+          return await execute(recovered);
+        } catch {
+          services.signal?.throwIfAborted();
+          response.warnings.push(
+            "The model intent was unavailable or invalid; using literal search and maintained help.",
+          );
+        }
+      }
       response.cards.push(...result.nodes.slice(0, 20).map(nodeCard));
       response.text = response.cards.length
-        ? `Found ${result.nodes.length} matching nodes. Select a node to inspect its evidence.`
+        ? `Found ${result.nodes.length} matching nodes${result.nodes.length > 20 ? "; showing the first 20" : ""}. Select a node to inspect its evidence.`
         : `No literal matches for “${text}”. Try a saved object name or ask for app help.`;
       if (!response.cards.length) {
         const saved = [...response.warnings];
@@ -333,9 +427,9 @@ export async function answerRequest(
       }
     } else if (intent.op === "trace") {
       const from = await resolveName(intent.from, request.fromId);
-      if (!from) return response;
+      if (!from) return;
       const to = await resolveName(intent.to, request.toId);
-      if (!to) return response;
+      if (!to) return;
       const query: Query = {
         op: "trace",
         analysisId,
@@ -360,11 +454,15 @@ export async function answerRequest(
         });
       evidenceCards(result);
     } else {
+      if (intent.useSelection && !request.selectedId) {
+        response.text = "Select a node first, or provide its exact name.";
+        return;
+      }
       const node = await resolveName(
         intent.text,
         intent.useSelection ? request.selectedId : undefined,
       );
-      if (!node) return response;
+      if (!node) return;
       const result = await run({
         op:
           intent.op === "connections" || intent.op === "source"
@@ -433,6 +531,9 @@ export async function answerRequest(
         response.text = `${node.label}: ${intent.op === "inspect" ? "saved node and connections" : intent.op} from static snapshot evidence${["dependencies", "impact"].includes(intent.op) ? " (depth limit 4)" : ""}.`;
       }
     }
+  };
+  try {
+    await execute(intent);
   } catch {
     services.signal?.throwIfAborted();
     response.text =

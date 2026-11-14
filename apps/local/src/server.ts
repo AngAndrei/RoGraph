@@ -381,9 +381,18 @@ export async function startServer(
         res.destroy();
         return;
       }
+      // DOMException uses numeric legacy codes (AbortError=20, TimeoutError=23).
+      // Only application string codes may enter the HTTP status mapping.
       const code =
-        e.code ??
-        (e.name === "ZodError" ? "INVALID_REQUEST" : "INTERNAL_ERROR");
+        e?.name === "AbortError"
+          ? "CANCELLED"
+          : e?.name === "TimeoutError"
+            ? "TIMEOUT"
+            : typeof e?.code === "string"
+              ? e.code
+              : e?.name === "ZodError"
+                ? "INVALID_REQUEST"
+                : "INTERNAL_ERROR";
       send(
         res,
         code === "FORBIDDEN"

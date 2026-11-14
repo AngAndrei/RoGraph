@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-11-14T16:29:20.320Z",
+  "useModel": true,
+  "model": {
+    "installed": [
+      "qwen3.5-2b"
+    ],
+    "selectedId": "qwen3.5-2b",
+    "backend": "gpu"
+  },
+  "hardware": {
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "logicalCpus": 8,
+    "totalRamGiB": 15.703411102294922,
+    "freeRamGiB": 3.8157882690429688,
+    "gpus": [
+      {
+        "id": "Vulkan0",
+        "name": "Intel(R) Iris(R) Xe Graphics",
+        "memoryMiB": 8040
+      }
+    ],
+    "gpuProbe": "available",
+    "notes": []
+  },
+  "runtime": {
+    "runtimeState": "ready",
+    "actualBackend": "gpu"
+  },
+  "backendConfirmed": true,
+  "fixture": "shop/place.rbxlx",
+  "summary": {
+    "passed": 3,
+    "total": 3,
+    "allMs": {
+      "count": 3,
+      "min": 1178.89,
+      "median": 1479.55,
+      "p95": 17818.78,
+      "max": 17818.78
+    },
+    "modelMs": {
+      "count": 3,
+      "min": 1178.89,
+      "median": 1479.55,
+      "p95": 17818.78,
+      "max": 17818.78
+    },
+    "deterministicMs": {
+      "count": 0
+    }
+  },
+  "rows": [
+    {
+      "id": "model-alternate-find",
+      "message": "I'm looking for ShopConfig",
+      "pass": true,
+      "checks": {
+        "scope": true,
+        "budget": true,
+        "nodeIdentity": true,
+        "sourceIdentity": true,
+        "evidence": true,
+        "operation": true,
+        "label": true
+      },
+      "ms": 17818.78,
+      "modelMs": 17810.43,
+      "intent": {
+        "op": "search",
+        "text": "ShopConfig"
+      },
+      "modelUsed": true,
+      "queries": [
+        {
+          "op": "search",
+          "text": "ShopConfig",
+          "view": "code"
+        }
+      ],
+      "text": "Found 5 matching nodes. Select a node to inspect its evidence.",
+      "labels": [
+        "ShopConfig",
+        "ShopConfig.Prices.Shield",
+        "ShopConfig.Prices.Sword",
+        "ShopConfig.Enabled",
+        "ShopConfig.Prices"
+      ],
+      "warnings": [
+        "Static snapshot evidence describes potential behavior, not a recorded runtime session.",
+        "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent.",
+        "Unresolved and candidate references limit dependency/impact completeness; no modeled dependents is not proof of safety."
+      ]
+    },
+    {
+      "id": "model-alternate-source",
+      "message": "I'd like to read ShopClient.BuySword",
+      "pass": true,
+      "checks": {
+        "scope": true,
+        "budget": true,
+        "nodeIdentity": true,
+        "sourceIdentity": true,
+        "evidence": true,
+        "operation": true
+      },
+      "ms": 1178.89,
+      "modelMs": 1172.74,
+      "intent": {
+        "op": "source",
+        "text": "ShopClient.BuySword"
+      },
+      "modelUsed": true,
+      "queries": [
+        {
+          "op": "search",
+          "text": "ShopClient.BuySword",
+          "view": "code"
+        },
+        {
+          "op": "inspect",
+          "view": "code"
+        },
+        {
+          "op": "source",
+          "view": "code"
+        }
+      ],
+      "text": "Open the saved source locator to inspect this snapshot’s code.",
+      "labels": [
+        "ShopClient.BuySword",
+        "Source: ShopClient.BuySword"
+      ],
+      "warnings": [
+        "Static snapshot evidence describes potential behavior, not a recorded runtime session.",
+        "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent.",
+        "Unresolved and candidate references limit dependency/impact completeness; no modeled dependents is not proof of safety.",
+        "Results are bounded; some nodes, paths, or source bytes were omitted."
+      ]
+    },
+    {
+      "id": "model-alternate-trace",
+      "message": "Is there a connection from ShopClient.BuySword to ShopConfig.Prices.Sword?",
+      "pass": true,
+      "checks": {
+        "scope": true,
+        "budget": true,
+        "nodeIdentity": true,
+        "sourceIdentity": true,
+        "evidence": true,
+        "operation": true,
+        "card": true
+      },
+      "ms": 1479.55,
+      "modelMs": 1472.06,
+      "intent": {
+        "op": "trace",
+        "from": "ShopClient.BuySword",
+        "to": "ShopConfig.Prices.Sword"
+      },
+      "modelUsed": true,
+      "queries": [
+        {
+          "op": "search",
+          "text": "ShopClient.BuySword",
+          "view": "code"
+        },
+        {
+          "op": "search",
+          "text": "ShopConfig.Prices.Sword",
+          "view": "code"
+        },
+        {
+          "op": "trace",
+          "view": "code"
+        }
+      ],
+      "text": "Found 1 potential static path(s). Direction and conditional evidence are shown below.",
+      "labels": [
+        "ShopClient.BuySword → ShopConfig.Prices.Sword",
+        "ShopClient.BuySword → Purchase",
+        "ShopServer.onPurchase → Purchase",
+        "ShopServer.onPurchase → PurchaseService.TryPurchase",
+        "PurchaseService.TryPurchase → ShopConfig.Prices.Sword"
+      ],
+      "warnings": [
+        "Static snapshot evidence describes potential behavior, not a recorded runtime session.",
+        "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent.",
+        "Unresolved and candidate references limit dependency/impact completeness; no modeled dependents is not proof of safety."
+      ]
+    }
+  ]
+}

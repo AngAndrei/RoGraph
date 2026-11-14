@@ -37,7 +37,7 @@ try {
     Copy-Item -LiteralPath fixtures/shop/place.rbxlx -Destination (Join-Path $stage 'samples/shop.rbxlx')
     Copy-Item -LiteralPath fixtures/gameplay/egg-flow.rbxlx -Destination (Join-Path $stage 'samples/gameplay.rbxlx')
     [IO.File]::WriteAllBytes((Join-Path $stage 'samples/shop.rbxl'),[Convert]::FromBase64String((Get-Content -LiteralPath fixtures/binary/shop.rbxl.base64 -Raw)))
-    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/app-functionalities.json,docs/assistant-validation.md,tools/assistant-models.lock.json,docs/performance.md,docs/performance-results.json,docs/performance-gameplay-results.json,docs/release-validation.md,docs/provided-game-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
+    Copy-Item -LiteralPath docs/user-guide.md,docs/troubleshooting.md,docs/agent-setup.md,docs/app-functionalities.json,docs/assistant-validation.md,docs/assistant-qa.md,docs/assistant-qa-results.json,docs/assistant-qa-no-model-results.json,docs/assistant-qa-http-results.json,docs/assistant-qa-gpu-results.json,docs/assistant-qa-baseline-results.json,tools/assistant-models.lock.json,docs/performance.md,docs/performance-results.json,docs/performance-gameplay-results.json,docs/release-validation.md,docs/provided-game-validation.md,THIRD_PARTY_NOTICES.md,tools/versions.lock.json -Destination $stage
     $env:ROGRAPH_CARGO=$cargoPath
     & node.exe --import tsx scripts/collect-notices.ts $stage
     if($LASTEXITCODE -ne 0){throw 'NOTICES_FAILED'}

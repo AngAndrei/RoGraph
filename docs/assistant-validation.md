@@ -2,6 +2,8 @@
 
 Implementation branch: `chat_bot_RAG`. This feature is not merged into main.
 
+The broader 14 November QA pass, fixes, per-request latency records and current regression evidence are in [assistant-qa.md](assistant-qa.md). Counts below describe the initial preview checks.
+
 The assistant locates objects, connections and paths using revision-pinned graph operations, and retrieves app guidance from `docs/app-functionalities.json`. The optional model interprets natural-language requests; returned facts/actions are built from canonical queries. External context/MCP works without installing a model.
 
 ## Model distribution and local installation
@@ -32,4 +34,4 @@ Update `docs/app-functionalities.json` alongside each feature change; its app ve
 
 ## Using the local preview
 
-Launch the rebuilt portable `RoGraph.exe`, then click the robot button at the lower right. Drag its header or focus Move assistant window and use arrow keys. Model settings selects an installed/downloadable pack and Auto/CPU/GPU preference. Normal help and explicit Find/Trace commands work without loading a model. Snapshot-specific results never silently navigate to another game. Use Source or Export context on a result to inspect or hand off the retained evidence.
+Launch the rebuilt portable `RoGraph.exe`, then click the robot button below Fit graph (lower-right fallback before import). Drag its header or focus Move assistant window and use arrow keys. Model settings selects an installed/downloadable pack and Auto/CPU/GPU preference. Normal help and explicit Find/Trace commands work without loading a model. Snapshot-specific results never silently navigate to another game. Use Source or Export context on a result to inspect or hand off the retained evidence.

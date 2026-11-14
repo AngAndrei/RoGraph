@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-11-14T16:30:30.074Z",
+  "runtime": {
+    "state": "ready",
+    "backend": "cpu"
+  },
+  "summary": {
+    "passed": 18,
+    "total": 18
+  },
+  "rows": [
+    {
+      "id": "unauthenticated",
+      "pass": true,
+      "detail": "assistant status requires session"
+    },
+    {
+      "id": "wrong-origin",
+      "pass": true,
+      "detail": "foreign Origin rejected"
+    },
+    {
+      "id": "maintained-help-http",
+      "pass": true,
+      "detail": {
+        "ms": 20.64,
+        "modelUsed": false
+      }
+    },
+    {
+      "id": "cancel-loading",
+      "pass": true,
+      "detail": {
+        "status": 400,
+        "msAfterCancel": 1533
+      }
+    },
+    {
+      "id": "http-find",
+      "pass": true,
+      "detail": {
+        "ms": 14.92,
+        "modelUsed": false,
+        "text": "Found 5 matching nodes. Select a node to inspect its evidence."
+      }
+    },
+    {
+      "id": "http-source",
+      "pass": true,
+      "detail": {
+        "ms": 18.94,
+        "modelUsed": false,
+        "text": "Open the saved source locator to inspect this snapshot’s code."
+      }
+    },
+    {
+      "id": "http-trace",
+      "pass": true,
+      "detail": {
+        "ms": 32.94,
+        "modelUsed": false,
+        "text": "Found 1 potential static path(s). Direction and conditional evidence are shown below."
+      }
+    },
+    {
+      "id": "http-model-cold",
+      "pass": true,
+      "detail": {
+        "ms": 4967.11,
+        "modelUsed": true,
+        "text": "Found 5 matching nodes. Select a node to inspect its evidence."
+      }
+    },
+    {
+      "id": "http-model-warm",
+      "pass": true,
+      "detail": {
+        "ms": 980.29,
+        "modelUsed": true,
+        "text": "Open the saved source locator to inspect this snapshot’s code."
+      }
+    },
+    {
+      "id": "idempotent-retry",
+      "pass": true,
+      "detail": {
+        "ms": 17.54
+      }
+    },
+    {
+      "id": "request-id-conflict",
+      "pass": true,
+      "detail": {
+        "status": 400
+      }
+    },
+    {
+      "id": "stale-analysis",
+      "pass": true,
+      "detail": {
+        "status": 404
+      }
+    },
+    {
+      "id": "concurrent-question",
+      "pass": true,
+      "detail": {
+        "status": 400
+      }
+    },
+    {
+      "id": "cancel-inference",
+      "pass": true,
+      "detail": {
+        "status": 400,
+        "msAfterCancel": 3
+      }
+    },
+    {
+      "id": "recover-after-cancel",
+      "pass": true,
+      "detail": {
+        "ms": 11.68
+      }
+    },
+    {
+      "id": "model-recover-after-cancel",
+      "pass": true,
+      "detail": {
+        "ms": 1959.16
+      }
+    },
+    {
+      "id": "history-isolation",
+      "pass": true,
+      "detail": {
+        "turns": 7
+      }
+    },
+    {
+      "id": "cancel-not-in-history",
+      "pass": true,
+      "detail": {
+        "turns": 7
+      }
+    }
+  ]
+}
