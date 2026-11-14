@@ -2201,9 +2201,9 @@ small {
   margin-top: 6px;
 }
 .topbar .theme-switch{margin-left:auto}.topbar>.secondary{margin-left:0}
-.theme-switch{position:relative;width:54.4px;height:27.2px;flex-shrink:0;border-radius:17.6px;background:linear-gradient(140deg,#c9c9c9,#fff);border:1px solid #ccc;box-shadow:none;padding:0}
-.theme-switch svg{position:absolute;top:5.6px;width:16px;height:16px;stroke:currentColor;stroke-width:1.5;fill:none}.theme-sun{left:5.6px;color:#333}.theme-moon{right:5.6px;color:white}.theme-knob{position:absolute;top:2.4px;right:2.4px;width:20.8px;height:20.8px;border-radius:50%;background:linear-gradient(135deg,#404040,#202020);box-shadow:0 1px 4px #0005;transition:transform .18s}
-.theme-switch[aria-checked=true]{background:#272727;border-color:#151515}.theme-switch[aria-checked=true] .theme-knob{transform:translateX(-27.2px);background:linear-gradient(135deg,#fff,#e6e6e6)}
+.theme-switch{position:relative;width:48.96px;height:24.48px;flex-shrink:0;border-radius:15.84px;background:#f4f4f4;border:1px solid #ccc;box-shadow:none;padding:0}
+.theme-switch svg{position:absolute;top:5.04px;width:14.4px;height:14.4px;stroke:currentColor;stroke-width:1.5;fill:none}.theme-sun{left:5.04px;color:#333}.theme-moon{right:5.04px;color:white}.theme-knob{position:absolute;top:2.16px;right:2.16px;width:18.72px;height:18.72px;border-radius:50%;background:linear-gradient(135deg,#404040,#202020);box-shadow:0 1px 4px #0005;transition:transform .18s}
+.theme-switch[aria-checked=true]{background:#272727;border-color:#151515}.theme-switch[aria-checked=true] .theme-knob{transform:translateX(-24.48px);background:linear-gradient(135deg,#fff,#e6e6e6)}
 :root{--graph-label:#526880;--graph-edge:#bbc8d8}
 html[data-theme=dark]{color-scheme:dark;--ink:#e1e8f3;--muted:#a7b5ca;--line:#354157;--green:#81d4b8;--dark:#e0e8f4;--graph-label:#c3d0e5;--graph-edge:#61738f;background:#141b27;color:#e1e8f3}
 html[data-theme=dark] body{background:#141b27;color:#e1e8f3}
@@ -2217,3 +2217,7 @@ html[data-theme=dark] :is(.source-code,.source-lines,.source-content,.source-vie
 html[data-theme=dark] .welcome{background:#141b27}
 html[data-theme=dark] .brand strong{color:#e1e8f3}
 html[data-theme=dark] :is(.trace-open,.graph-exploration button,.node-mark,.search-box kbd){background:#263246;color:#d9e4f5;border-color:#465570}
+
+.theme-switch[aria-checked=false],.theme-switch[aria-checked=false] .theme-knob{box-shadow:none}
+.saved-objects>summary{cursor:pointer;user-select:none}
+.saved-objects>summary:focus-visible{outline:2px solid #488fce;outline-offset:-2px}
