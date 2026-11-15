@@ -26,7 +26,7 @@
 - [x] Add meaningful regression tests for the winning behavior; demonstrate failures, implement, then verify tests pass.
 - [x] Capture fresh imports with the selected approach; verify interaction, saved placements, component isolation and a narrow viewport.
 - [x] Record evidence and limitations in a QA report. Run typecheck, unit and relevant browser tests, then review the final change.
-- [ ] Commit and push only the experimental branch; rebuild and smoke-test the local Windows app for user review. Leave main and chat_bot_RAG unchanged.
+- [x] Commit and push only the experimental branch; rebuild and smoke-test the local Windows app for user review. Leave main and chat_bot_RAG unchanged.
 
 ## Execution ledger
 
@@ -41,3 +41,4 @@
 - Fresh read-only code review found no production blocker. Its capture identity, fresh narrow import and preview-label measurement findings were addressed. Reviewer independently verified the recorded query node sets and reversed-input determinism on all three real game graphs.
 - Renderer replay: zero selected node overlaps or edge/node intersections; labels/remaining overlaps documented without claiming perfect text readability.
 - Local Windows package and ZIP rebuilt successfully. Packaged and development web entry hashes match; all 21 release smoke checks pass, including manifest hashes, imports, local UI assets, evidence trace, reopen and launcher cleanup. This verifies the package on this development device, not a separate clean PC.
+- Published `codex/default-graph-layout-review` and left it checked out locally. Remote main remains `0ec177d0b73eac8a361d38d721e70b9bc149af72`; remote chat_bot_RAG remains `afecf7510bacef3c126595c954d1f9b570d7f6e0`. No merge was performed. Local app: `dist/windows-x64/RoGraph.exe`; comparison gallery: `build/default-layout-review/index.html`. Existing untracked model data was preserved and excluded from the commits.
