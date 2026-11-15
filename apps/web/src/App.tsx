@@ -778,6 +778,11 @@ export default function App() {
                   Boolean(traceResult)
                 }
                 arrangementScope={graphScope}
+                initialOverview={
+                  activeQuery?.op === "overview" &&
+                  activeQuery.groupBy === "service" &&
+                  activeQuery.view === "gameplay"
+                }
                 showClassMatches={
                   activeQuery?.op === "overview" &&
                   !!activeQuery.classes?.length

@@ -90,6 +90,7 @@ export function GraphView({
   onEdge,
   selectedId,
   arrangementScope = "",
+  initialOverview = false,
   showClassMatches = false,
   nodeSearch = "",
 }: {
@@ -99,6 +100,7 @@ export function GraphView({
   onEdge?: (id: string, relationIds?: string[], sourceId?: string) => void;
   selectedId?: string;
   arrangementScope?: string;
+  initialOverview?: boolean;
   showClassMatches?: boolean;
   nodeSearch?: string;
 }) {
@@ -259,6 +261,7 @@ export function GraphView({
       activeGroup,
       activeFocus,
       groups,
+      initialOverview,
       arrangementKey(result.analysisId, view, "network"),
     ]);
     const saved = arrangements.get(key);
@@ -579,6 +582,8 @@ export function GraphView({
               order: [...e.relationIds].sort()[0],
             })),
             groups,
+            initialOverview:
+              initialOverview && activeGroup === "all" && !activeFocus,
             aspectRatio:
               container.current.clientWidth /
               Math.max(1, container.current.clientHeight),
@@ -637,7 +642,7 @@ export function GraphView({
       renderer.current?.kill();
       renderer.current = null;
     };
-  }, [view, labels, arrangementScope, themeVersion]);
+  }, [view, labels, arrangementScope, themeVersion, initialOverview]);
   return (
     <div className="graph-area">
       <div className="graph-toolbar">
