@@ -5,6 +5,7 @@ export type LayoutRequest = {
   edges: Link[];
   groups?: string[][];
   aspectRatio: number;
+  initialOverview?: boolean;
   previous?: Point[];
   pins?: Point[];
 };

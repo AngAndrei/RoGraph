@@ -47,7 +47,11 @@ const browser = await chromium.launch({
 const output: any[] = [];
 try {
   for (const sample of report.results)
-    for (const mode of ["original", "adaptive", "live"]) {
+    for (const mode of process.argv[3]?.split(",") ?? [
+      "original",
+      "adaptive",
+      "live",
+    ]) {
       if (mode === "live" && !sample.details) continue;
       const context = await browser.newContext({
         viewport: { width: 1200, height: 850 },
@@ -122,7 +126,9 @@ try {
             const p: any = map.get(id),
               d = p.data;
             ctx.font = `${d.labelSize}px ${d.labelFont}`;
-            const m = ctx.measureText(d.label ?? "");
+            const m = ctx.measureText(
+              g.getNodeAttribute(id, "previewLabel") ?? d.label ?? "",
+            );
             return {
               id,
               x: p.x + p.radius + 3,

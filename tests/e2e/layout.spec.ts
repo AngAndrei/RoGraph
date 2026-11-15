@@ -43,7 +43,7 @@ test("arranges hubs and leaves compactly with one inspectable line per pair", as
   };
   const bundle = await build({
     stdin: {
-      contents: `import React from'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showGraph=result=>root.render(React.createElement(GraphView,{result,details:true,onSelect:()=>{},onEdge:(...args)=>window.clickedConnection=args}));window.showGraph(${JSON.stringify(result)});`,
+      contents: `import React from'react';import{createRoot}from'react-dom/client';import{GraphView}from'./apps/web/src/GraphView.tsx';const root=createRoot(document.getElementById('root'));window.showGraph=result=>root.render(React.createElement(GraphView,{result,details:true,initialOverview:true,onSelect:()=>{},onEdge:(...args)=>window.clickedConnection=args}));window.showGraph(${JSON.stringify(result)});`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -210,6 +210,18 @@ test("arranges hubs and leaves compactly with one inspectable line per pair", as
       );
     });
   await expect.poll(separated).toBe(true);
+  // The new placement can already show full-size nodes. Zoom out first to
+  // exercise clearance-driven shrinking, then verify growth when zooming in.
+  await page.evaluate(() =>
+    (window as any).layoutRenderer.getCamera().setState({ ratio: 4 }),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as any).layoutRenderer.getNodeDisplayData("h0").size,
+      ),
+    )
+    .toBeLessThan(6.65);
   const before = await page.evaluate(
     () => (window as any).layoutRenderer.getNodeDisplayData("h0").size,
   );

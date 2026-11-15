@@ -1,4 +1,5 @@
 import { optimizeGraph } from "./network-layout.js";
+import { arrangeInitialGraph } from "./initial-layout.js";
 import type { LayoutRequest, LayoutResponse } from "./layout-protocol.js";
 const scope = self as any;
 scope.onmessage = async (event: MessageEvent<LayoutRequest>) => {
@@ -6,7 +7,10 @@ scope.onmessage = async (event: MessageEvent<LayoutRequest>) => {
     start = performance.now();
   let response: LayoutResponse;
   try {
-    const result = await optimizeGraph(request.nodes, request.edges, {
+    const arrange = request.initialOverview
+      ? arrangeInitialGraph
+      : optimizeGraph;
+    const result = await arrange(request.nodes, request.edges, {
       groups: request.groups,
       aspectRatio: request.aspectRatio,
       previous: request.previous,
