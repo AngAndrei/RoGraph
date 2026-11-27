@@ -33,7 +33,7 @@ The source inspector's dark **Find in source** bar searches the complete saved s
 
 Saved values are initial values, not runtime-final values. Exact large integer values and non-finite values use explicit JSON markers (`int64`, `uint64`, `nonFinite`); non-UTF-8 Luau string values use `bytesHex`. Unmodeled non-finite compound properties produce a partial-import diagnostic and retain the raw XML.
 
-**Coverage** distinguishes imported objects, parsed scripts, resolved/candidate sites, and unknowns. An incomplete/partial snapshot remains inspectable but cannot replace the last complete current snapshot. Missing or invalid script source and unresolved dynamic behavior constrain conclusions. No modeled dependent does not prove a change is safe.
+Expand **Diagnostics** in the sidebar to inspect import and script issues. An incomplete/partial snapshot remains inspectable but cannot replace the last complete current snapshot. Missing or invalid script source and unresolved dynamic behavior constrain conclusions. No modeled dependent does not prove a change is safe.
 
 For Rojo, choose **Rojo project**, paste the path to `default.project.json`, and optionally enable **Watch for saved changes**. RoGraph captures contained files together, verifies the pinned build and sourcemap, then uses the same importer. Symlinks and mounts escaping the project are rejected. Use a dedicated analysis workspace; mounting game source inside that workspace is rejected. A watch change creates a new immutable snapshot and offers an **Open new snapshot** action. The displayed evidence stays pinned until you switch.
 

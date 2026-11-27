@@ -54,7 +54,7 @@ function DiagnosticReport({ analysisId, onSelect }: Props) {
   }, [analysisId, cursor, offset]);
   return (
     <section className="diagnostic-report">
-      <details open={loading || Boolean(error || page?.diagnostics.length)}>
+      <details>
         <summary>
           Diagnostics{total === undefined ? "" : " · " + total.toLocaleString()}
         </summary>

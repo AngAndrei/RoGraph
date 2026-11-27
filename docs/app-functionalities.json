@@ -23,7 +23,7 @@
       "steps": [
         "Save the place from Roblox Studio as .rbxlx or .rbxl.",
         "Choose Import project, select Saved place, choose a .rbxlx or .rbxl file and select Analyze.",
-        "Open the completed snapshot and inspect Coverage for import limitations."
+        "Open the snapshot and expand Diagnostics to inspect any import issues."
       ],
       "availability": [
         "Portable app or development local service",
@@ -555,7 +555,7 @@
         "missing source"
       ],
       "steps": [
-        "Open Coverage and expand Coverage details to review script coverage, site counts, and limitations.",
+        "Review the snapshot status and the analysis limits included in an export.",
         "Check whether graph results were limited and open Diagnostics for saved-data or script issues.",
         "Inspect unresolved sites and retained source before drawing conclusions."
       ],
@@ -585,7 +585,7 @@
         "unknown serialized type"
       ],
       "steps": [
-        "Open the diagnostic report for the snapshot.",
+        "Expand Diagnostics in the sidebar for the selected snapshot.",
         "Review the severity and page range, then inspect the affected object when available.",
         "Use exact source locations for parse errors when available."
       ],
