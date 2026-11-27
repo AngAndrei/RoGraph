@@ -49,7 +49,12 @@ export const api = {
     request<{
       current: string | null;
       analyses: AnalysisSummary[];
-      watch?: { enabled: boolean; error?: string };
+      watch?: {
+        enabled: boolean;
+        error?: string;
+        analysisId?: string;
+        analysisJobId?: string;
+      };
     }>("/api/workspace"),
   importFile: (file: File) =>
     request<Job>("/api/imports", {

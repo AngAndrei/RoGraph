@@ -3,7 +3,8 @@ import type { Evidence } from "../../../packages/contracts/src/model.js";
 import type { SourceView as View } from "../../../packages/contracts/src/query.js";
 import { api } from "./api.js";
 import { sourceMatchRanges } from "./source-find.js";
-type Props = { analysisId: string; evidence: Evidence; onClose: () => void };
+export type SourceLocation = Pick<Evidence, "sourceId" | "span">;
+type Props = { analysisId: string; evidence: SourceLocation; onClose: () => void };
 
 export function SourceView(props: Props) {
   // A new evidence locator starts its own find and pagination state.
@@ -112,7 +113,7 @@ function SourcePanel({ analysisId, evidence, onClose }: Props) {
   const excerpt = view?.excerpts[0],
     text = excerpt?.text ?? "";
   const bytes = new TextEncoder().encode(text),
-    decoder = new TextDecoder();
+    decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   let before = text,
     highlight = "",
     after = "";

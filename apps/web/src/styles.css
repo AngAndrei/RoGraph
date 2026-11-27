@@ -462,14 +462,11 @@ small {
   color: #ca7182;
 }
 .coverage details {
-  font-size: 10px;
-  color: #97a3b4;
+  font-size: 11px;
   line-height: 1.6;
 }
 .coverage summary {
   cursor: pointer;
-  color: #6e8198;
-  font-size: 9px;
 }
 .coverage details p {
   margin-top: 10px;
@@ -719,6 +716,7 @@ small {
   background: #fff;
 }
 .bounds-banner {
+  margin: 0;
   padding: 8px 25px;
   font-size: 10px;
   background: #fff7e7;
@@ -2180,6 +2178,12 @@ small {
   padding: 10px 0;
   border-bottom: 1px solid #edf0f1;
   overflow-wrap: anywhere;
+}
+.diagnostic-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
 }
 .diagnostic-report strong {
   font-size: 10px;

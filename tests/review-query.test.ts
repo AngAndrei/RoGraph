@@ -118,3 +118,16 @@ it("discloses and pages all retained diagnostics", async () =>
     expect(second.diagnostics[0].code).toBe("TEST_100");
     expect(second.meta.truncated).toBe(false);
   }, true));
+it("does not report a traversal bound when only diagnostic records were omitted", async () =>
+  setup(async (e, g) => {
+    const start = g.nodes.find((n) => n.label === "ShopServer.Broken")!;
+    const r = await e.run({
+      op: "dependencies",
+      analysisId: g.analysisId,
+      nodeId: start.id,
+      relationTypes: ["CALLS"],
+    });
+    expect(r.relations).toHaveLength(0);
+    expect(r.meta.truncated).toBe(true);
+    expect(r.meta.omittedCounts).toEqual({ diagnostics: 1 });
+  }, true));

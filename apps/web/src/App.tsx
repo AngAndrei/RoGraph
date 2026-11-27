@@ -19,6 +19,9 @@ import { SourceView } from "./SourceView.js";
 import { ContextExport, type ExportScope } from "./ContextExport.js";
 import { ThemeSwitch } from "./ThemeSwitch.js";
 import { useAppLifetime } from "./app-lifetime.js";
+
+const nonGraphOmissions = new Set(["diagnostics", "sourceBytes", "sourceDocuments"]);
+
 function Brand() {
   return (
     <div className="brand">
@@ -73,12 +76,19 @@ export default function App() {
   const [newSnapshot, setNewSnapshot] = useState<AnalysisSummary>(),
     [watching, setWatching] = useState(false);
   const knownAnalyses = useRef(new Set<string>());
+  const knownWatchedAnalyses = useRef(new Set<string>());
   const requestRef = useRef(0);
   const graphRequest = useRef(0);
   const previousAnalysis = useRef("");
   const previousView = useRef(view);
   const [exportQuery, setExportQuery] = useState<Query>();
   const [exportScopes, setExportScopes] = useState<ExportScope[]>();
+  const currentImport = useRef(job);
+  currentImport.current = job;
+  const graphResultLimited = result?.meta.truncated &&
+    Object.entries(result.meta.omittedCounts).some(
+      ([kind, count]) => count > 0 && !nonGraphOmissions.has(kind),
+    );
   useEffect(() => {
     const narrow = window.matchMedia?.("(max-width: 760px)");
     if (!narrow) return;
@@ -108,6 +118,8 @@ export default function App() {
     const w = await api.workspace();
     for (const analysis of w.analyses)
       knownAnalyses.current.add(analysis.analysisId);
+    if (w.watch?.analysisId)
+      knownWatchedAnalyses.current.add(w.watch.analysisId);
     setAnalyses(w.analyses);
     setAnalysis(id ?? w.current ?? w.analyses[0]?.analysisId ?? "");
   };
@@ -274,20 +286,35 @@ export default function App() {
           setWatching(Boolean(w.watch?.enabled));
           if (w.watch?.error) setError(w.watch.error);
           const current = w.analyses.find((a) => a.analysisId === w.current),
-            selected = w.analyses.find((a) => a.analysisId === analysisId);
-          const unseen =
-            current && !knownAnalyses.current.has(current.analysisId);
+            selected = w.analyses.find((a) => a.analysisId === analysisId),
+            watched = w.analyses.find((a) => a.analysisId === w.watch?.analysisId);
+          const isNewer = (snapshot: AnalysisSummary) =>
+            snapshot.analysisId !== analysisId &&
+            (!selected ||
+              snapshot.createdAt > selected.createdAt ||
+              (snapshot.createdAt === selected.createdAt &&
+                snapshot.importNumber > selected.importNumber));
+          const localWatchAnalysis =
+            w.watch?.analysisJobId &&
+            w.watch.analysisJobId === currentImport.current?.id
+              ? w.watch.analysisId
+              : undefined;
+          const unseenCandidate = (snapshot: AnalysisSummary | undefined, known: Set<string>) =>
+            snapshot &&
+            snapshot.analysisId !== localWatchAnalysis &&
+            isNewer(snapshot) &&
+            !known.has(snapshot.analysisId)
+              ? snapshot
+              : undefined;
+          const next = unseenCandidate(watched, knownWatchedAnalyses.current) ??
+            unseenCandidate(current?.complete ? current : undefined, knownAnalyses.current);
+          if (watched) knownWatchedAnalyses.current.add(watched.analysisId);
           for (const analysis of w.analyses)
             knownAnalyses.current.add(analysis.analysisId);
+          setAnalyses(w.analyses);
           setNewSnapshot((pending) =>
-            unseen &&
-            current.complete &&
-            current.analysisId !== analysisId &&
-            (!selected || current.createdAt > selected.createdAt)
-              ? current
-              : pending?.analysisId === w.current
-                ? pending
-                : undefined,
+            next ??
+            w.analyses.find((a) => a.analysisId === pending?.analysisId && isNewer(a)),
           );
         })
         .catch(() => {});
@@ -542,7 +569,6 @@ export default function App() {
                   <>
                     <CoverageView coverage={result.coverage} />
                     <DiagnosticView
-                      key={`diagnostics:${analysisId}`}
                       analysisId={analysisId}
                       onSelect={(id) => void select(id)}
                     />
@@ -576,7 +602,11 @@ export default function App() {
         <main className="main-area">
           {newSnapshot && (
             <div className="job-banner">
-              <strong>A new complete snapshot is ready.</strong>
+              <strong>
+                {newSnapshot.complete
+                  ? "A new complete snapshot is ready."
+                  : "A new partial snapshot is ready to inspect."}
+              </strong>
               <span>
                 {newSnapshot.displayName} · Import {newSnapshot.importNumber}
               </span>
@@ -752,6 +782,12 @@ export default function App() {
                     Code.
                   </div>
                 )}
+              {graphResultLimited && (
+                <p className="bounds-banner" role="status">
+                  This graph query reached a result limit. More nodes,
+                  connections, paths, or supporting evidence may be available.
+                </p>
+              )}
               <GraphView
                 result={result}
                 nodeSearch={nodeSearch}

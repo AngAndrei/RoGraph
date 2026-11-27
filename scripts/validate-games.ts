@@ -1,5 +1,5 @@
 import { readFile, readdir, mkdir, writeFile } from "node:fs/promises";
-import { resolve, join, extname } from "node:path";
+import { resolve, join, extname, dirname } from "node:path";
 import { analyze } from "../packages/core/src/pipeline.js";
 import { openWorkerStore } from "../packages/core/src/worker-client.js";
 import { createContext } from "../packages/core/src/context.js";
@@ -7,36 +7,46 @@ import { hash } from "../packages/core/src/util.js";
 if (!process.argv[2])
   throw Error("Choose an explicit local test-game directory");
 const directory = resolve(process.argv[2]),
-  reportPath = resolve(process.argv[3] ?? "build/real-game-validation.json");
+  reportPath = resolve(process.argv[3] ?? "build/real-game-validation.json"),
+  workspaceRoot = resolve(process.argv[4] ?? "private-inputs/acceptance");
 const inputs = (await readdir(directory))
   .filter((name) => /\.(rbxlx|rbxl)$/i.test(name))
   .sort();
 if (!inputs.length) throw Error("No saved Roblox places found");
 const games = [];
+let failures = 0;
+await mkdir(dirname(reportPath), { recursive: true });
 for (const name of inputs) {
   const path = join(directory, name),
     before = hash(await readFile(path));
   const workspace = resolve(
-    "private-inputs",
-    "acceptance",
+    workspaceRoot,
     name.replace(/[^a-z0-9_-]/gi, "_") + "-" + before.slice(0, 12),
   );
   await mkdir(workspace, { recursive: true });
   let store = await openWorkerStore(join(workspace, "graph.db"));
   const started = performance.now();
   let previousStage = "";
+  let stageStartedAt = started;
+  const stageMilliseconds: Record<string, number> = {};
   try {
     const graph = await analyze({ kind: "place", path }, store, undefined, {
       cacheDir: join(workspace, "cache"),
       excludedRoots: [workspace],
       onProgress: (p) => {
         if (p.stage !== previousStage) {
+          const time = performance.now();
+          if (previousStage)
+            stageMilliseconds[previousStage] = time - stageStartedAt;
           process.stderr.write(name + ": " + p.stage + "\n");
           previousStage = p.stage;
+          stageStartedAt = time;
         }
       },
     });
     const milliseconds = performance.now() - started;
+    previousStage = "verify";
+    stageStartedAt = performance.now();
     const semantic = graph.relations.filter((r) => r.gameplay);
     const gameplay = await store.query({
       op: "overview",
@@ -190,10 +200,12 @@ for (const name of inputs) {
     );
     games.push({
       name,
+      status: graph.coverage.partialImport ? "partial" : "complete",
       sha256: before,
       analysisId: graph.analysisId,
       bytes: (await readFile(path)).length,
       milliseconds,
+      stageMilliseconds,
       coverage: graph.coverage,
       nodes: graph.nodes.length,
       relations: graph.relations.length,
@@ -238,6 +250,22 @@ for (const name of inputs) {
       },
     });
     process.stdout.write(JSON.stringify(games.at(-1)) + "\n");
+  } catch (error) {
+    failures++;
+    const failedAt = performance.now();
+    if (previousStage) stageMilliseconds[previousStage] = failedAt - stageStartedAt;
+    const failed = {
+      name,
+      status: "failed",
+      stage: previousStage,
+      milliseconds: failedAt - started,
+      stageMilliseconds,
+      error: error instanceof Error ? error.message : String(error),
+      code: error && typeof error === "object" && "code" in error ? error.code : undefined,
+      inputUnchanged: hash(await readFile(path)) === before,
+    };
+    games.push(failed);
+    process.stdout.write(JSON.stringify(failed) + "\n");
   } finally {
     await store.close();
   }
@@ -248,9 +276,11 @@ await writeFile(
     {
       createdAt: new Date().toISOString(),
       status: "provided-game validation; static coverage limits apply",
+      failures,
       games,
     },
     null,
     2,
   ),
 );
+if (failures) process.exitCode = 1;

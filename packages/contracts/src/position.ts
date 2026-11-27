@@ -1,7 +1,8 @@
 import type { Span } from "./model.js";
 export function indexSource(text: string) {
   const bytes = new TextEncoder().encode(text),
-    starts = [0];
+    starts = [0],
+    decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   for (let i = 0; i < bytes.length; i++)
     if (bytes[i] === 10) starts.push(i + 1);
   const at = (offset: number) => {
@@ -17,8 +18,7 @@ export function indexSource(text: string) {
     return {
       line: lo + 1,
       column:
-        [...new TextDecoder().decode(bytes.subarray(starts[lo], offset))]
-          .length + 1,
+        [...decoder.decode(bytes.subarray(starts[lo], offset))].length + 1,
     };
   };
   const span = (startByte: number, endByte: number): Span => {
@@ -35,8 +35,7 @@ export function indexSource(text: string) {
   };
   return {
     span,
-    slice: (s: Span) =>
-      new TextDecoder().decode(bytes.subarray(s.startByte, s.endByte)),
+    slice: (s: Span) => decoder.decode(bytes.subarray(s.startByte, s.endByte)),
     fromLocation: (location: string) => {
       const m = /^(\d+),(\d+) - (\d+),(\d+)$/.exec(location);
       if (!m) throw new Error("Invalid parser location");

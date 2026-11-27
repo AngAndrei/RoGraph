@@ -9,6 +9,7 @@ import {
   anchorIds,
   joinValues,
   primitive,
+  VALUE_LIMIT,
 } from "./analysis-values.js";
 const methods = new Set([
   "Clone",
@@ -119,6 +120,10 @@ export class FlowResolver extends ModuleResolver {
       if (b?.initializer) return this.refine(super.get(e, f, seen), e, f);
     }
     if (e.kind === "iteration") {
+      if (e.slot !== 2) return unknown("UNMODELED_ITERATOR_SLOT");
+      if (e.inputCount !== 1) return unknown("UNMODELED_ITERATOR");
+      const inline = this.inlineIteration(e.iterable as Expr, f, seen);
+      if (inline) return inline;
       const collection = this.get(e.iterable as Expr, f, seen);
       return collection.kind === "collection"
         ? joinValues(collection.values, collection.open)
@@ -246,6 +251,58 @@ export class FlowResolver extends ModuleResolver {
       }
     }
     return super.get(e, f, seen);
+  }
+  private inlineIteration(
+    iterable: Expr,
+    f: Facts,
+    seen: Set<string>,
+  ): Value | undefined {
+    let table = iterable;
+    let sequential = false;
+    if (iterable.kind === "call" && !iterable.colon) {
+      const callee = iterable.callee as Expr;
+      const args = iterable.args as Expr[];
+      if (args.length !== 1 || args[0].kind !== "table") return;
+      const iterator = this.get(callee, f, seen);
+      if (
+        iterator.kind !== "builtin" ||
+        !["pairs", "ipairs"].includes(iterator.name)
+      )
+        return;
+      table = args[0];
+      sequential = iterator.name === "ipairs";
+    }
+    if (table.kind !== "table") return;
+    const entries = table.entries as {
+      key: string | number | null;
+      value: Expr;
+    }[];
+    if (entries.length > VALUE_LIMIT)
+      return unknown("ANALYSIS_BUDGET_EXHAUSTED");
+    const valuesByKey = new Map<string | number, Expr>();
+    for (const entry of entries) {
+      if (entry.key === null || valuesByKey.has(entry.key))
+        return unknown("UNMODELED_ITERATOR");
+      valuesByKey.set(entry.key, entry.value);
+    }
+    if (table.expandsTail) return unknown("UNMODELED_ITERATOR");
+    const values: Value[] = [];
+    if (sequential) {
+      for (let key = 1; valuesByKey.has(key); key++) {
+        const value = this.get(valuesByKey.get(key), f, seen);
+        if (value.kind === "literal" && value.value === null) break;
+        values.push(value);
+      }
+    } else {
+      for (const expression of valuesByKey.values()) {
+        const value = this.get(expression, f, seen);
+        if (value.kind !== "literal" || value.value !== null)
+          values.push(value);
+      }
+    }
+    return values.length
+      ? joinValues(values, true)
+      : unknown("NO_MODELED_ITERATOR_VALUES");
   }
   private nativeCall(
     c: Value,

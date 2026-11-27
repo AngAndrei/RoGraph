@@ -34,7 +34,7 @@ export function createParseCache(
             source: source.sha256,
             binary: identity,
             features,
-            schema: 1,
+            schema: 2,
           }),
         ),
         path = join(dir, key + ".json");

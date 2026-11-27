@@ -6,6 +6,7 @@ import type {
 } from "../../contracts/src/model.js";
 import { apiMember } from "./api-members.js";
 import { platformMember, platformResult } from "./semantics/luau.js";
+import { alternatives, joinValues } from "./analysis-values.js";
 export type Value = {
   kind: string;
   id?: string;
@@ -66,7 +67,15 @@ export class Resolver {
     f: Facts,
     seen = new Set<string>(),
   ): Value {
-    let v = this.get(e, f, seen);
+    const value = this.get(e, f, seen);
+    return value.kind === "alternatives"
+      ? joinValues(
+          alternatives(value).map((target) => this.requireValue(target, f)),
+          !!value.open,
+        )
+      : this.requireValue(value, f);
+  }
+  private requireValue(v: Value, f: Facts): Value {
     if (v.kind === "property" && v.runtime && !v.targetId)
       return unknown("UNSAVED_API_PROPERTY");
     if (v.kind === "literal" && typeof v.value === "number")
@@ -102,11 +111,24 @@ export class Resolver {
     }
     if (v.kind === "property" && v.targetId)
       v = { kind: "instance", id: v.targetId };
+    if (v.kind === "unknown" && v.ids?.length)
+      return {
+        ...v,
+        ids: v.ids.filter(
+          (id) => this.objects.get(id)?.className === "ModuleScript",
+        ),
+      };
     return v.kind === "instance"
       ? this.objects.get(v.id!)?.className === "ModuleScript"
         ? { kind: "module", id: v.id }
         : unknown("REQUIRE_TARGET_NOT_MODULE")
-      : v;
+      : v.kind === "unknown"
+        ? v
+        : unknown(
+            ["literal", "function", "table"].includes(v.kind)
+              ? "REQUIRE_TARGET_NOT_MODULE"
+              : "DYNAMIC_REQUIRE_TARGET",
+          );
   }
   get(e: Expr | undefined, f: Facts, seen = new Set<string>()): Value {
     if (!e) return unknown("MISSING_EXPRESSION");

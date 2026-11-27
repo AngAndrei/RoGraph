@@ -38,7 +38,7 @@ export function compatible(send: Evidence[], handlers: Evidence[]): boolean {
   );
 }
 export async function traverse(
-  store: GraphStore,
+  store: Pick<GraphStore, "select">,
   q: Query,
   result: QueryResult,
   roots: string[],
@@ -128,7 +128,7 @@ export async function traverse(
           : Promise.resolve({
               ...result,
               relations: [],
-              meta: { ...result.meta, truncated: false },
+              meta: { ...result.meta, nextCursor: undefined },
             }),
       ),
     );
@@ -150,7 +150,7 @@ export async function traverse(
       list.push(e);
       evMap.set(e.relationId, list);
     }
-    if (batches.some((b) => b.meta.truncated) || ev.meta.truncated) {
+    if (batches.some((b) => b.meta.nextCursor) || ev.meta.nextCursor) {
       result.meta.truncated = true;
       result.meta.omittedCounts.adjacencyOrEvidenceAtLeast = 1;
     }
@@ -162,6 +162,10 @@ export async function traverse(
       limit: 1000,
       classes: q.classes,
     });
+    if (selected.meta.nextCursor) {
+      result.meta.truncated = true;
+      result.meta.omittedCounts.nodesAtLeast = 1;
+    }
     const available = new Map(selected.nodes.map((n) => [n.id, n]));
     const next: State[] = [];
     for (const state of frontier)

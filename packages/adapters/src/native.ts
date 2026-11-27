@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Source } from "../../contracts/src/model.js";
 import type { ParsedSource } from "../../contracts/src/protocol.js";
 import { indexSource } from "../../contracts/src/position.js";
+import { RoGraphError } from "../../core/src/util.js";
 export async function parseSource(
   source: Source,
   signal?: AbortSignal,
@@ -75,6 +76,36 @@ export interface NativeSession {
   close(): Promise<void>;
   stats: { spawns: number; requests: number; active: boolean };
 }
+const nativeResponseLimit = 256 * 1024 * 1024;
+const nativeDeadline = 120_000;
+const nativeLimitMessages: Readonly<Record<string, string>> = {
+  INPUT_SIZE_LIMIT: "Place exceeds the 512 MiB input limit.",
+  INSTANCE_LIMIT: "Place exceeds the limit of 200,000 saved objects.",
+  XML_DEPTH_LIMIT: "Place XML exceeds the supported nesting depth.",
+  SCRIPT_SIZE_LIMIT: "Saved script text exceeds the 16 MiB per-script limit.",
+};
+function operationError(tool: string, message: string) {
+  if (Object.hasOwn(nativeLimitMessages, message))
+    return new RoGraphError(message, nativeLimitMessages[message]);
+  return new RoGraphError(
+    tool === "rbx-import" ? "PLACE_DECODE_FAILED" : "NATIVE_HELPER_FAILED",
+    message,
+  );
+}
+function parseResponse(frame: string): { error?: string } {
+  const result = JSON.parse(frame);
+  if (
+    !result ||
+    typeof result !== "object" ||
+    Array.isArray(result) ||
+    (Object.hasOwn(result, "error") && typeof result.error !== "string")
+  )
+    throw new RoGraphError(
+      "NATIVE_PROTOCOL_ERROR",
+      "Native helper returned an invalid response.",
+    );
+  return result;
+}
 export function createNativeSession(tool: string): NativeSession {
   let child: ReturnType<typeof spawn> | undefined,
     closed = false,
@@ -101,7 +132,7 @@ export function createNativeSession(tool: string): NativeSession {
     error ? p.reject(error) : p.resolve(value);
   };
   const stop = (error: unknown) => {
-    fatal = error;
+    fatal ??= error;
     closed = true;
     child?.kill();
   };
@@ -120,12 +151,22 @@ export function createNativeSession(tool: string): NativeSession {
     child.stdout!.on("data", (data: Buffer) => {
       if (fatal) return;
       if (!pending) {
-        stop(new Error("Unexpected native response"));
+        stop(
+          new RoGraphError(
+            "NATIVE_PROTOCOL_ERROR",
+            "Unexpected native response",
+          ),
+        );
         return;
       }
       pending.bytes += data.length;
-      if (pending.bytes > 256 * 1024 * 1024) {
-        stop(new Error("Native output limit exceeded"));
+      if (pending.bytes > nativeResponseLimit) {
+        stop(
+          new RoGraphError(
+            "NATIVE_OUTPUT_LIMIT",
+            "Native output limit exceeded",
+          ),
+        );
         return;
       }
       buffer += decoder.write(data);
@@ -134,10 +175,20 @@ export function createNativeSession(tool: string): NativeSession {
         const frame = buffer.slice(0, end);
         buffer = buffer.slice(end + 1);
         try {
-          const result = JSON.parse(frame);
-          settle(result.error ? new Error(result.error) : undefined, result);
+          const result = parseResponse(frame);
+          settle(
+            result.error !== undefined
+              ? operationError(tool, result.error)
+              : undefined,
+            result,
+          );
         } catch {
-          stop(new Error("Native helper returned invalid JSON"));
+          stop(
+            new RoGraphError(
+              "NATIVE_PROTOCOL_ERROR",
+              "Native helper returned an invalid response.",
+            ),
+          );
         }
       }
     });
@@ -146,8 +197,9 @@ export function createNativeSession(tool: string): NativeSession {
     });
     child.stdin!.on("error", () => {});
     child.on("error", (error) => {
-      fatal = new Error(
-        `Cannot start ${tool}: ${error.message}. Build the native helpers.`,
+      fatal ??= new RoGraphError(
+        "NATIVE_HELPER_UNAVAILABLE",
+        `Cannot start ${tool}: ${error.message}. Check that the native helper is installed.`,
       );
       stats.active = false;
       closed = true;
@@ -157,7 +209,13 @@ export function createNativeSession(tool: string): NativeSession {
     child.on("close", (code) => {
       stats.active = false;
       closed = true;
-      settle(fatal ?? new Error(stderr || `Native helper exited (${code})`));
+      settle(
+        fatal ??
+          new RoGraphError(
+            "NATIVE_HELPER_EXIT",
+            stderr || `Native helper exited (${code})`,
+          ),
+      );
       exitResolve?.();
     });
   };
@@ -174,8 +232,14 @@ export function createNativeSession(tool: string): NativeSession {
         const abort = () =>
             stop(signal?.reason ?? new Error("Analysis canceled")),
           timer = setTimeout(
-            () => stop(new Error("Native helper timed out")),
-            120000,
+            () =>
+              stop(
+                new RoGraphError(
+                  "NATIVE_HELPER_TIMEOUT",
+                  "Native helper timed out",
+                ),
+              ),
+            nativeDeadline,
           );
         pending = {
           resolve,
@@ -237,39 +301,61 @@ export async function runNative<T>(
     };
     const timer = setTimeout(() => {
       child.kill();
-      finish(new Error("Native helper timed out"));
-    }, 120000);
+      finish(
+        new RoGraphError("NATIVE_HELPER_TIMEOUT", "Native helper timed out"),
+      );
+    }, nativeDeadline);
     signal?.addEventListener("abort", abort, { once: true });
     child.on("error", (e) =>
       finish(
-        new Error(
-          `Cannot start ${tool}: ${e.message}. Run npm run build:native.`,
+        new RoGraphError(
+          "NATIVE_HELPER_UNAVAILABLE",
+          `Cannot start ${tool}: ${e.message}. Check that the native helper is installed.`,
         ),
       ),
     );
     let outputBytes = 0;
     child.stdout.on("data", (data) => {
       outputBytes += data.length;
-      output += decoder.write(data);
-      if (outputBytes > 256 * 1024 * 1024) {
+      if (outputBytes > nativeResponseLimit) {
         child.kill();
-        finish(new Error("Native output limit exceeded"));
+        finish(
+          new RoGraphError(
+            "NATIVE_OUTPUT_LIMIT",
+            "Native output limit exceeded",
+          ),
+        );
+        return;
       }
+      output += decoder.write(data);
     });
     child.stderr.on("data", (data) => {
       error = (error + data).slice(-8192);
     });
     child.on("close", (code) => {
       if (finished) return;
+      if (code !== 0) {
+        finish(
+          new RoGraphError(
+            "NATIVE_HELPER_EXIT",
+            error || `Native helper exited (${code})`,
+          ),
+        );
+        return;
+      }
       output += decoder.end();
       try {
-        const value = JSON.parse(output);
-        if (value.error) finish(new Error(value.error));
-        else if (code !== 0)
-          finish(new Error(error || `Native helper failed (${code})`));
-        else finish(undefined, value);
+        const value = parseResponse(output);
+        if (value.error !== undefined)
+          finish(operationError(tool, value.error));
+        else finish(undefined, value as T);
       } catch {
-        finish(new Error(error || "Native helper returned invalid JSON"));
+        finish(
+          new RoGraphError(
+            "NATIVE_PROTOCOL_ERROR",
+            error || "Native helper returned an invalid response.",
+          ),
+        );
       }
     });
     child.stdin.on("error", () => {});

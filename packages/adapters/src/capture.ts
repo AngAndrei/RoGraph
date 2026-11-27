@@ -5,8 +5,9 @@ import {
   writeFile,
   mkdir,
   mkdtemp,
+  rm,
 } from "node:fs/promises";
-import { resolve, dirname, relative, join, isAbsolute, sep } from "node:path";
+import { resolve, dirname, basename, relative, join, isAbsolute, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { parse, type ParseError } from "jsonc-parser";
@@ -28,6 +29,17 @@ export const contained = (root: string, path: string) => {
   const r = relative(root, path);
   return r !== ".." && !r.startsWith(".." + sep) && !isAbsolute(r);
 };
+export async function removeProjectCapture(inputRoot: string): Promise<void> {
+  const input = resolve(inputRoot),
+    owned = dirname(input);
+  if (
+    basename(input) !== "input" ||
+    dirname(owned) !== resolve(tmpdir()) ||
+    !/^rograph-capture-[a-z0-9_-]+$/i.test(basename(owned))
+  )
+    throw new Error("Unsafe capture cleanup target");
+  await rm(owned, { recursive: true, force: true, maxRetries: 3 });
+}
 export async function inventoryDirectory(
   root: string,
   signal?: AbortSignal,
@@ -108,6 +120,7 @@ export async function captureProject(
   signal?: AbortSignal,
   excludedRoots: string[] = [],
 ): Promise<ProjectCapture> {
+  signal?.throwIfAborted();
   projectPath = resolve(projectPath);
   const originalRoot = dirname(projectPath);
   const project = parseProject(await readFile(projectPath, "utf8"));
@@ -128,33 +141,40 @@ export async function captureProject(
       );
   const owned = await mkdtemp(join(tmpdir(), "rograph-capture-")),
     root = join(owned, "input");
-  await mkdir(root);
-  for (const dir of before.directories)
-    await mkdir(join(root, dir), { recursive: true });
-  const files: ProjectCapture["files"] = [];
-  for (const file of before.files) {
+  try {
     signal?.throwIfAborted();
-    const originalPath = join(originalRoot, file.path),
-      capturedPath = join(root, file.path);
-    const data = await readFile(originalPath, { signal });
-    if (digest(data) !== file.sha256)
-      throw new Error("Project changed during capture; retry import.");
-    await writeFile(capturedPath, data);
-    files.push({
-      originalPath,
-      capturedPath,
-      sha256: file.sha256,
-      byteLength: file.byteLength,
-    });
+    await mkdir(root);
+    for (const dir of before.directories)
+      await mkdir(join(root, dir), { recursive: true });
+    const files: ProjectCapture["files"] = [];
+    for (const file of before.files) {
+      signal?.throwIfAborted();
+      const originalPath = join(originalRoot, file.path),
+        capturedPath = join(root, file.path);
+      const data = await readFile(originalPath, { signal });
+      if (digest(data) !== file.sha256)
+        throw new Error("Project changed during capture; retry import.");
+      await writeFile(capturedPath, data, { signal });
+      files.push({
+        originalPath,
+        capturedPath,
+        sha256: file.sha256,
+        byteLength: file.byteLength,
+      });
+    }
+    const after = await inventoryDirectory(originalRoot, signal, excludedRoots);
+    if (after.manifestHash !== before.manifestHash)
+      throw new Error("Project directory changed during capture; retry import.");
+    return {
+      root,
+      projectPath: join(root, relative(originalRoot, projectPath)),
+      manifestHash: before.manifestHash,
+      files,
+      directories: before.directories,
+    };
+  } catch (error) {
+    // Keep the actionable capture failure if cleanup also fails.
+    await removeProjectCapture(root).catch(() => {});
+    throw error;
   }
-  const after = await inventoryDirectory(originalRoot, signal, excludedRoots);
-  if (after.manifestHash !== before.manifestHash)
-    throw new Error("Project directory changed during capture; retry import.");
-  return {
-    root,
-    projectPath: join(root, relative(originalRoot, projectPath)),
-    manifestHash: before.manifestHash,
-    files,
-    directories: before.directories,
-  };
 }

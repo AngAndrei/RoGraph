@@ -64,9 +64,19 @@ export async function importPlace(
       key = parentId ?? "root",
       siblingOrdinal = siblings.get(key) ?? 0;
     siblings.set(key, siblingOrdinal + 1);
-    const properties = structuredClone(v.properties);
-    for (const p of Object.values(properties) as any[])
-      if (p.type === "Ref" && p.value) p.value = idMap.get(p.value) ?? null;
+    const properties = structuredClone(v.properties) as Instance["properties"];
+    for (const p of Object.values(properties)) {
+      if (p.type === "Ref" && typeof p.value === "string")
+        p.value = idMap.get(p.value) ?? null;
+      if (
+        p.type === "Content" &&
+        p.value &&
+        typeof p.value === "object" &&
+        "Object" in p.value &&
+        typeof p.value.Object === "string"
+      )
+        p.value.Object = idMap.get(p.value.Object) ?? null;
+    }
     const i: Instance = {
       id,
       parentId,
@@ -135,6 +145,7 @@ export async function importPlace(
           "NON_FINITE_PROPERTY",
           "UNKNOWN_PROPERTY_TYPE",
           "DANGLING_REFERENT",
+          "DANGLING_SHARED_PAYLOAD",
           "INVENTORY_MISMATCH",
           "MISSING_SOURCE",
           "PROPERTY_NOT_RETAINED",

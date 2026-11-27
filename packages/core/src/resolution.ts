@@ -5,6 +5,8 @@ import type {
   Node,
 } from "../../contracts/src/model.js";
 import { hash } from "./util.js";
+import { alternatives } from "./analysis-values.js";
+import type { Value } from "./resolver.js";
 export const emptyResolution = (): Resolution => ({
   sites: [],
   nodes: [],
@@ -12,8 +14,14 @@ export const emptyResolution = (): Resolution => ({
   evidence: [],
   diagnostics: [],
 });
-export function mark(result: Resolution, site: Site, value: any) {
-  const ids = value.ids ?? (value.id ? [value.id] : []);
+export function mark(result: Resolution, site: Site, value: Value) {
+  const ids = [
+    ...new Set(
+      alternatives(value).flatMap(
+        (target) => target.ids ?? (target.id ? [target.id] : []),
+      ),
+    ),
+  ];
   const known = [
     "instance",
     "module",

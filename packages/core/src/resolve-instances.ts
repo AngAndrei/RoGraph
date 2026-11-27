@@ -7,6 +7,7 @@ import type {
 import { FlowResolver as Resolver } from "./flow-resolver.js";
 import { emptyResolution, mark, emit, addNode } from "./resolution.js";
 import { resolveContexts } from "./execution-context.js";
+import { alternatives } from "./analysis-values.js";
 export function resolveInstances(
   snapshot: Snapshot,
   facts: Facts[],
@@ -21,30 +22,25 @@ export function resolveInstances(
         if (callee.kind === "builtin" && callee.name === "require") {
           const target = resolver.requireTarget((e.args as Expr[])[0], f);
           const s = mark(result, site, target);
-          if (target.kind === "external") {
-            addNode(result, {
-              id: target.id!,
-              kind: "external",
-              label: `Asset module ${target.assetId}`,
-              contexts: ["unknown"],
-              attributes: { assetId: target.assetId, sourceAvailable: false },
-            });
+          for (const value of alternatives(target))
+            if (value.kind === "external")
+              addNode(result, {
+                id: value.id!,
+                kind: "external",
+                label: `Asset module ${value.assetId}`,
+                contexts: ["unknown"],
+                attributes: { assetId: value.assetId, sourceAvailable: false },
+              });
+          if (target.kind === "module" || target.kind === "external")
             emit(
               result,
               site.ownerId,
               target.id!,
               "REQUIRES",
               s,
-              "require-asset-id",
-            );
-          } else if (target.kind === "module")
-            emit(
-              result,
-              site.ownerId,
-              target.id!,
-              "REQUIRES",
-              s,
-              "require-saved-module",
+              target.kind === "module"
+                ? "require-saved-module"
+                : "require-asset-id",
             );
         } else if (callee.kind === "native") {
           const target = resolver.get(e, f),
@@ -72,7 +68,7 @@ export function resolveInstances(
             s,
             "saved-instance-path",
           );
-        } else if (target.ids?.length || target.reason === "DYNAMIC_MEMBER_KEY")
+        } else if (target.kind === "unknown" || target.kind === "alternatives")
           mark(result, site, target);
       }
     }

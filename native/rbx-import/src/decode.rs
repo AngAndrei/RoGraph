@@ -78,6 +78,85 @@ mod payload_tests {
             1
         );
     }
+
+    #[test]
+    fn missing_xml_shared_payloads_are_not_empty_binary_strings() {
+        let hash = "AAAAAAAAAAAAAAAAAAAAAA==";
+        for kind in ["SharedString", "NetAssetRef"] {
+            let xml = format!(
+                r#"<roblox version="4"><Item class="Folder" referent="f"><Properties>
+                    <{kind} name="Payload">{hash}</{kind}>
+                </Properties></Item></roblox>"#
+            );
+            let result = decode(xml.as_bytes()).unwrap();
+            let instance = &result["instances"][1];
+            let diagnostic = result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|diagnostic| diagnostic["code"] == "DANGLING_SHARED_PAYLOAD")
+                .expect("missing shared payload must be reported");
+            assert_eq!(diagnostic["ownerId"], instance["id"]);
+            assert_eq!(
+                instance["properties"]["Payload"],
+                json!({"type":kind,"value":{"unresolvedHash":hash},"unsupported":true})
+            );
+
+            let with_payload = xml.replace(
+                "</roblox>",
+                &format!(
+                    r#"<SharedStrings><SharedString md5="{hash}"></SharedString></SharedStrings></roblox>"#
+                ),
+            );
+            let result = decode(with_payload.as_bytes()).unwrap();
+            assert_eq!(
+                result["instances"][1]["properties"]["Payload"],
+                json!({"type":kind,"value":""})
+            );
+            assert!(!result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "DANGLING_SHARED_PAYLOAD"));
+        }
+    }
+
+    #[test]
+    fn reports_non_finite_composite_properties_with_an_owner() {
+        let xml = br#"<roblox version="4"><Item class="Folder" referent="f"><Properties>
+            <UDim name="Layout"><S>INF</S><O>1</O></UDim>
+            <UDim2 name="Layout2"><XS>1</XS><XO>0</XO><YS>INF</YS><YO>0</YO></UDim2>
+            <Ray name="Probe"><origin><X>INF</X><Y>1</Y><Z>2</Z></origin><direction><X>0</X><Y>1</Y><Z>0</Z></direction></Ray>
+            <OptionalCoordinateFrame name="EmptyFrame"/>
+        </Properties></Item></roblox>"#;
+        let result = decode(xml).unwrap();
+        let instance = &result["instances"][1];
+        for name in ["Layout", "Layout2", "Probe"] {
+            let diagnostic = result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|diagnostic| {
+                    diagnostic["code"] == "NON_FINITE_PROPERTY"
+                        && diagnostic["message"]
+                            .as_str()
+                            .unwrap()
+                            .starts_with(&format!("{name} "))
+                })
+                .expect("non-finite property must be reported");
+            assert_eq!(diagnostic["ownerId"], instance["id"]);
+            assert!(diagnostic["message"]
+                .as_str()
+                .unwrap()
+                .contains("raw input"));
+            assert_eq!(instance["properties"][name]["unsupported"], true);
+        }
+        assert_eq!(
+            instance["properties"]["EmptyFrame"]["type"],
+            "OptionalCFrame"
+        );
+        assert_eq!(instance["properties"]["EmptyFrame"]["value"], Value::Null);
+    }
 }
 fn numeric_null(value: &Value) -> bool {
     match value {
@@ -96,7 +175,12 @@ fn numeric_null(value: &Value) -> bool {
                     | "NumberSequence"
                     | "ColorSequence"
                     | "PhysicalProperties"
+                    | "Ray"
+                    | "Region3"
+                    | "UDim"
+                    | "UDim2"
             )) && has_null(v))
+                || (k == "OptionalCFrame" && !v.is_null() && has_null(v))
                 || numeric_null(v)
         }),
         _ => false,
@@ -206,7 +290,7 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
             } else {
                 let mut v = serde_json::to_value(value).map_err(|e| e.to_string())?;
                 if numeric_null(&v) {
-                    diagnostics.push(json!({"code":"NON_FINITE_PROPERTY","severity":"warning","message":format!("{} contains non-finite numeric components; original XML retained",key)}));
+                    diagnostics.push(json!({"code":"NON_FINITE_PROPERTY","severity":"warning","ownerId":id.to_string(),"message":format!("{} contains non-finite numeric components; original raw input retained",key)}));
                     json!({"type":"unmodeled","value":{"unmodeledNonFinite":true},"unsupported":true})
                 } else {
                     exact_integers(&mut v);
@@ -242,6 +326,18 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
                         continue;
                     }
                     let names = property_names(i.class.as_str(), name);
+                    if property["missingSharedPayload"] == true {
+                        let kind = property["type"].as_str().unwrap_or("SharedString");
+                        let missing_hash = property["text"].as_str().unwrap_or("");
+                        let canonical_name =
+                            names.iter().find(|name| properties.contains_key(*name));
+                        properties.insert(
+                            canonical_name.map_or(name, String::as_str).to_owned(),
+                            json!({"type":kind,"value":{"unresolvedHash":missing_hash},"unsupported":true}),
+                        );
+                        diagnostics.push(json!({"code":"DANGLING_SHARED_PAYLOAD","severity":"warning","ownerId":id.to_string(),"message":format!("{name} refers to an absent {kind} payload; raw input retained")}));
+                        continue;
+                    }
                     let decoded = names
                         .iter()
                         .find_map(|name| i.properties.get(&name.as_str().into()));
@@ -277,6 +373,6 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
         diagnostics.push(json!({"code":"OPAQUE_SHARED_PAYLOAD","severity":"info","message":format!("{} opaque SharedString properties over 1024 bytes are represented by BLAKE3 hash and byte length. Exact payloads remain in the retained raw input, not inline in the analysis.",opaque_payloads)}));
     }
     Ok(
-        json!({"instances":instances,"inventory":{"items":items,"format":if binary{"rbxl"}else{"rbxlx"}},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":4}),
+        json!({"instances":instances,"inventory":{"items":items,"format":if binary{"rbxl"}else{"rbxlx"}},"diagnostics":diagnostics,"importerVersion":env!("CARGO_PKG_VERSION"),"serializationVersion":5}),
     )
 }

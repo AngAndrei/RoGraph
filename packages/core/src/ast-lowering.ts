@@ -146,11 +146,16 @@ export function lowerAst(parsed: ParsedSource): Facts {
           no: expr(v.falseExpr, owner, scope),
         };
       case "AstExprTable": {
+        const items = v.items ?? [];
+        const last = items.at(-1);
         let listIndex = 0;
         return {
           ...base,
           kind: "table",
-          entries: (v.items ?? []).map((item: any) => {
+          expandsTail:
+            last?.kind === "item" &&
+            ["AstExprCall", "AstExprVarargs"].includes(last.value?.type),
+          entries: items.map((item: any) => {
             if (item.kind !== "item" && item.key)
               expr(item.key, owner, scope, "read");
             return {
@@ -272,6 +277,8 @@ export function lowerAst(parsed: ParsedSource): Facts {
             b.initializer = {
               kind: "iteration",
               iterable: values[0],
+              slot: index + 1,
+              inputCount: values.length,
               span: loc(variable),
             };
         }

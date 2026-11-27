@@ -29,6 +29,12 @@ export function resolveGameplay(
 ): Resolution {
   const result = emptyResolution(),
     resolver = new FlowResolver(snapshot, facts);
+  const classifiedCallIds = new Set(
+    resolutions
+      .flatMap((pass) => pass.sites)
+      .filter((site) => site.kind === "call" && site.status !== "unresolved")
+      .map((site) => site.id),
+  );
   const siteMap = new Map(facts.flatMap((f) => f.sites).map((s) => [s.id, s]));
   const relationIds = new Set<string>();
   const scopes = gameplayScopes(facts, resolutions, resolver);
@@ -428,8 +434,10 @@ export function resolveGameplay(
             }
           }
         if (
+          !classifiedCallIds.has(site.id) &&
+          !unsupported.length &&
           alternatives(callee).every((c) =>
-            ["intrinsic", "native", "signal-connect"].includes(c.kind),
+            ["intrinsic", "native"].includes(c.kind),
           )
         ) {
           const values = alternatives(value),

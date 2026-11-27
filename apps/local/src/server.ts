@@ -17,7 +17,7 @@ import { RoGraphError } from "../../../packages/core/src/util.js";
 import { querySchema } from "../../../packages/core/src/query.js";
 import { projectRoot } from "../../../packages/adapters/src/native.js";
 import { createJobs } from "./jobs.js";
-import { watchProject } from "../../../packages/core/src/watch.js";
+import { createRojoWatch } from "./rojo-watch.js";
 const json = async (req: IncomingMessage) => {
   let bytes = 0;
   const chunks: Buffer[] = [];
@@ -44,54 +44,17 @@ export async function startServer(
   await mkdir(workspace, { recursive: true });
   const store = await openWorkerStore(join(workspace, "graph.db")),
     jobs = createJobs(store, workspace),
+    rojoWatch = createRojoWatch(jobs, workspace),
     sessionToken = randomBytes(32).toString("hex");
   let url = "",
     closing = false,
-    uploading = false;
+    startingImport = false;
   const send = (res: ServerResponse, status: number, value: unknown) => {
     res.writeHead(status, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
     });
     res.end(JSON.stringify(value));
-  };
-  let watchController: AbortController | undefined,
-    watchPromise: Promise<void> | undefined,
-    watchPath: string | undefined,
-    watchError: string | undefined,
-    watchJob: string | undefined;
-  const stopWatch = async () => {
-    watchController?.abort();
-    await watchPromise;
-    watchController = undefined;
-  };
-  const startWatch = async (projectPath: string) => {
-    await stopWatch();
-    const controller = new AbortController();
-    watchController = controller;
-    watchPath = projectPath;
-    watchError = undefined;
-    watchPromise = watchProject(
-      projectPath,
-      async (input) => {
-        await jobs.idle();
-        if (controller.signal.aborted) return;
-        const job = jobs.start(input, basename(projectPath));
-        watchJob = job.id;
-        const cancel = () => jobs.cancel(job.id);
-        controller.signal.addEventListener("abort", cancel, { once: true });
-        try {
-          await jobs.wait(job.id);
-          watchError = jobs.get(job.id).error?.message;
-        } finally {
-          controller.signal.removeEventListener("abort", cancel);
-        }
-      },
-      controller.signal,
-      [workspace],
-    ).catch((e) => {
-      watchError = e.message;
-    });
   };
   const uiLifetime = createUiLifetime(() => {
     void close();
@@ -130,20 +93,13 @@ export async function startServer(
             current: await store.current(),
             analyses: list.items,
             nextCursor: list.nextCursor,
-            watch: {
-              enabled: Boolean(
-                watchController && !watchController.signal.aborted,
-              ),
-              projectPath: watchPath,
-              error: watchError,
-              jobId: watchJob,
-            },
+            watch: rojoWatch.state(),
             capabilities: { runtimeCapture: false, rojo: true },
           });
           return;
         }
         if (method === "DELETE" && path === "/api/snapshots") {
-          if (uploading || jobs.busy())
+          if (startingImport || jobs.busy())
             throw new RoGraphError(
               "JOB_BUSY",
               "Wait for the current analysis to finish.",
@@ -159,12 +115,12 @@ export async function startServer(
           return;
         }
         if (method === "POST" && path === "/api/imports") {
-          if (uploading || jobs.busy())
+          if (startingImport || jobs.busy())
             throw new RoGraphError(
               "JOB_BUSY",
               "Wait for the current analysis or cancel it",
             );
-          uploading = true;
+          startingImport = true;
           let destination: string | undefined;
           try {
             const name = basename(
@@ -219,7 +175,7 @@ export async function startServer(
             destination = undefined;
             send(res, 202, job);
           } finally {
-            uploading = false;
+            startingImport = false;
             if (destination) await rm(destination, { force: true });
           }
           return;
@@ -238,12 +194,23 @@ export async function startServer(
               "INVALID_INPUT",
               "Choose a Rojo .project.json file",
             );
-          const job = jobs.start(
-            { kind: "rojo", projectPath: project },
-            basename(project),
-          );
-          if (body.watch) await startWatch(project);
-          send(res, 202, job);
+          if (startingImport || jobs.busy())
+            throw new RoGraphError(
+              "JOB_BUSY",
+              "Wait for the current analysis or cancel it",
+            );
+          startingImport = true;
+          try {
+            const job = body.watch
+              ? await rojoWatch.start(project, true)
+              : jobs.start(
+                  { kind: "rojo", projectPath: project },
+                  basename(project),
+                );
+            send(res, 202, job);
+          } finally {
+            startingImport = false;
+          }
           return;
         }
         if (method === "POST" && path === "/api/watch") {
@@ -263,12 +230,10 @@ export async function startServer(
                 "INVALID_INPUT",
                 "Choose a Rojo .project.json file",
               );
-            await startWatch(resolve(body.projectPath));
-          } else await stopWatch();
+            await rojoWatch.start(resolve(body.projectPath));
+          } else await rojoWatch.stop();
           send(res, 200, {
-            enabled: Boolean(
-              watchController && !watchController.signal.aborted,
-            ),
+            enabled: rojoWatch.state().enabled,
           });
           return;
         }
@@ -429,9 +394,9 @@ export async function startServer(
     (closePromise ??= (async () => {
       closing = true;
       uiLifetime.dispose();
-      watchController?.abort();
+      const watchStopped = rojoWatch.stop();
       await jobs.close();
-      await stopWatch();
+      await watchStopped;
       await new Promise<void>((r) => {
         server.close(() => r());
         server.closeAllConnections();
