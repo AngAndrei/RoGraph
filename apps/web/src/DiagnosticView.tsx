@@ -32,7 +32,7 @@ export function DiagnosticView({
   }, [analysisId, cursor]);
   return (
     <section className="diagnostic-report">
-      <details open={Boolean(page?.diagnostics.length)}>
+      <details>
         <summary>
           Diagnostics{page ? " · " + page.diagnostics.length : ""}
         </summary>

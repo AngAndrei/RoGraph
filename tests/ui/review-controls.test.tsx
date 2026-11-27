@@ -311,6 +311,10 @@ it("shows diagnostic details and opens their indexed owner", async () => {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText("Saved property was not retained");
+  expect(screen.queryByRole("heading", { name: "Coverage" })).toBeNull();
+  const summary = await screen.findByText(/^Diagnostics\b/);
+  expect(summary.closest("details")?.open).toBe(false);
+  await user.click(summary);
   await user.click(
     screen.getByRole("button", { name: "Open diagnostic owner" }),
   );
@@ -432,6 +436,7 @@ it("opens a parse diagnostic at its exact indexed source location", async () => 
   );
   const user = userEvent.setup();
   render(<DiagnosticView analysisId="a" onSelect={() => {}} />);
+  await user.click(await screen.findByText(/^Diagnostics\b/));
   await user.click(
     await screen.findByRole("button", { name: "View diagnostic source" }),
   );
