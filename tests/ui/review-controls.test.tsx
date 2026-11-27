@@ -43,7 +43,6 @@ vi.mock("../../apps/web/src/Inspector.js", () => ({
 import App from "../../apps/web/src/App.js";
 import { TraceControls } from "../../apps/web/src/TraceView.js";
 import { DiagnosticView } from "../../apps/web/src/DiagnosticView.js";
-import { CoverageView } from "../../apps/web/src/CoverageView.js";
 const start = {
     id: "start",
     kind: "function" as const,
@@ -98,29 +97,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it("shows why coverage is incomplete even when the saved-file import succeeded", () => {
-  const limitations = [
-    "One saved place; runtime-created objects, external asset code, and dynamic dispatch may be absent.",
-    "1 saved scripts have missing or invalid source; dependencies are incomplete.",
-  ];
-  render(
-    <CoverageView
-      coverage={{
-        ...result().coverage,
-        discoveredScripts: 4,
-        parsedScripts: 3,
-        discoveredSites: 10,
-        resolvedSites: 6,
-        unresolvedSites: 2,
-        candidateSites: 2,
-        limitations,
-      }}
-    />,
-  );
-  expect(screen.getByText("Source incomplete")).toBeTruthy();
-  expect(screen.getByText(limitations[1]).closest("details")?.open).toBe(true);
-  expect(screen.getByText("6 of 10 discovered code sites resolved.")).toBeTruthy();
-  expect(screen.getByText(/Candidate sites have possible targets/)).toBeTruthy();
+it("omits Coverage and opens Diagnostics only on request", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("button", { name: "Choose start" });
+  expect(screen.queryByRole("heading", { name: "Coverage" })).toBeNull();
+  const summary = await screen.findByText(/^Diagnostics\b/);
+  expect(summary.closest("details")?.open).toBe(false);
+  await user.click(summary);
+  expect(summary.closest("details")?.open).toBe(true);
 });
 
 it("keeps the diagnostic total and resets the cursor and source on snapshot change", async () => {
@@ -157,7 +142,7 @@ it("keeps the diagnostic total and resets the cursor and source on snapshot chan
   });
   const user = userEvent.setup();
   const { rerender } = render(<DiagnosticView analysisId="a" onSelect={() => {}} />);
-  expect(await screen.findByText("Diagnostics · 101")).toBeTruthy();
+  await user.click(await screen.findByText("Diagnostics · 101"));
   expect(screen.getByText("Showing 1–100 of 101 diagnostics")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Next diagnostics page" }));
   expect(screen.queryByText("FIRST_1")).toBeNull();
@@ -194,6 +179,9 @@ it("keeps the diagnostic total and resets the cursor and source on snapshot chan
 it("exposes a diagnostic request failure without opening a collapsed panel", async () => {
   mock.run.mockRejectedValue(new Error("Diagnostics could not be loaded."));
   render(<DiagnosticView analysisId="a" onSelect={() => {}} />);
+  const summary = await screen.findByText("Diagnostics");
+  expect(summary.closest("details")?.open).toBe(false);
+  await userEvent.setup().click(summary);
   const alert = await screen.findByRole("alert");
   expect(alert.closest("details")?.open).toBe(true);
 });
@@ -658,6 +646,7 @@ it("opens a parse diagnostic at its exact indexed source location", async () => 
   );
   const user = userEvent.setup();
   render(<DiagnosticView analysisId="a" onSelect={() => {}} />);
+  await user.click(await screen.findByText(/^Diagnostics\b/));
   await user.click(
     await screen.findByRole("button", { name: "View diagnostic source" }),
   );

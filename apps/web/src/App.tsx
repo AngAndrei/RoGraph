@@ -9,7 +9,6 @@ import type { Node, Evidence } from "../../../packages/contracts/src/model.js";
 import type { Job } from "../../local/src/jobs.js";
 import { api } from "./api.js";
 import { ImportView } from "./ImportView.js";
-import { CoverageView } from "./CoverageView.js";
 import { Hierarchy, NodeMark } from "./Hierarchy.js";
 import { GraphView } from "./GraphView.js";
 import { snapshotDetails } from "./SnapshotOption.js";
@@ -567,7 +566,6 @@ export default function App() {
                 )}
                 {result?.analysisId === analysisId && (
                   <>
-                    <CoverageView coverage={result.coverage} />
                     <DiagnosticView
                       analysisId={analysisId}
                       onSelect={(id) => void select(id)}
