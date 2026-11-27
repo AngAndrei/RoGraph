@@ -93,6 +93,18 @@ export function resolveEvents(
   const result = emptyResolution(),
     resolver = new EventResolver(snapshot, facts),
     contexts = resolveContexts(snapshot, facts, instances);
+  const projectFunctions = new Set(
+    calls.nodes.filter((node) => node.kind === "function").map((node) => node.id),
+  );
+  const classifiedCalls = new Set(
+    calls.sites
+      .filter(
+        (site) =>
+          site.status === "resolved" ||
+          (site.status === "candidate" && site.targetIds.some((id) => projectFunctions.has(id))),
+      )
+      .map((site) => site.id),
+  );
   const record = (
     raw: Site,
     channel: Value,
@@ -132,6 +144,9 @@ export function resolveEvents(
         severity: "warning",
         message: `${method} is incompatible with this saved script context`,
         siteId: site.id,
+        ownerId: resolver.owners.get(raw.ownerId) ?? raw.ownerId,
+        sourceId: site.sourceId,
+        span: site.span,
       });
       return;
     }
@@ -153,6 +168,7 @@ export function resolveEvents(
   };
   for (const f of facts) {
     for (const raw of f.sites.filter((s) => s.kind === "call")) {
+      if (classifiedCalls.has(raw.id)) continue;
       const e = raw.expression,
         callee = e.callee as Expr;
       if (callee.kind !== "index") continue;

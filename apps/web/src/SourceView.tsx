@@ -113,7 +113,7 @@ function SourcePanel({ analysisId, evidence, onClose }: Props) {
   const excerpt = view?.excerpts[0],
     text = excerpt?.text ?? "";
   const bytes = new TextEncoder().encode(text),
-    decoder = new TextDecoder();
+    decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   let before = text,
     highlight = "",
     after = "";

@@ -555,13 +555,14 @@
         "missing source"
       ],
       "steps": [
-        "Open Coverage and review imported, parsed, resolved, candidate and unknown counts.",
-        "Read partial-import diagnostics and the result's bounded-map omissions separately.",
+        "Open Coverage and expand Coverage details to review script coverage, site counts, and limitations.",
+        "Check whether graph results were limited and open Diagnostics for saved-data or script issues.",
         "Inspect unresolved sites and retained source before drawing conclusions."
       ],
       "availability": ["Any completed or partial inspectable analysis"],
       "limitations": [
         "A partial snapshot cannot replace the last complete current snapshot.",
+        "A script that fails parsing remains available as retained source but contributes no analyzed code sites.",
         "Dynamic paths, aliases, computed exports, metatables, runtime-created objects and external code may remain unresolved.",
         "Missing modeled connections do not prove absence of runtime behavior."
       ],
@@ -585,7 +586,7 @@
       ],
       "steps": [
         "Open the diagnostic report for the snapshot.",
-        "Page through reported issues and inspect an affected object.",
+        "Review the severity and page range, then inspect the affected object when available.",
         "Use exact source locations for parse errors when available."
       ],
       "availability": ["Snapshot with retained diagnostics"],

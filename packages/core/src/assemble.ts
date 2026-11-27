@@ -107,15 +107,26 @@ export function assembleGraph(
         { instanceId: i.id, propertyName: "$parent" },
         "saved-hierarchy",
       );
-    for (const [key, p] of Object.entries(i.properties))
-      if (p.type === "Ref" && typeof p.value === "string" && nodes.has(p.value))
+    for (const [key, p] of Object.entries(i.properties)) {
+      let target = p.type === "Ref" ? p.value : undefined;
+      if (
+        p.type === "Content" &&
+        p.value &&
+        typeof p.value === "object" &&
+        "Object" in p.value
+      )
+        target = p.value.Object;
+      if (typeof target === "string" && nodes.has(target))
         saved(
           i.id,
-          p.value,
+          target,
           "REFERENCES",
           { instanceId: i.id, propertyName: key },
-          "serialized-reference",
+          p.type === "Content"
+            ? "serialized-content-reference"
+            : "serialized-reference",
         );
+    }
   }
   for (const n of [...nodes.values()])
     if (["function", "field"].includes(n.kind) && n.ownerId) {
@@ -203,11 +214,16 @@ export function assembleGraph(
       }
   }
   const allSites = [...sites.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const parsedScripts = facts.filter(
+    (f) => !f.diagnostics.some((d) => d.code === "LUAU_PARSE_ERROR"),
+  ).length;
+  const scriptsWithoutAnalysis =
+    snapshot.coverage.discoveredScripts - parsedScripts;
   const coverage = {
     ...snapshot.coverage,
-    parsedScripts: facts.filter(
-      (f) => !f.diagnostics.some((d) => d.code === "LUAU_PARSE_ERROR"),
-    ).length,
+    parsedScripts,
+    partialImport:
+      snapshot.coverage.partialImport || scriptsWithoutAnalysis > 0,
     discoveredSites: allSites.length,
     resolvedSites: allSites.filter(
       (s) => s.status === "resolved" || s.status === "saved",
@@ -216,9 +232,9 @@ export function assembleGraph(
     unresolvedSites: allSites.filter((s) => s.status === "unresolved").length,
     limitations: [...snapshot.coverage.limitations],
   };
-  if (coverage.parsedScripts < coverage.discoveredScripts)
+  if (scriptsWithoutAnalysis > 0)
     coverage.limitations.push(
-      `${coverage.discoveredScripts - coverage.parsedScripts} saved scripts have missing or invalid source; dependencies are incomplete.`,
+      `${scriptsWithoutAnalysis} saved scripts have missing or invalid source; dependencies are incomplete.`,
     );
   if (coverage.unresolvedSites || coverage.candidateSites)
     coverage.limitations.push(
@@ -229,8 +245,10 @@ export function assembleGraph(
     parser: String(facts[0]?.parserVersion ?? "none"),
     features: String(facts[0]?.featureHash ?? "none"),
     engine: "0.2.0",
-    resolver: "10",
-    lowerer: "2",
+    resolver: "11",
+    lowerer: "3",
+    coveragePolicy: "1",
+    sourcePositions: "2",
     platformSemantics: "1",
     gameplay: "1",
     projection: "1",

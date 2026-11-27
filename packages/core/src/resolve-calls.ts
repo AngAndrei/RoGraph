@@ -7,6 +7,7 @@ import type {
 import { FlowResolver as ModuleResolver } from "./flow-resolver.js";
 import { emptyResolution, mark, emit, addNode } from "./resolution.js";
 import { resolveContexts } from "./execution-context.js";
+import { alternatives } from "./analysis-values.js";
 export function resolveCalls(
   snapshot: Snapshot,
   facts: Facts[],
@@ -95,6 +96,15 @@ export function resolveCalls(
         });
         const s = mark(result, site, { kind: "external", id });
         emit(result, site.ownerId, id, "CALLS", s, "known-builtin");
+      } else if (callee.kind === "alternatives") {
+        const targets = alternatives(callee)
+          .map((target) => resolver.callable(target))
+          .filter((target) => target.kind === "function");
+        mark(result, site, {
+          ...callee,
+          values: targets,
+          reason: callee.reason ?? "CONDITIONAL_CALL_TARGET",
+        });
       } else if (callee.kind !== "native" && callee.name !== "require")
         mark(
           result,
